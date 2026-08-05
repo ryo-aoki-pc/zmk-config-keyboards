@@ -1,0 +1,32 @@
+[submodule "zmk-config-Pyuron"]
+	path = zmk-config-Pyuron
+	url = https://github.com/ryo-aoki-pc/zmk-config-Pyuron.git
+	branch = custom
+[submodule "zmk-config-LisM"]
+	path = zmk-config-LisM
+	url = https://github.com/ryo-aoki-pc/zmk-config-LisM.git
+	branch = custom
+[submodule "zmk-config-KUKEY42"]
+	path = zmk-config-KUKEY42
+	url = https://github.com/ryo-aoki-pc/zmk-config-KUKEY42.git
+	branch = custom
+[submodule "zmk-config-AroundFortyRB"]
+	path = zmk-config-AroundFortyRB
+	url = https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB.git
+	branch = custom
+[submodule "zmk-config-roBa"]
+	path = zmk-config-roBa
+	url = https://github.com/ryo-aoki-pc/zmk-config-roBa.git
+	branch = custom
+[submodule "zmk-config-zonkey"]
+	path = zmk-config-zonkey
+	url = https://github.com/ryo-aoki-pc/zmk-config-zonkey.git
+	branch = main
+[submodule "zmk-keyboard-torabo-tsuki-lp"]
+	path = zmk-keyboard-torabo-tsuki-lp
+	url = https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp.git
+	branch = custom
+[submodule "zmk-keymap-docgen"]
+	path = zmk-keymap-docgen
+	url = https://github.com/ryo-aoki-pc/zmk-keymap-docgen.git
+	branch = main
