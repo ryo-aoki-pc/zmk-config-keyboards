@@ -17,7 +17,7 @@
 [submodule "zmk-config-roBa"]
 	path = zmk-config-roBa
 	url = https://github.com/ryo-aoki-pc/zmk-config-roBa.git
-	branch = main
+	branch = custom
 [submodule "zmk-config-zonkey"]
 	path = zmk-config-zonkey
 	url = https://github.com/ryo-aoki-pc/zmk-config-zonkey.git

@@ -12,7 +12,7 @@
 | [zmk-config-LisM](https://github.com/ryo-aoki-pc/zmk-config-LisM) | `custom` |
 | [zmk-config-KUKEY42](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42) | `custom` |
 | [zmk-config-AroundFortyRB](https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB) | `custom` |
-| [zmk-config-roBa](https://github.com/ryo-aoki-pc/zmk-config-roBa) | `main` |
+| [zmk-config-roBa](https://github.com/ryo-aoki-pc/zmk-config-roBa) | `custom` |
 | [zmk-config-zonkey](https://github.com/ryo-aoki-pc/zmk-config-zonkey) | `main` |
 
 ### その他 ZMK 関連
