@@ -18,10 +18,6 @@
 	path = zmk-config-roBa
 	url = https://github.com/ryo-aoki-pc/zmk-config-roBa.git
 	branch = custom
-[submodule "zmk-config-zonkey"]
-	path = zmk-config-zonkey
-	url = https://github.com/ryo-aoki-pc/zmk-config-zonkey.git
-	branch = main
 [submodule "zmk-keyboard-torabo-tsuki-lp"]
 	path = zmk-keyboard-torabo-tsuki-lp
 	url = https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp.git
