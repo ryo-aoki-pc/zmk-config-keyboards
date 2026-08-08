@@ -50,6 +50,7 @@
 | リポジトリ | 追跡ブランチ | 用途 |
 | --- | --- | --- |
 | [vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini) | `custom` | KQ Mini 用 Vial (QMK) ファームウェア |
+| [keyball](https://github.com/ryo-aoki-pc/keyball) | `custom` | Keyball 用 QMK ファームウェア |
 
 ## 使い方
 
