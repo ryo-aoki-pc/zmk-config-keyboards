@@ -1,6 +1,6 @@
 # zmk-config-keyboards
 
-各キーボードの ZMK 設定リポジトリを git submodule として集約したリポジトリです。
+各キーボードのファームウェア関連リポジトリ (ZMK / QMK) を git submodule として集約したリポジトリです。
 
 ## Submodules
 
@@ -21,6 +21,12 @@
 | --- | --- | --- |
 | [zmk-keyboard-torabo-tsuki-lp](https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp) | `custom` | キーボード定義 |
 | [zmk-keymap-docgen](https://github.com/ryo-aoki-pc/zmk-keymap-docgen) | `main` | キーマップドキュメント生成ツール |
+
+### QMK/Vial 関連
+
+| リポジトリ | 追跡ブランチ | 用途 |
+| --- | --- | --- |
+| [vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini) | `custom` | KQ Mini 用 Vial (QMK) ファームウェア |
 
 ## 使い方
 

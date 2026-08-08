@@ -30,3 +30,7 @@
 	path = zmk-keymap-docgen
 	url = https://github.com/ryo-aoki-pc/zmk-keymap-docgen.git
 	branch = main
+[submodule "vial-qmk-kq-mini"]
+	path = vial-qmk-kq-mini
+	url = https://github.com/ryo-aoki-pc/vial-qmk-kq-mini.git
+	branch = custom
