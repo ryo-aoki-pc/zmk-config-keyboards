@@ -34,3 +34,7 @@
 	path = vial-qmk-kq-mini
 	url = https://github.com/ryo-aoki-pc/vial-qmk-kq-mini.git
 	branch = custom
+[submodule "keyball"]
+	path = keyball
+	url = https://github.com/ryo-aoki-pc/keyball.git
+	branch = custom
