@@ -22,7 +22,6 @@
 | 9 | SCRL | MOUSE_SCROLL | スクロール／クリック |
 
 - 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp
-- zonkey は独自キーマップ (JIS/IME 向け) を維持し、設定・CI のみ統一
 - 共通基盤: zmk = zmkfirmware **v0.3.0**、`tools/keymap-docgen` submodule による KEYMAP.html / KEYMAP.xlsx 自動生成、build.yml / keymap-docs.yml / release.yml の共通ワークフロー
 
 ## Submodules
@@ -36,7 +35,6 @@
 | [zmk-config-KUKEY42](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42) | `custom` |
 | [zmk-config-AroundFortyRB](https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB) | `custom` |
 | [zmk-config-roBa](https://github.com/ryo-aoki-pc/zmk-config-roBa) | `custom` |
-| [zmk-config-zonkey](https://github.com/ryo-aoki-pc/zmk-config-zonkey) | `main` |
 
 ### その他 ZMK 関連
 
