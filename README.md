@@ -24,6 +24,14 @@
 - 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp
 - 共通基盤: zmk = zmkfirmware **v0.3.0**、`tools/keymap-docgen` submodule による KEYMAP.html / KEYMAP.xlsx 自動生成、build.yml / keymap-docs.yml / release.yml の共通ワークフロー
 
+### Keyboard Quantizer Mini + Keyball39 の役割分担
+
+keyball39 (via) は LisM BASE 配列の素の HID コードだけを送り、レイヤー・MT/LT・タップホールド設定
+(`&mt` / `&lt` の tapping-term / quick-tap / flavor) は vial-qmk-kq-mini 側の EEPROM デフォルト
+(`zmk_to_vial.py` で `lism.keymap` + `lism.vialmap.json` から生成) が担当します。
+Quantizer に無いマウスレイヤー (MOUSE_MOVE / MOUSE_SCROLL) と AML の除外キー・タイムアウト・
+require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&zip_temp_layer` 設定を再現しています。
+
 ## Submodules
 
 ### キーボード設定 (zmk-config)
@@ -47,8 +55,8 @@
 
 | リポジトリ | 追跡ブランチ | 用途 |
 | --- | --- | --- |
-| [vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini) | `custom` | KQ Mini 用 Vial (QMK) ファームウェア。LisM 基準のキーマップ (zmk_to_vial.py で変換) を EEPROM デフォルトとして同梱 |
-| [keyball](https://github.com/ryo-aoki-pc/keyball) | `custom` | Keyball 用 QMK ファームウェア。KQ Mini 併用前提の LisM 基準ベース配列 (keyball39 via) |
+| [vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini) | `custom` | KQ Mini 用 Vial (QMK) ファームウェア。LisM 基準のキーマップ (zmk_to_vial.py で変換) とタップホールド設定 (tapping term 150 / balanced / quick-tap 0) を EEPROM デフォルトとして同梱 |
+| [keyball](https://github.com/ryo-aoki-pc/keyball) | `custom` | Keyball 用 QMK ファームウェア。KQ Mini 併用前提の LisM 基準ベース配列 (keyball39 via)。AML の発動条件・タイムアウト・スクロール速度も LisM のトラックボール設定に合わせる |
 
 ## 使い方
 
