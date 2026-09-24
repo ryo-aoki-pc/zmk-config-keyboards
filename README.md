@@ -21,7 +21,7 @@
 | 8 | MOUS | MOUSE_MOVE | マウス移動 (AML・最上位) |
 | 9 | SCRL | MOUSE_SCROLL | スクロール／クリック |
 
-- 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp
+- 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron
 - 共通基盤: zmk = zmkfirmware **v0.3.0**、`tools/keymap-docgen` submodule による KEYMAP.html / KEYMAP.xlsx 自動生成、build.yml / keymap-docs.yml / release.yml の共通ワークフロー
 
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
@@ -42,13 +42,11 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
 | [zmk-config-LisM](https://github.com/ryo-aoki-pc/zmk-config-LisM) | `custom` |
 | [zmk-config-KUKEY42](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42) | `custom` |
 | [zmk-config-AroundFortyRB](https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB) | `custom` |
-| [zmk-config-roBa](https://github.com/ryo-aoki-pc/zmk-config-roBa) | `custom` |
 
 ### その他 ZMK 関連
 
 | リポジトリ | 追跡ブランチ | 用途 |
 | --- | --- | --- |
-| [zmk-keyboard-torabo-tsuki-lp](https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp) | `custom` | キーボード定義 |
 | [zmk-keymap-docgen](https://github.com/ryo-aoki-pc/zmk-keymap-docgen) | `main` | キーマップドキュメント生成ツール |
 
 ### QMK/Vial 関連
