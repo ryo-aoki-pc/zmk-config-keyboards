@@ -22,7 +22,20 @@
 | 9 | SCRL | MOUSE_SCROLL | スクロール／クリック |
 
 - 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron
-- 共通基盤: zmk = zmkfirmware **v0.3.0**、`tools/keymap-docgen` submodule による KEYMAP.html / KEYMAP.xlsx 自動生成、build.yml / keymap-docs.yml / release.yml の共通ワークフロー
+
+### 共通基盤
+
+| 項目 | 内容 |
+| --- | --- |
+| ZMK | zmkfirmware **v0.3.0** を `config/west.yml` で固定 |
+| ドキュメント生成 | `tools/keymap-docgen` submodule (全リポジトリ同一コミット) による KEYMAP.html / KEYMAP.xlsx 自動生成 |
+| ワークフロー | build.yml / keymap-docs.yml / release.yml を共通化 (keymap-docs.yml はキーマップのパス以外同一) |
+| ファイル構成 | `.conf` は `boards/shields/<NAME>/`、ハード・役割は `Kconfig.defconfig`、Studio とセントラル役割は `build.yaml` の `cmake-args` |
+| アーティファクト | 全エントリに `artifact-name` を付与し、Studio 版 / 非 Studio 版の両方を生成 |
+| ローカルビルド | `Makefile` + `scripts/` + `.devcontainer/` (`make` / `make single` など) |
+| タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
+| AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K、マウスクリックでタイマー延長 |
+| スクロール | `zip_scroll_scaler 1 16` (1/16) |
 
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
 
