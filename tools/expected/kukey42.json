@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-KUKEY42",
-      "commit": "3a7458212cc918119bcfe15195095cbd1f074443",
+      "commit": "1f7b891b00f5ddd2510944ca6a86a37ddef07c4f",
       "files": ["config/KUKEY42.keymap", "config/KUKEY42.json", "boards/shields/KUKEY42/KUKEY42.dtsi", "boards/shields/KUKEY42/KUKEY42_R.overlay", "boards/shields/KUKEY42/KUKEY42_R.conf", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -601,12 +601,12 @@
         {
           "side": "right",
           "sensor": "pmw3610",
-          "cpi": 1000,
+          "cpi": 2000,
           "cpi_source": "zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.conf の CONFIG_PMW3610_CPI",
           "cpi_setting": {"template": "CONFIG_PMW3610_CPI={cpi}", "step": 200, "min": 200, "max": 3200},
           "xy_scaler": [1, 1],
           "matrix": [995, -497, -305, 2163],
-          "divisor": 1000,
+          "divisor": 2000,
           "correction": "matrix",
           "listener": "zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.overlay の trackball_matrix"
         }
@@ -622,6 +622,6 @@
     {"level": "ok", "message": "AML の除外位置 (10 12 19 21 22 33 35 36) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
-    {"level": "info", "message": "スクロールはドライバの scroll-layers (CONFIG_PMW3610_SCROLL_TICK=16) で行う"}
+    {"level": "info", "message": "スクロールはドライバの scroll-layers (CONFIG_PMW3610_SCROLL_TICK=32) で行う"}
   ]
 }

@@ -14,6 +14,14 @@
 	path = zmk-config-AroundFortyRB
 	url = https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB.git
 	branch = custom
+[submodule "zmk-config-roBa"]
+	path = zmk-config-roBa
+	url = https://github.com/ryo-aoki-pc/zmk-config-roBa.git
+	branch = custom
+[submodule "zmk-keyboard-torabo-tsuki-lp"]
+	path = zmk-keyboard-torabo-tsuki-lp
+	url = https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp.git
+	branch = custom
 [submodule "zmk-keymap-docgen"]
 	path = zmk-keymap-docgen
 	url = https://github.com/ryo-aoki-pc/zmk-keymap-docgen.git
@@ -26,3 +34,7 @@
 	path = keyball
 	url = https://github.com/ryo-aoki-pc/keyball.git
 	branch = custom
+[submodule "zmk-input-processor-xy-accel"]
+	path = zmk-input-processor-xy-accel
+	url = https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel.git
+	branch = main

@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-AroundFortyRB",
-      "commit": "cedae3c62459fbc02fa4bb5ea9218ab26b1306e6",
+      "commit": "e7e5aeb9dc0d8d5fe0d20696aa8aebdcab04a25c",
       "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -589,10 +589,10 @@
         {
           "side": "right",
           "sensor": "pmw3610",
-          "cpi": 400,
+          "cpi": 800,
           "cpi_source": "zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball の cpi",
           "cpi_setting": {"template": "cpi = <{cpi}>;", "step": 200, "min": 200, "max": 3200},
-          "xy_scaler": [2, 1],
+          "xy_scaler": [1, 1],
           "matrix": null,
           "divisor": null,
           "correction": "zip_scaler",
@@ -610,6 +610,6 @@
     {"level": "ok", "message": "AML の除外位置 (10 12 17 19 20 30 32 33) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
-    {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/16 (LisM 基準 1/16)"}
+    {"level": "warn", "message": "スクロールの倍率 zip_scroll_scaler: 1/32 (LisM 基準 1/16)"}
   ]
 }

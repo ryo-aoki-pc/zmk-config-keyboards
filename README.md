@@ -21,7 +21,7 @@
 | 8 | MOUS | MOUSE_MOVE | マウス移動 (AML・最上位) |
 | 9 | SCRL | MOUSE_SCROLL | スクロール／クリック |
 
-- 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron
+- 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp
 
 ### 共通基盤
 
@@ -36,7 +36,43 @@
 | タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
 | AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K と修飾キーの位置 (A / - / Z / / / Win / Alt)、マウスクリックでタイマー延長 |
 | マウスレイヤーの修飾キー | MOUSE_MOVE / MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。AML に入ってから Shift + クリック・Ctrl + ホイールなどを押せる |
-| スクロール | `zip_scroll_scaler 1 16` (1/16) |
+| トラックボールの細かさ | センサーの値を引き伸ばさず、1 カウントでカーソルが 1 動く (2 倍などにすると 2 ずつ飛ぶ)。AroundFortyRB / roBa は CPI 800、KUKEY42 は CPI 2000 + 楕円の補正 (`trackball_matrix` の divisor 2000)。LisM / Pyuron / torabo-tsuki-lp (PAW3222) は CPI を設定せず等倍 |
+| カーソルの加速 | 転がす速さに応じて移動量に倍率を掛ける ([zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) の `trackball_accel`)。速さ 0 で 0.5 倍 → 1000 カウント/秒で等倍 → 4000 カウント/秒以上で 1.3 倍 (`min-factor 500` / `speed-threshold 1000` / `max-factor 1300` / `speed-max 4000`)。カーソル移動だけに掛け、スクロールには掛けない。Keyball39 も同じ値 (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`)。調整は [カーソルの加速の調整](#カーソルの加速の調整) |
+| スクロール | `zip_scroll_scaler 1 16` (1/16)。例外: AroundFortyRB / roBa は CPI 800 なので `zip_scroll_scaler 1 32` (CPI 400 のときの 1/16 と同じ速さ)、KUKEY42 はドライバの `CONFIG_PMW3610_SCROLL_TICK=32`、torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
+| スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
+
+### カーソルの加速の調整
+
+ゆっくり転がしたときはカーソルを細かく動かし (狙った位置に止めやすくする)、速く転がしたときは遠くまで動かします。
+倍率は速さ (カウント/秒) で次のように変わり、その間は直線で補間します。
+
+| 速さ (カウント/秒) | 0 | 500 | 1000 | 2500 | 4000 以上 |
+| --- | --- | --- | --- | --- | --- |
+| 倍率 | 0.5 | 0.75 | 1.0 | 1.15 | 1.3 |
+
+- 速さは X と Y を合わせた移動量から求めるので、斜めに動かしても縦横と同じ倍率になる
+- 1 に満たない端数は次へ持ち越すので、0.5 倍でも移動量は失われない (2 カウントで 1 動く)
+- 50ms 以上止まっていたら 0.5 倍から始める (速く転がした直後に止めて細かく合わせるとき、前の速さを引き継がない)
+- Windows の「ポインターの精度を高める」(マウスのプロパティ) が ON のときは、OS 側でも加速がかかる
+
+値は各キーボードの `trackball_accel` ノード (Keyball39 は `config.h` の `KEYBALL_ACCEL_*`) で変えます。
+
+| 症状 | 変える値 |
+| --- | --- |
+| ゆっくり動かしたときに遅すぎる | `min-factor` を上げる (例: 700) |
+| ゆっくり動かしても細かく止められない | `min-factor` を下げる、または `speed-threshold` を上げる |
+| 速く動かすと飛びすぎる (OS の加速と重なる) | `max-factor` を下げる (1000 で加速なし) |
+| 速く動かしても遠くまで届かない | `max-factor` を上げる、または `speed-max` を下げる |
+
+| キーボード | `trackball_accel` の場所 |
+| --- | --- |
+| LisM | `boards/shields/lism/lism.dtsi` (左右のトラックボールで共有) |
+| Pyuron | `boards/shields/Pyuron/Pyuron.dtsi` (左右のトラックボールで共有) |
+| torabo-tsuki-lp | `boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi` |
+| AroundFortyRB | `boards/shields/AroundForty-RB/AroundForty-RB_R.overlay` |
+| roBa | `boards/shields/roBa/roBa_R.overlay` |
+| KUKEY42 | `boards/shields/KUKEY42/KUKEY42_R.overlay` |
+| Keyball39 | `qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h` |
 
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
 
@@ -51,10 +87,12 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
   `KC_RSFT` / `KC_LGUI` / `KC_LALT`) を送ります。KQ-mini はそれをそのまま素通しします
 - マウスボタン: KQ-mini はマウスボタンを自身のキーマップ経由で送ります。ボタンを押したままキーを押したり
   離したりしても、ボタンは押されたままです (ドラッグ中に Ctrl / Shift を押してもドロップされない)
+- カーソルの加速: keyball39 本体側で掛けます (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`。ZMK のキーボードと同じ値)。
+  KQ-mini 側では倍率を掛けません
 
 ## Submodules
 
-### キーボード設定 (zmk-config)
+### キーボード設定 (zmk-config / zmk-keyboard)
 
 | リポジトリ | 追跡ブランチ |
 | --- | --- |
@@ -62,12 +100,15 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
 | [zmk-config-LisM](https://github.com/ryo-aoki-pc/zmk-config-LisM) | `custom` |
 | [zmk-config-KUKEY42](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42) | `custom` |
 | [zmk-config-AroundFortyRB](https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB) | `custom` |
+| [zmk-config-roBa](https://github.com/ryo-aoki-pc/zmk-config-roBa) | `custom` |
+| [zmk-keyboard-torabo-tsuki-lp](https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp) | `custom` |
 
 ### その他 ZMK 関連
 
 | リポジトリ | 追跡ブランチ | 用途 |
 | --- | --- | --- |
 | [zmk-keymap-docgen](https://github.com/ryo-aoki-pc/zmk-keymap-docgen) | `main` | キーマップドキュメント生成ツール |
+| [zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) | `main` | カーソルの加速の入力プロセッサ。ZMK の 6 リポジトリが `config/west.yml` でコミットを固定して取り込む |
 
 ### QMK/Vial 関連
 
@@ -110,7 +151,8 @@ git commit -m "Update submodules"
 
 | キーボード | マイコン / ブートローダ | ファイル | スクリプト |
 | --- | --- | --- | --- |
-| LisM / AroundFortyRB / KUKEY42 / Pyuron | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
+| torabo-tsuki-lp | BLE Micro Pro Boost (nRF52840) / BLE Micro Pro の UF2 (`BLEMICROPRO` ドライブ) | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
 | Keyboard Quantizer Mini | RP2040 / ROM ブートローダ (`RPI-RP2` ドライブ) | `.uf2` | `tools/flash-kq-mini.cmd` (ダブルクリック) |
 | Keyball39 | Pro Micro (ATmega32U4) / caterina | `.hex` | `tools/flash-keyball.cmd` (ダブルクリック) |
 
@@ -156,7 +198,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 
 ### 最新ファームウェアの取得元 (`firmware-latest` リリース)
 
-[keyball](https://github.com/ryo-aoki-pc/keyball)、[vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini)、ZMK の 4 リポジトリの CI は、custom ブランチをビルドするたびに次のことを行います。
+[keyball](https://github.com/ryo-aoki-pc/keyball)、[vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini)、ZMK の 6 リポジトリの CI は、custom ブランチをビルドするたびに次のことを行います。
 
 - 固定タグ `firmware-latest` のプレリリースを作り直す
 - ファームウェアと `BUILD_INFO.txt` (コミット・ビルド日時) を置く
@@ -171,6 +213,8 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 | AroundFortyRB | `https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB/releases/download/firmware-latest/<artifact-name>.uf2` |
 | KUKEY42 | `https://github.com/ryo-aoki-pc/zmk-config-KUKEY42/releases/download/firmware-latest/<artifact-name>.uf2` |
 | Pyuron | `https://github.com/ryo-aoki-pc/zmk-config-Pyuron/releases/download/firmware-latest/<artifact-name>.uf2` |
+| roBa | `https://github.com/ryo-aoki-pc/zmk-config-roBa/releases/download/firmware-latest/<artifact-name>.uf2` |
+| torabo-tsuki-lp | `https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp/releases/download/firmware-latest/<artifact-name>.uf2` |
 
 ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、全エントリ (左右・Studio 版・設定リセット) が置かれます。
 
@@ -181,7 +225,10 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 
 ### ZMK キーボード (`tools/flash-zmk.cmd` / `tools/flash-uf2.cmd`)
 
-対象: LisM / AroundFortyRB / KUKEY42 / Pyuron (いずれも Seeed XIAO nRF52840 + Adafruit nRF52 UF2 ブートローダ)
+対象:
+
+- LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa (Seeed XIAO nRF52840 + Adafruit nRF52 UF2 ブートローダ)
+- torabo-tsuki-lp (BLE Micro Pro Boost + BLE Micro Pro の UF2 ブートローダ。乾電池と電源スイッチ付き)
 
 #### XIAO をブートローダにする方法
 
@@ -196,6 +243,14 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
   - `tools/flash-zmk.cmd` の設定リセットを含むモード (2 / 5) では、最初の右手側以外はキーで切り替えられない。
     設定リセット用のファームウェアが動いている側にはキーマップが無く、設定リセット後は左右のペアリングも切れているため。
     リセットボタンを使う
+
+#### torabo-tsuki-lp (BLE Micro Pro Boost) をブートローダにする方法
+
+- **電源スイッチを OFF にしてから USB ケーブルでつなぐ**: `BLEMICROPRO` という名前のドライブが現れる。どの状態でも使える
+- **FUNC レイヤーの `&bootloader` キー**: XIAO と同じく右手側は FUNC + `N`、左手側は FUNC + `B`
+  (左手側は右手側の電源が入っていて、左右がつながっているときだけ)
+- 書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直すと起動する。
+  電源スイッチが OFF のままだと、再起動してもブートローダに戻る
 
 #### 最新版を書き込む (`tools/flash-zmk.cmd`)
 
@@ -216,9 +271,13 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 4. 「[1/2] 右手側にセントラルを書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
    (リセットボタンを素早く 2 回、または FUNC レイヤーの `&bootloader` キー。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
    書き込みと成否の判定は `flash-uf2.cmd` と同じ
+   - torabo-tsuki-lp は、表示された側の電源スイッチを OFF にしてから USB ケーブルでつなぐ (もう片側の USB ケーブルは抜く)。
+     書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直したときに起動する
+   - torabo-tsuki-lp の設定リセットは、書き込んだあとに一度起動させないと動かない。スクリプトの案内に従って
+     スイッチ ON で USB ケーブルを差し直し、数秒待ってから USB ケーブルを抜いてスイッチを OFF に戻し、Enter を押す
 5. すべて終わると「完了」と表示される。設定リセットを含んだ場合は、PC の Bluetooth 設定から古い登録を削除して再ペアリングする
 
-- **左右を間違えないこと**: 左右の XIAO はブートローダの情報が同じなので、スクリプトからは見分けられない。表示された側だけをブートローダにする
+- **左右を間違えないこと**: 左右の XIAO (torabo-tsuki-lp は BMP) はブートローダの情報が同じなので、スクリプトからは見分けられない。表示された側だけをブートローダにする
 - **途中で失敗したとき**: そこで止まり、残りのファイルの場所を表示する。もう一度実行するか、表示されたファイルを `tools/flash-uf2.cmd` にドロップする
 - **手元の `.uf2` を書き込むとき**: そのファイルを `tools/flash-zmk.cmd` (または `tools/flash-uf2.cmd`) にドラッグ＆ドロップする
 - **既定値を変えるとき**: `tools/flash-zmk.ps1` 冒頭の `$DEFAULT_STUDIO` / `$DEFAULT_LISM_RIGHT` / `$DEFAULT_LISM_LEFT` を書き換える
@@ -226,7 +285,7 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 コマンドラインから実行する場合 (`-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに書き込む):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
+powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
 ```
 
 #### エクスプローラでのコピー時に「予期しないエラー」が出る場合
@@ -257,7 +316,9 @@ Windows のバージョンや環境によって出たり出なかったりしま
 2. 「ブートローダのドライブを待っています...」と表示されたら、リセットボタンを素早く 2 回押す
    (または FUNC レイヤーの `&bootloader` キーを押す。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
    既にドライブが出ていればすぐに書き込みが始まります
+   - torabo-tsuki-lp (BMP) は、電源スイッチを OFF にしてから USB ケーブルでつなぐ
 3. 「成功」と表示されれば完了
+   - torabo-tsuki-lp (BMP) は、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直すと起動する
 
 コマンドラインから実行する場合 (ドライブは省略すると自動検出):
 
@@ -269,13 +330,15 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 
 - 書き込む前に `.uf2` を検証し、別ボード用のファイルや壊れたダウンロードはここで弾く
   - UF2 形式か
-  - どのボード用か (ファミリ ID で nRF52840 / RP2040 を判定)
-  - 書き込み先が書き込み可能な領域に収まるか (nRF52840 は `0x27000`-`0xF4000`、RP2040 は `0x10000000`-`0x11000000`)
+  - どのボード用か (ファミリ ID で nRF52840 / RP2040 を判定。XIAO と BMP はファミリ ID が同じなので、
+    書き込み先の先頭アドレス (XIAO は `0x27000`、BMP は `0x26000`) で判定)
+  - 書き込み先が書き込み可能な領域に収まるか (XIAO は `0x27000`-`0xF4000`、BMP は `0x26000`-`0xE0000`、RP2040 は `0x10000000`-`0x11000000`)
   - ブロックの欠けが無いか
-- `INFO_UF2.TXT` の内容がそのボードと合うドライブを自動で探し、ブートローダの情報 (Model / Board-ID など) を表示する
+- `INFO_UF2.TXT` の内容 (BMP はボリュームラベル `BLEMICROPRO`) がそのボードと合うドライブを自動で探し、ブートローダの情報 (Model / Board-ID など) を表示する
   - 例: XIAO と KQ-mini の両方がブートローダになっていても、別のボードには書き込まない
 - ファイルサイズを先に確保してからデータだけを書き込み、書き込み完了直後の切断は想定どおりの動作として扱う
-- ドライブが消えたこと (= ブートローダが全ブロックを受け取って再起動したこと) を確認して成功と判定する
+- ドライブが消えたこと (= ブートローダが全ブロックを受け取って再起動したこと) を確認して成功と判定する。
+  BMP は電源スイッチが OFF のまま再起動するとブートローダに戻るので、ドライブが再び現れても成功とする
 
 #### 左右の役割や BLE 設定を変えた後の書き込み順
 
@@ -285,6 +348,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 `tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」を選ぶと、この手順をまとめて行えます。
 
 1. `settings_reset-seeeduino_xiao_ble-zmk.uf2` を左右両方に書き込む
+   (torabo-tsuki-lp は `settings_reset-bmp_boost-zmk.uf2`。書き込んだあと、スイッチ ON で USB ケーブルを差し直して一度起動させる)
 2. 左 (`*_left_peripheral*.uf2`) と右 (`*_right_central*.uf2`) のファームウェアをそれぞれ書き込む
 3. 設定リセットでペアリング情報も消えるため、PC の Bluetooth 設定から古いキーボードを削除して再ペアリングする
 
@@ -389,6 +453,38 @@ powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 [-Keyboard KqM
 ```
 
 終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です。
+
+## ZMK キーボードを複数台 BLE で同時接続するとカーソルがカクつく場合
+
+ZMK は、トラックボールのセンサーが報告するたびに、マウスレポートを 1 つ送ります。BLE では送り切れないレポートを
+最大 20 個まで溜めて順に送るため、送る量が送信の機会より多いと、カーソルが遅れてまとめて動きます。
+満杯になると古いレポートが捨てられ、移動量も抜けます。PC 側の送信の機会は接続しているキーボード全台で分け合うので
+(使っていないキーボードも、接続しているだけで分け合う相手になる)、台数が増えるほど起きやすくなります。
+
+各キーボードが BLE でレポートを送る間隔は次のとおりです。
+
+| キーボード | 間隔 | 決めている設定 |
+| --- | --- | --- |
+| KUKEY42 / roBa | 16ms ごと (ドライバは 8ms ごとに報告し、15ms に 1 回までにまとめる) | `KUKEY42_R.overlay` / `roBa_R.overlay` の `trackball_rate_limit` ([zmk-input-processor-report-rate-limit](https://github.com/badjeff/zmk-input-processor-report-rate-limit)) |
+| AroundFortyRB | 15ms 以上 (ドライバの報告を 15ms に 1 回までにまとめる) | `AroundForty-RB_R.overlay` の `trackball_rate_limit` (同上) |
+| LisM / Pyuron / torabo-tsuki-lp | 約 15ms ごと | PAW3222 のドライバ (15ms ごとに読み取る。設定は無い) |
+
+- KUKEY42 は以前、8ms ごとに送っていたため、複数台を同時に接続するとカクついていた
+  ([ryo-aoki-pc/zmk-config-KUKEY42#25](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42/pull/25) で修正)。
+  roBa も同じく 8ms ごとに送っていたため、同じ方法でまとめた
+  ([ryo-aoki-pc/zmk-config-roBa#4](https://github.com/ryo-aoki-pc/zmk-config-roBa/pull/4))
+- AroundFortyRB は以前、ドライバの `CONFIG_PMW3610_REPORT_INTERVAL_MIN=15` でまとめていた。ドライバは報告の間隔が
+  15ms 以上空くと、まだ送っていない移動量を捨てるため、ゆっくり動かしたときに動きが抜けていた
+  ([ryo-aoki-pc/zmk-config-AroundFortyRB#36](https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB/pull/36) で `trackball_rate_limit` に変更)
+- まとめるときは、間隔に満たない分の移動量を次のレポートに足す。ただし、前に送ってから 30ms 以上次の動きが
+  無かったときは、足さずに捨てる (ボールを止める直前の 15ms ぶんの動きが抜けることがある)
+- USB 接続中は、KUKEY42 / roBa / AroundFortyRB もまとめずに送る
+
+それでもカクつくとき:
+
+- 使っていないキーボードの電源を切る
+- KUKEY42 / roBa / AroundFortyRB は、右手側の overlay の `<&trackball_rate_limit 15>` を `30` (32ms ごと) に上げる。
+  カーソルの動きは粗くなるが、送る量が半分になる
 
 ## Keyball39 のトラックボールが動かない場合
 
