@@ -106,7 +106,7 @@ git commit -m "Update submodules"
 
 | キーボード | マイコン / ブートローダ | ファイル | スクリプト |
 | --- | --- | --- | --- |
-| LisM / AroundFortyRB / KUKEY42 / Pyuron | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash-uf2.cmd` (ファイルをドロップ) |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
 | Keyboard Quantizer Mini | RP2040 / ROM ブートローダ (`RPI-RP2` ドライブ) | `.uf2` | `tools/flash-kq-mini.cmd` (ダブルクリック) |
 | Keyball39 | Pro Micro (ATmega32U4) / caterina | `.hex` | `tools/flash-keyball.cmd` (ダブルクリック) |
 
@@ -152,7 +152,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 
 ### 最新ファームウェアの取得元 (`firmware-latest` リリース)
 
-[keyball](https://github.com/ryo-aoki-pc/keyball) と [vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini) の CI は、custom ブランチをビルドするたびに次のことを行います。
+[keyball](https://github.com/ryo-aoki-pc/keyball)、[vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini)、ZMK の 4 リポジトリの CI は、custom ブランチをビルドするたびに次のことを行います。
 
 - 固定タグ `firmware-latest` のプレリリースを作り直す
 - ファームウェアと `BUILD_INFO.txt` (コミット・ビルド日時) を置く
@@ -163,15 +163,52 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 | --- | --- |
 | Keyball39 | `https://github.com/ryo-aoki-pc/keyball/releases/download/firmware-latest/keyball_keyball39_via.hex` |
 | Keyboard Quantizer Mini | `https://github.com/ryo-aoki-pc/vial-qmk-kq-mini/releases/download/firmware-latest/sekigon_keyboard_quantizer_mini_vial.uf2` |
+| LisM | `https://github.com/ryo-aoki-pc/zmk-config-LisM/releases/download/firmware-latest/<artifact-name>.uf2` |
+| AroundFortyRB | `https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB/releases/download/firmware-latest/<artifact-name>.uf2` |
+| KUKEY42 | `https://github.com/ryo-aoki-pc/zmk-config-KUKEY42/releases/download/firmware-latest/<artifact-name>.uf2` |
+| Pyuron | `https://github.com/ryo-aoki-pc/zmk-config-Pyuron/releases/download/firmware-latest/<artifact-name>.uf2` |
+
+ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、全エントリ (左右・Studio 版・設定リセット) が置かれます。
 
 - 公開リポジトリのリリースなので、ログインや gh CLI は不要
 - Actions の Artifacts と違い、90 日で期限切れにならない
 - 書き込まれるのは custom ブランチの最新ビルド。このリポジトリが submodule で参照しているコミットとは限らない
 - ダウンロードしたファイルと avrdude は `tools/.cache/` に保存される (git の管理外)
 
-### ZMK キーボード (`tools/flash-uf2.cmd`)
+### ZMK キーボード (`tools/flash-zmk.cmd` / `tools/flash-uf2.cmd`)
 
 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron (いずれも Seeed XIAO nRF52840 + Adafruit nRF52 UF2 ブートローダ)
+
+#### 最新版を書き込む (`tools/flash-zmk.cmd`)
+
+1. `tools/flash-zmk.cmd` をダブルクリックし、機種と書き込む内容を番号で選ぶ
+
+   | 番号 | 書き込む内容 | 書き込む順番 |
+   | --- | --- | --- |
+   | 1 (Enter) | 左右に書き込む | 右 → 左 |
+   | 2 | 設定リセットしてから左右に書き込む | 右 (設定リセット → セントラル) → 左 (設定リセット → ペリフェラル) |
+   | 3 | 右手側 (セントラル) だけ | 右 |
+   | 4 | 左手側 (ペリフェラル) だけ | 左 |
+   | 5 | 設定リセットだけ | 右 → 左 |
+
+2. 書き込むファイルの一覧が出るので、確認して Enter を押す。ここで次の切り替えもできる
+   - `s`: 右手側を ZMK Studio 対応版にするか (既定は通常版)
+   - `r` / `l` (LisM のみ): 右 / 左のトラックボール有無 (既定は左右ともトラックボールあり)
+3. スクリプトが必要なファイルを [`firmware-latest`](#最新ファームウェアの取得元-firmware-latest-リリース) からまとめてダウンロードする
+4. 「[1/2] 右手側にセントラルを書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
+   (リセットボタンを素早く 2 回、または BT レイヤーの `&bootloader` キー)。書き込みと成否の判定は `flash-uf2.cmd` と同じ
+5. すべて終わると「完了」と表示される。設定リセットを含んだ場合は、PC の Bluetooth 設定から古い登録を削除して再ペアリングする
+
+- **左右を間違えないこと**: 左右の XIAO はブートローダの情報が同じなので、スクリプトからは見分けられない。表示された側だけをブートローダにする
+- **途中で失敗したとき**: そこで止まり、残りのファイルの場所を表示する。もう一度実行するか、表示されたファイルを `tools/flash-uf2.cmd` にドロップする
+- **手元の `.uf2` を書き込むとき**: そのファイルを `tools/flash-zmk.cmd` (または `tools/flash-uf2.cmd`) にドラッグ＆ドロップする
+- **既定値を変えるとき**: `tools/flash-zmk.ps1` 冒頭の `$DEFAULT_STUDIO` / `$DEFAULT_LISM_RIGHT` / `$DEFAULT_LISM_LEFT` を書き換える
+
+コマンドラインから実行する場合 (`-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに書き込む):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
+```
 
 #### エクスプローラでのコピー時に「予期しないエラー」が出る場合
 
@@ -225,6 +262,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 セントラル役割や Studio の指定方法を変えたとき
 ([ryo-aoki-pc/zmk-config-keyboards#10](https://github.com/ryo-aoki-pc/zmk-config-keyboards/pull/10) の統一後など) は、
 古い設定が残らないように次の順で書き込みます。
+`tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」を選ぶと、この手順をまとめて行えます。
 
 1. `settings_reset-seeeduino_xiao_ble-zmk.uf2` を左右両方に書き込む
 2. 左 (`*_left_peripheral*.uf2`) と右 (`*_right_central*.uf2`) のファームウェアをそれぞれ書き込む
