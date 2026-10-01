@@ -295,6 +295,9 @@ USB を挿した側が反対側に問い合わせて、どちらにボールが�
    さらに詳しく見るときは、KQ Mini の仮想 COM ポートを開いて `debug` と入力し、
    ボールを転がして `Mouse report` の行が出るかを確認する (もう一度 `debug` と入力すると止まる)。
    入力補完により `df` だけで `dfu` (ブートローダの起動) が実行されるため、コマンド名は最後まで入力する。
+   [vial-qmk-kq-mini#13](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini/pull/13) より前のファームウェアは
+   16 バイトに満たない受信データを捨てるため、ターミナルで打った文字が届かない。入力しても何も表示されないときは、
+   先に [`tools/flash-kq-mini.cmd`](#keyboard-quantizer-mini-toolsflash-kq-minicmd) で最新のファームウェアに書き換える。
    また、Vial で KQ Mini の `KC_MS_LEFT` / `KC_MS_UP` の位置の割り当てを変えると、
    X / Y 方向の移動はスクロールに変換される (ホイールキーを割り当てた場合) か、転送されなくなる
 
