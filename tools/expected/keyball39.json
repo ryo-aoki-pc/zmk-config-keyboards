@@ -183,6 +183,7 @@
           "sensor": "pmw3360",
           "cpi": 500,
           "cpi_source": "keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_CPI_DEFAULT (既定 500)",
+          "cpi_setting": {"template": "#define KEYBALL_CPI_DEFAULT {cpi}", "step": 100, "min": 100, "max": 12000},
           "xy_scaler": [1, 1],
           "matrix": null,
           "divisor": null,

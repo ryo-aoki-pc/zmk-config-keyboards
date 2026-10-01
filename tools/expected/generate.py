@@ -477,10 +477,10 @@ def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
     if bid == 'lism':
         central = 'snippets/trackball-central/trackball.overlay'
         return [
-            {'side': 'right', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'xy_scaler': [1, 1],
+            {'side': 'right', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None, 'xy_scaler': [1, 1],
              'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
              'listener': f'zmk-config-LisM/{central} の central_listener'},
-            {'side': 'left', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'xy_scaler': [1, 1],
+            {'side': 'left', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None, 'xy_scaler': [1, 1],
              'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
              'listener': ('zmk-config-LisM の右手側 (セントラル) の snippet (trackball-central/trackball.overlay '
                           'または non-trackball-central/non_trackball.overlay) の peripheral_listener')},
@@ -502,6 +502,7 @@ def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
             raise GenError(f'{overlay} の matrix は 4 要素である必要があります')
         return [{'side': 'right', 'sensor': 'pmw3610', 'cpi': cpi,
                  'cpi_source': 'zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.conf の CONFIG_PMW3610_CPI',
+                 'cpi_setting': {'template': 'CONFIG_PMW3610_CPI={cpi}', 'step': 200, 'min': 200, 'max': 3200},
                  'xy_scaler': [1, 1], 'matrix': values, 'divisor': int(dm.group(1)), 'correction': 'matrix',
                  'listener': 'zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.overlay の trackball_matrix'}]
     if bid == 'aroundfortyrb':
@@ -517,6 +518,7 @@ def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
         scaler = [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1]
         return [{'side': 'right', 'sensor': 'pmw3610', 'cpi': int(cm.group(1)),
                  'cpi_source': 'zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball の cpi',
+                 'cpi_setting': {'template': 'cpi = <{cpi}>;', 'step': 200, 'min': 200, 'max': 3200},
                  'xy_scaler': scaler, 'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
                  'listener': 'zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball_listener'}]
     if bid == 'pyuron':
@@ -529,7 +531,7 @@ def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
             if not m:
                 raise GenError(f'{dtsi} に trackball_listener_{suffix} が見つかりません')
             sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', m.group(1).split('scroller')[0])
-            out.append({'side': side, 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None,
+            out.append({'side': side, 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
                         'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
                         'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
                         'listener': f'zmk-config-Pyuron/boards/shields/Pyuron/Pyuron.dtsi の trackball_listener_{suffix}'})
@@ -919,6 +921,7 @@ class Keyball:
     def firmware(self) -> list[dict]:
         return [{'side': 'right', 'sensor': 'pmw3360', 'cpi': self.status['cpi'] * 100,
                  'cpi_source': 'keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_CPI_DEFAULT (既定 500)',
+                 'cpi_setting': {'template': '#define KEYBALL_CPI_DEFAULT {cpi}', 'step': 100, 'min': 100, 'max': 12000},
                  'xy_scaler': [1, 1], 'matrix': None, 'divisor': None, 'correction': 'cpi_only',
                  'listener': 'Keyball のファーム (X/Y を別々に補正する機能は無い)'}]
 
@@ -1131,7 +1134,7 @@ def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball) -> dict:
                 'aml': {'layer': st['aml_layer'], 'scroll_layer': st['scroll_layer'],
                         'timeout_ms': st['aml_timeout'], 'require_prior_idle_ms': st['aml_delay']},
                 'keys': tb_keys,
-                'firmware': kb.firmware() + [{'side': 'kq-mini', 'sensor': None, 'cpi': None, 'cpi_source': None,
+                'firmware': kb.firmware() + [{'side': 'kq-mini', 'sensor': None, 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
                                               'xy_scaler': [1, 1], 'matrix': None, 'divisor': None,
                                               'correction': 'none',
                                               'listener': 'KQ-mini はマウスを等倍で中継する (倍率は変えられない)'}],

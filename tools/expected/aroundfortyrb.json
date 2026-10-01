@@ -591,6 +591,7 @@
           "sensor": "pmw3610",
           "cpi": 400,
           "cpi_source": "zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball の cpi",
+          "cpi_setting": {"template": "cpi = <{cpi}>;", "step": 200, "min": 200, "max": 3200},
           "xy_scaler": [2, 1],
           "matrix": null,
           "divisor": null,

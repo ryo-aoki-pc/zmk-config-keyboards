@@ -123,6 +123,7 @@ Test-Case 'Keyball39: 期待値どおりなら全部 PASS' {
     Assert-Equal 'PASS' (Get-StatusOf $r 'CPI').Status
     Assert-Equal 'PASS' (Get-StatusOf $r 'AML のタイムアウト').Status
     Assert-Equal 'Right' (Get-StatusOf $r 'Ball availability').Actual
+    Assert-Equal 'PASS' (Get-StatusOf $r 'マクロ').Status
 }
 
 Test-Case 'Keyball39: EEPROM に古い CPI が残っていると FAIL と Bootmagic の案内' {

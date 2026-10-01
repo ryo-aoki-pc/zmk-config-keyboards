@@ -149,7 +149,7 @@ Test-Case '.ps1 に構文エラーが無い' {
 
 Test-Case 'Windows PowerShell 5.1 で使えない構文を使っていない' {
     $bad = @()
-    $ps7Params = @('AsHashtable', 'AsByteStream', 'Parallel', 'SkipHttpErrorCheck', 'NoEnumerate')
+    $ps7Params = @('AsHashtable', 'AsByteStream', 'Parallel', 'SkipHttpErrorCheck', 'NoEnumerate', 'Stable')
     $ps7Vars = @('IsWindows', 'IsLinux', 'IsMacOS', 'IsCoreCLR')
     foreach ($f in $psFiles) {
         $tokens = $null

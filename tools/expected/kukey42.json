@@ -603,6 +603,7 @@
           "sensor": "pmw3610",
           "cpi": 1000,
           "cpi_source": "zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.conf の CONFIG_PMW3610_CPI",
+          "cpi_setting": {"template": "CONFIG_PMW3610_CPI={cpi}", "step": 200, "min": 200, "max": 3200},
           "xy_scaler": [1, 1],
           "matrix": [995, -497, -305, 2163],
           "divisor": 1000,

@@ -748,7 +748,8 @@ function Invoke-KcKeyballReadout {
 
     # マクロ (via キーマップでは使わない)
     $m = Read-KcViaMacros $Query
-    $used = @(Split-KcMacroBuffer $m.Bytes $m.Count | Where-Object { @($_).Count -gt 0 })
+    $macros = Split-KcMacroBuffer $m.Bytes $m.Count
+    $used = @($macros | Where-Object { @($_).Count -gt 0 })
     if ($used.Count -eq 0) {
         [void](Add-KcResult -Results $Results -Category $cat -Item 'マクロ' -Status PASS -Actual 'なし (一致)')
     } else {
