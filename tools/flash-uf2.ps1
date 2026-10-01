@@ -101,6 +101,12 @@ $BOARDS = @(
 # シリアル (CDC) で "dfu" + Enter を送るとブートローダ (RPI-RP2 ドライブ) に切り替わる。
 $KQMINI_PNP_DEVICE_ID = 'USB\VID_FEED&PID_999C*'
 
+# vial-qmk の virtser_task (tmk_core/protocol/chibios/usb_main.c) は、CDC のエンドポイントサイズ
+# (CDC_EPSIZE = 16 バイト) ちょうど読めたときだけ受信データを CLI に渡し、それより短いパケットは
+# 捨てる。"`rdfu`r" (5 バイト) をそのまま送っても届かないので、CLI が無視する NUL で 16 バイトに埋めて
+# 1 パケットで送る。
+$KQMINI_CDC_EPSIZE = 16
+
 function Stop-WithError([string]$Message) {
     Write-Host ''
     Write-Host "失敗: $Message" -ForegroundColor Red
@@ -157,13 +163,17 @@ function Find-KqMiniSerialPort {
 }
 
 function Send-KqMiniDfu([string]$Port) {
+    # 先頭の CR で入力途中の行があれば確定させてから dfu を送る
+    $command = [System.Text.Encoding]::ASCII.GetBytes("`rdfu`r")
+    $packet = New-Object byte[] $KQMINI_CDC_EPSIZE
+    [Array]::Copy($command, $packet, $command.Length)
+
     $serial = New-Object System.IO.Ports.SerialPort -ArgumentList $Port, 115200
     $serial.WriteTimeout = 2000
     $serial.DtrEnable = $true
     try {
         $serial.Open()
-        # 先頭の CR で入力途中の行があれば確定させてから dfu を送る
-        $serial.Write("`rdfu`r")
+        $serial.Write($packet, 0, $packet.Length)
         Start-Sleep -Milliseconds 300
     } finally {
         # ブートローダに切り替わってポートが消えると Close で例外になることがある
