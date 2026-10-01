@@ -274,7 +274,7 @@ USB を挿した側が反対側に問い合わせて、どちらにボールが�
 - LED を実装している場合は、VIA で消灯・保存してから挿し直すと、電源 (ハブ経由の給電など) の不足が原因かを切り分けられる。
   LED の設定は左右の Pro Micro に別々に保存され、USB を挿した側の設定が左右両方の LED に使われる
   (keyball39 via のファームは、新しいビルドの初回起動時に `keymaps/via/config.h` の `RGBLIGHT_DEFAULT_*` を
-  左右それぞれに保存するので、左右に同じファームを書けば揃う)
+  左右それぞれに保存するので、[`tools/flash-keyball.cmd`](#keyball39-toolsflash-keyballcmd) で左右に同じファームを書けば揃う)
 
 点検後、ボール側に USB を挿して `tools/keyball-check.cmd` を実行し、Ball availability がボールの側
 (`Right` など) になれば復旧です。それでも `None` のままなら、ボール基板 (センサーのはんだ付けやセンサー本体) の不良が考えられます。
