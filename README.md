@@ -149,3 +149,59 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 1. `settings_reset-seeeduino_xiao_ble-zmk.uf2` を左右両方に書き込む
 2. 左 (`*_left_peripheral*.uf2`) と右 (`*_right_central*.uf2`) のファームウェアをそれぞれ書き込む
 3. 設定リセットでペアリング情報も消えるため、PC の Bluetooth 設定から古いキーボードを削除して再ペアリングする
+
+## Keyball39 のトラックボールが動かない場合
+
+キーは入力できるのにトラックボールだけ動かないときの切り分け手順です。
+
+Keyball のファームウェアは、起動時に左右それぞれがトラックボールのセンサー (PMW3360) を検出し、
+USB を挿した側が反対側に問い合わせて、どちらにボールがあるかを確定します
+(結果は VIA の layout options「Ball availability」に保存されます)。
+センサーが応答しないとボールが無いものとして扱われ、マウスの動きを送りません。
+[keyball](https://github.com/ryo-aoki-pc/keyball) の `lib/keyball` は、起動後もボールが見つかるまで
+2 秒ごとに検出と問い合わせをやり直します。接触が回復したときや、KQ Mini 経由で反対側の起動が遅れたときも、
+挿し直さずに使えるようになります。
+
+### 切り分け
+
+1. OLED の `Ball:` 行を見る。ボールを転がしても数値が 0 のままなら、Keyball 本体がボールの動きを受け取れていない
+   (KQ Mini や PC 側の問題ではない)
+2. Keyball を KQ Mini を通さずに PC に直接つなぎ、`tools/keyball-check.cmd` を実行する。
+   VIA の読み取りコマンドだけを使い (設定は書き換えない)、Ball availability・起動からの経過時間・RGB の状態を表示する。
+   `powershell -ExecutionPolicy Bypass -File tools\keyball-check.ps1 -Watch` で実行すると、1 秒ごとの変化を表示し続ける
+
+   | Ball availability | 意味 |
+   | --- | --- |
+   | `Right` / `Left` / `Dual` | その側のボールを認識している |
+   | `None` | どちらのボールも認識していない |
+
+3. `None` のときは、USB をボールがある側の半分に挿し替えてもう一度実行する
+   (TRRS ケーブルは通電中に抜き差ししない)
+   - ボール側に挿しても `None`: その半分のセンサーが応答していない → 下の「ハードの点検」へ
+   - ボール側に挿すと認識する: センサーは正常。左右の通信 (TRRS ケーブル) や起動タイミングを確認する
+4. PC 直結では動くのに KQ Mini 経由でだけ動かない場合は、ボールを転がしたときに KQ Mini の LED が点滅するか
+   (KQ Mini が Keyball からレポートを受け取っているか) を見る。
+   さらに詳しく見るときは、KQ Mini の仮想 COM ポートを開いて `debug` と入力し、
+   ボールを転がして `Mouse report` の行が出るかを確認する (もう一度 `debug` と入力すると止まる)。
+   入力補完により `df` だけで `dfu` (ブートローダの起動) が実行されるため、コマンド名は最後まで入力する。
+   また、Vial で KQ Mini の `KC_MS_LEFT` / `KC_MS_UP` の位置の割り当てを変えると、
+   X / Y 方向の移動はスクロールに変換される (ホイールキーを割り当てた場合) か、転送されなくなる
+
+### ハードの点検 (ボールがある側)
+
+ボール基板は 7 ピンの L 字コンスルーに、Pro Micro は 12 ピンのコンスルーに差し込んであるだけなので、
+取り扱いの拍子に接触不良になることがあります。USB を抜いてから点検します
+(写真付きの手順は [Keyball39 ビルドガイド](https://github.com/ryo-aoki-pc/keyball/blob/custom/keyball39/doc/rev1/buildguide_jp.md) の 4-2 / 8-1 / 8-3 章)。
+
+- ボールを外し、本体裏の頭が平らな M1.7 ネジ 2 本を外してボールケースを外す。
+  ボール基板を L 字コンスルーから抜いてピンの曲がり・折れを確認し、垂直に差し直す。
+  メイン基板とボール基板の間に隙間が無いことを確認して組み戻す
+- Pro Micro がコンスルーに傾かず奥まで刺さっているか
+- L 字コンスルー近くの信号線ジャンパ 4 箇所 (裏面のはんだブリッジ) に割れが無いか
+- LED を実装している場合は、VIA で消灯・保存してから挿し直すと、電源 (ハブ経由の給電など) の不足が原因かを切り分けられる。
+  LED の設定は左右の Pro Micro に別々に保存され、USB を挿した側の設定が左右両方の LED に使われる
+  (keyball39 via のファームは、新しいビルドの初回起動時に `keymaps/via/config.h` の `RGBLIGHT_DEFAULT_*` を
+  左右それぞれに保存するので、左右に同じファームを書けば揃う)
+
+点検後、ボール側に USB を挿して `tools/keyball-check.cmd` を実行し、Ball availability がボールの側
+(`Right` など) になれば復旧です。それでも `None` のままなら、ボール基板 (センサーのはんだ付けやセンサー本体) の不良が考えられます。
