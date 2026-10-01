@@ -21,7 +21,9 @@ function Add-KcResult {
         [string]$Expected = '',
         [string]$Actual = '',
         [string]$Hint = '',
-        [string[]]$Details = @()
+        [string[]]$Details = @(),
+        # 参考の項目 (設定ファイルどうしの整合など)。「何も検査できなかった」の判定に数えない
+        [switch]$Reference
     )
     $r = [pscustomobject]@{
         Category = $Category
@@ -31,6 +33,7 @@ function Add-KcResult {
         Actual   = $Actual
         Hint     = $Hint
         Details  = @($Details)
+        Reference = [bool]$Reference
     }
     $Results.Add($r)
     return $r
@@ -94,24 +97,26 @@ function Write-KcSummary($Results, [string]$Title = '検査結果') {
     $c = Get-KcStatusCounts $Results
     Write-Host ''
     $text = 'PASS {0} / FAIL {1} / WARN {2} / SKIP {3}' -f $c.PASS, $c.FAIL, $c.WARN, $c.SKIP
-    if ($c.FAIL -gt 0) {
+    $code = Get-KcExitCode $Results
+    if ($code -eq 1) {
         Write-Host ('判定: 意図と違う設定があります。' + $text) -ForegroundColor Red
+    } elseif ($code -eq 2) {
+        Write-Host ('判定: 検査できた項目がありません (SKIP の案内を見てください)。' + $text) -ForegroundColor Yellow
     } elseif ($c.WARN -gt 0) {
         Write-Host ('判定: 意図と違う設定は見つかりませんでした (確認が必要な項目があります)。' + $text) -ForegroundColor Yellow
-    } elseif ($c.PASS -gt 0) {
-        Write-Host ('判定: 意図どおりです。' + $text) -ForegroundColor Green
     } else {
-        Write-Host ('判定: 検査できた項目がありません。' + $text) -ForegroundColor Yellow
+        Write-Host ('判定: 意図どおりです。' + $text) -ForegroundColor Green
     }
 }
 
-# 終了コード: 0 = FAIL なし、1 = FAIL あり、2 = 何も検査できなかった
+# 終了コード: 0 = FAIL なし、1 = FAIL あり、2 = 何も検査できなかった (参考の項目は数えない)
 function Get-KcExitCode($Results) {
     $c = Get-KcStatusCounts $Results
     if ($c.FAIL -gt 0) {
         return 1
     }
-    if (($c.PASS + $c.WARN) -eq 0) {
+    $checked = @($Results | Where-Object { -not $_.Reference -and ($_.Status -eq 'PASS' -or $_.Status -eq 'WARN') })
+    if ($checked.Count -eq 0) {
         return 2
     }
     return 0

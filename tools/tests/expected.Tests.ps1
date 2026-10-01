@@ -87,3 +87,9 @@ Test-Case 'レポートを UTF-8 (BOM 付き) で書き出す' {
         Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue
     }
 }
+
+Test-Case '参考の項目だけなら「何も検査できなかった」(終了コード 2)' {
+    $r = New-KcResultList
+    [void](Add-KcResult -Results $r -Category 'A' -Item 'x' -Status WARN -Reference)
+    Assert-Equal 2 (Get-KcExitCode $r)
+}

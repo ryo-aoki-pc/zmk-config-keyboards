@@ -1,0 +1,714 @@
+// Window for the interactive test of tools/keyboard-check.ps1.
+// Records Raw Input (WM_INPUT) per device: keyboard scan codes (layout independent) and
+// relative mouse movement before pointer acceleration, so key taps and trackball motion can be
+// checked against the expected values.
+// Loaded by tools/lib/keyboard-check/input-test.ps1 with Add-Type.
+// Must stay C# 5 compatible (Windows PowerShell 5.1 compiles it with the .NET Framework compiler)
+// and ASCII only. User-visible strings are passed in from PowerShell.
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Windows.Forms;
+
+public sealed class KcInputEvent
+{
+    public long Time;
+    public long Device;
+    public string Kind;   // "key" or "mouse"
+    public int Scan;
+    public int Prefix;    // 0, 0xE0 or 0xE1
+    public bool Break;
+    public int Dx;
+    public int Dy;
+    public int Buttons;   // RI_MOUSE_BUTTON_n_DOWN / _UP flags
+    public int Wheel;     // 120 per notch, negative = toward the user (scroll down)
+    public int HWheel;    // positive = right
+}
+
+public static class KcRawInputParser
+{
+    public const int RIM_TYPEMOUSE = 0;
+    public const int RIM_TYPEKEYBOARD = 1;
+
+    // Parses a RAWINPUT buffer returned by GetRawInputData(RID_INPUT). ptrSize is IntPtr.Size of the
+    // process (the header is dwType, dwSize, hDevice, wParam). Returns null for input to ignore
+    // (injected input, fake shifts, absolute pointers' movement).
+    public static KcInputEvent Parse(byte[] data, int ptrSize, long time)
+    {
+        if (data == null || data.Length < 8 + 2 * ptrSize)
+        {
+            return null;
+        }
+        int type = BitConverter.ToInt32(data, 0);
+        long device = ptrSize == 8 ? BitConverter.ToInt64(data, 8) : BitConverter.ToInt32(data, 8);
+        if (device == 0)
+        {
+            return null; // injected (SendInput) input has no device
+        }
+        int off = 8 + 2 * ptrSize;
+        KcInputEvent e = new KcInputEvent();
+        e.Time = time;
+        e.Device = device;
+        if (type == RIM_TYPEKEYBOARD)
+        {
+            if (data.Length < off + 8)
+            {
+                return null;
+            }
+            int makeCode = BitConverter.ToUInt16(data, off);
+            int flags = BitConverter.ToUInt16(data, off + 2);
+            int vkey = BitConverter.ToUInt16(data, off + 6);
+            if (makeCode == 0 && vkey == 0xFF)
+            {
+                return null;
+            }
+            int prefix = 0;
+            if ((flags & 2) != 0)
+            {
+                prefix = 0xE0;
+            }
+            else if ((flags & 4) != 0)
+            {
+                prefix = 0xE1;
+            }
+            if (prefix == 0xE0 && (makeCode == 0x2A || makeCode == 0x36))
+            {
+                return null; // fake shift around Print Screen / navigation keys
+            }
+            e.Kind = "key";
+            e.Scan = makeCode;
+            e.Prefix = prefix;
+            e.Break = (flags & 1) != 0;
+            return e;
+        }
+        if (type == RIM_TYPEMOUSE)
+        {
+            if (data.Length < off + 20)
+            {
+                return null;
+            }
+            int usFlags = BitConverter.ToUInt16(data, off);
+            int buttonFlags = BitConverter.ToUInt16(data, off + 4);
+            int buttonData = BitConverter.ToInt16(data, off + 6);
+            e.Kind = "mouse";
+            if ((usFlags & 1) == 0)
+            {
+                e.Dx = BitConverter.ToInt32(data, off + 12);
+                e.Dy = BitConverter.ToInt32(data, off + 16);
+            }
+            e.Buttons = buttonFlags & 0x03FF;
+            if ((buttonFlags & 0x0400) != 0)
+            {
+                e.Wheel = buttonData;
+            }
+            if ((buttonFlags & 0x0800) != 0)
+            {
+                e.HWheel = buttonData;
+            }
+            if (e.Dx == 0 && e.Dy == 0 && e.Buttons == 0 && e.Wheel == 0 && e.HWheel == 0)
+            {
+                return null;
+            }
+            return e;
+        }
+        return null;
+    }
+}
+
+// A button that never takes the keyboard focus, so Enter / Space from the tested keyboard
+// cannot press it.
+public class KcNoFocusButton : Button
+{
+    public KcNoFocusButton()
+    {
+        SetStyle(ControlStyles.Selectable, false);
+        TabStop = false;
+    }
+}
+
+// Draws the keyboard layout with a state per key.
+public class KcKeyboardPanel : Panel
+{
+    public const int StateNormal = 0;
+    public const int StateCurrent = 1;
+    public const int StatePass = 2;
+    public const int StateFail = 3;
+    public const int StateSkip = 4;
+
+    sealed class Key
+    {
+        public int Pos;
+        public float X;
+        public float Y;
+        public float W;
+        public float H;
+        public string Legend;
+        public int State;
+    }
+
+    readonly List<Key> keys = new List<Key>();
+
+    public KcKeyboardPanel()
+    {
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.Selectable, false);
+        TabStop = false;
+    }
+
+    public void SetKeys(int[] pos, double[] x, double[] y, double[] w, double[] h, string[] legends)
+    {
+        keys.Clear();
+        for (int i = 0; i < pos.Length; i++)
+        {
+            Key k = new Key();
+            k.Pos = pos[i];
+            k.X = (float)x[i];
+            k.Y = (float)y[i];
+            k.W = (float)w[i];
+            k.H = (float)h[i];
+            k.Legend = legends[i] ?? "";
+            keys.Add(k);
+        }
+        Invalidate();
+    }
+
+    public void SetState(int pos, int state)
+    {
+        foreach (Key k in keys)
+        {
+            if (k.Pos == pos)
+            {
+                k.State = state;
+            }
+        }
+        Invalidate();
+    }
+
+    public void ClearStates()
+    {
+        foreach (Key k in keys)
+        {
+            k.State = StateNormal;
+        }
+        Invalidate();
+    }
+
+    static Color Fill(int state)
+    {
+        switch (state)
+        {
+            case StateCurrent: return Color.FromArgb(255, 214, 102);
+            case StatePass: return Color.FromArgb(152, 222, 160);
+            case StateFail: return Color.FromArgb(244, 143, 143);
+            case StateSkip: return Color.FromArgb(214, 214, 214);
+            default: return Color.White;
+        }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        if (keys.Count == 0)
+        {
+            return;
+        }
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        foreach (Key k in keys)
+        {
+            minX = Math.Min(minX, k.X);
+            minY = Math.Min(minY, k.Y);
+            maxX = Math.Max(maxX, k.X + k.W);
+            maxY = Math.Max(maxY, k.Y + k.H);
+        }
+        float pad = 10;
+        float scale = Math.Min((Width - 2 * pad) / Math.Max(maxX - minX, 1), (Height - 2 * pad) / Math.Max(maxY - minY, 1));
+        float offX = pad + (Width - 2 * pad - (maxX - minX) * scale) / 2;
+        float offY = pad + (Height - 2 * pad - (maxY - minY) * scale) / 2;
+        Graphics g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (Font font = new Font(Font.FontFamily, Math.Max(7f, scale * 0.22f)))
+        using (Pen border = new Pen(Color.FromArgb(120, 120, 120), 1.5f))
+        using (Pen current = new Pen(Color.FromArgb(200, 120, 0), 3f))
+        using (StringFormat center = new StringFormat())
+        {
+            center.Alignment = StringAlignment.Center;
+            center.LineAlignment = StringAlignment.Center;
+            foreach (Key k in keys)
+            {
+                RectangleF r = new RectangleF(offX + (k.X - minX) * scale + 2, offY + (k.Y - minY) * scale + 2, k.W * scale - 4, k.H * scale - 4);
+                using (SolidBrush b = new SolidBrush(Fill(k.State)))
+                {
+                    g.FillRectangle(b, r);
+                }
+                g.DrawRectangle(k.State == StateCurrent ? current : border, r.X, r.Y, r.Width, r.Height);
+                g.DrawString(k.Legend, font, Brushes.Black, r, center);
+            }
+        }
+    }
+}
+
+public class KcInputTestForm : Form
+{
+    [StructLayout(LayoutKind.Sequential)]
+    struct RAWINPUTDEVICE
+    {
+        public ushort UsagePage;
+        public ushort Usage;
+        public uint Flags;
+        public IntPtr Target;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct KBDLLHOOKSTRUCT
+    {
+        public uint VkCode;
+        public uint ScanCode;
+        public uint Flags;
+        public uint Time;
+        public IntPtr ExtraInfo;
+    }
+
+    delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] devices, uint count, uint size);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern uint GetRawInputData(IntPtr rawInput, uint command, byte[] data, ref uint size, uint headerSize);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern uint GetRawInputDeviceInfo(IntPtr device, uint command, StringBuilder data, ref uint size);
+
+    [DllImport("user32.dll")]
+    static extern bool ClipCursor(ref RECT rect);
+
+    [DllImport("user32.dll", EntryPoint = "ClipCursor")]
+    static extern bool ClipCursorOff(IntPtr rect);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern IntPtr SetWindowsHookEx(int hookId, LowLevelKeyboardProc proc, IntPtr module, uint threadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern bool UnhookWindowsHookEx(IntPtr hook);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr CallNextHookEx(IntPtr hook, int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    static extern IntPtr GetModuleHandle(string name);
+
+    [DllImport("user32.dll")]
+    static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extraInfo);
+
+    const int WM_INPUT = 0x00FF;
+    const int WM_KEYDOWN = 0x0100;
+    const int WM_KEYUP = 0x0101;
+    const int WM_CHAR = 0x0102;
+    const int WM_SYSKEYDOWN = 0x0104;
+    const int WM_SYSKEYUP = 0x0105;
+    const int WM_SYSCHAR = 0x0106;
+    const int WM_SYSCOMMAND = 0x0112;
+    const int SC_KEYMENU = 0xF100;
+    const uint RID_INPUT = 0x10000003;
+    const uint RIDI_DEVICENAME = 0x20000007;
+    const uint RIDEV_INPUTSINK = 0x00000100;
+    const int WH_KEYBOARD_LL = 13;
+    const uint LLKHF_INJECTED = 0x10;
+    const byte VK_MASK = 0xE8; // unassigned virtual key, used to keep Win from opening the Start menu
+    const uint KEYEVENTF_KEYUP = 0x0002;
+
+    readonly object sync = new object();
+    readonly List<KcInputEvent> events = new List<KcInputEvent>();
+    readonly Stopwatch clock = Stopwatch.StartNew();
+    readonly Label titleLabel = new Label();
+    readonly Label instructionLabel = new Label();
+    readonly Label detailLabel = new Label();
+    readonly Label statusLabel = new Label();
+    readonly Label logLabel = new Label();
+    readonly KcKeyboardPanel keyboard = new KcKeyboardPanel();
+    readonly FlowLayoutPanel buttonBar = new FlowLayoutPanel();
+    readonly KcNoFocusButton nextButton = new KcNoFocusButton();
+    readonly KcNoFocusButton retryButton = new KcNoFocusButton();
+    readonly KcNoFocusButton skipButton = new KcNoFocusButton();
+    readonly KcNoFocusButton abortButton = new KcNoFocusButton();
+    readonly Timer clipTimer = new Timer();
+    string action = "";
+    bool closed;
+    bool confine;
+    bool maskWin;
+    IntPtr hook = IntPtr.Zero;
+    LowLevelKeyboardProc hookProc;
+
+    public KcInputTestForm()
+    {
+        Text = "keyboard-check";
+        StartPosition = FormStartPosition.CenterScreen;
+        Size = new Size(1100, 780);
+        MinimumSize = new Size(800, 600);
+        TopMost = true;
+        KeyPreview = false;
+        ImeMode = ImeMode.Disable;
+        BackColor = Color.FromArgb(246, 247, 250);
+        Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 11f);
+
+        titleLabel.Dock = DockStyle.Top;
+        titleLabel.Height = 40;
+        titleLabel.Font = new Font(Font.FontFamily, 13f, FontStyle.Bold);
+        titleLabel.Padding = new Padding(12, 10, 12, 0);
+
+        instructionLabel.Dock = DockStyle.Top;
+        instructionLabel.Height = 120;
+        instructionLabel.Font = new Font(Font.FontFamily, 20f, FontStyle.Bold);
+        instructionLabel.Padding = new Padding(12, 8, 12, 0);
+
+        detailLabel.Dock = DockStyle.Top;
+        detailLabel.Height = 70;
+        detailLabel.Padding = new Padding(12, 0, 12, 0);
+        detailLabel.ForeColor = Color.FromArgb(70, 70, 80);
+
+        keyboard.Dock = DockStyle.Fill;
+        keyboard.BackColor = Color.FromArgb(232, 235, 241);
+
+        statusLabel.Dock = DockStyle.Bottom;
+        statusLabel.Height = 70;
+        statusLabel.Font = new Font(Font.FontFamily, 14f, FontStyle.Bold);
+        statusLabel.Padding = new Padding(12, 6, 12, 0);
+
+        logLabel.Dock = DockStyle.Bottom;
+        logLabel.Height = 30;
+        logLabel.Padding = new Padding(12, 4, 12, 0);
+        logLabel.ForeColor = Color.FromArgb(90, 90, 100);
+
+        buttonBar.Dock = DockStyle.Bottom;
+        buttonBar.Height = 56;
+        buttonBar.FlowDirection = FlowDirection.RightToLeft;
+        buttonBar.Padding = new Padding(8);
+        SetupButton(abortButton, "abort");
+        SetupButton(skipButton, "skip");
+        SetupButton(retryButton, "retry");
+        SetupButton(nextButton, "next");
+        buttonBar.Controls.Add(abortButton);
+        buttonBar.Controls.Add(skipButton);
+        buttonBar.Controls.Add(retryButton);
+        buttonBar.Controls.Add(nextButton);
+
+        Controls.Add(keyboard);
+        Controls.Add(detailLabel);
+        Controls.Add(instructionLabel);
+        Controls.Add(titleLabel);
+        Controls.Add(logLabel);
+        Controls.Add(statusLabel);
+        Controls.Add(buttonBar);
+
+        clipTimer.Interval = 300;
+        clipTimer.Tick += delegate { ApplyClip(); };
+        clipTimer.Start();
+        FormClosed += delegate
+        {
+            closed = true;
+            ReleaseClip();
+            RemoveHook();
+            clipTimer.Stop();
+        };
+        Deactivate += delegate { ReleaseClip(); };
+        Activated += delegate { ApplyClip(); };
+    }
+
+    void SetupButton(KcNoFocusButton button, string name)
+    {
+        button.Width = 150;
+        button.Height = 38;
+        button.Tag = name;
+        button.Click += delegate { action = (string)button.Tag; };
+    }
+
+    // ---- called from PowerShell ----
+
+    public long NowMs { get { return clock.ElapsedMilliseconds; } }
+
+    public bool IsClosed { get { return closed; } }
+
+    public void SetButtonTexts(string next, string retry, string skip, string abort)
+    {
+        nextButton.Text = next;
+        retryButton.Text = retry;
+        skipButton.Text = skip;
+        abortButton.Text = abort;
+    }
+
+    public void SetButtons(bool next, bool retry, bool skip)
+    {
+        nextButton.Visible = next;
+        retryButton.Visible = retry;
+        skipButton.Visible = skip;
+    }
+
+    public void SetTexts(string title, string instruction, string detail)
+    {
+        titleLabel.Text = title ?? "";
+        instructionLabel.Text = instruction ?? "";
+        detailLabel.Text = detail ?? "";
+    }
+
+    public void SetDetail(string detail)
+    {
+        detailLabel.Text = detail ?? "";
+    }
+
+    // level: 0 = neutral, 1 = ok, 2 = ng, 3 = warning
+    public void SetStatus(string text, int level)
+    {
+        statusLabel.Text = text ?? "";
+        switch (level)
+        {
+            case 1: statusLabel.ForeColor = Color.FromArgb(20, 120, 40); break;
+            case 2: statusLabel.ForeColor = Color.FromArgb(190, 30, 30); break;
+            case 3: statusLabel.ForeColor = Color.FromArgb(170, 100, 0); break;
+            default: statusLabel.ForeColor = Color.FromArgb(40, 40, 50); break;
+        }
+    }
+
+    public void SetLog(string text)
+    {
+        logLabel.Text = text ?? "";
+    }
+
+    public void SetKeys(int[] pos, double[] x, double[] y, double[] w, double[] h, string[] legends)
+    {
+        keyboard.SetKeys(pos, x, y, w, h, legends);
+    }
+
+    public void SetKeyState(int pos, int state)
+    {
+        keyboard.SetState(pos, state);
+    }
+
+    public void ClearKeyStates()
+    {
+        keyboard.ClearStates();
+    }
+
+    // Returns the pressed button ("next" / "retry" / "skip" / "abort") once, or "".
+    public string TakeAction()
+    {
+        string a = action;
+        action = "";
+        if (closed && a.Length == 0)
+        {
+            return "abort";
+        }
+        return a;
+    }
+
+    public KcInputEvent[] TakeEvents()
+    {
+        lock (sync)
+        {
+            KcInputEvent[] a = events.ToArray();
+            events.Clear();
+            return a;
+        }
+    }
+
+    public void ClearEvents()
+    {
+        lock (sync)
+        {
+            events.Clear();
+        }
+    }
+
+    // Keeps the cursor above the button bar while mouse buttons are tested, so clicks sent by the
+    // keyboard land on this window (not on the console or the desktop) and never press our buttons.
+    public void Confine(bool on)
+    {
+        confine = on;
+        if (on)
+        {
+            ApplyClip();
+        }
+        else
+        {
+            ReleaseClip();
+        }
+    }
+
+    // Keeps the Win key of the tested keyboard from opening the Start menu while this window is in front.
+    public void MaskWinKey(bool on)
+    {
+        maskWin = on;
+        if (on && hook == IntPtr.Zero)
+        {
+            hookProc = HookCallback;
+            hook = SetWindowsHookEx(WH_KEYBOARD_LL, hookProc, GetModuleHandle(null), 0);
+        }
+        else if (!on)
+        {
+            RemoveHook();
+        }
+    }
+
+    public static string GetDeviceName(long device)
+    {
+        uint size = 0;
+        IntPtr handle = new IntPtr(device);
+        GetRawInputDeviceInfo(handle, RIDI_DEVICENAME, null, ref size);
+        if (size == 0)
+        {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder((int)size + 1);
+        GetRawInputDeviceInfo(handle, RIDI_DEVICENAME, sb, ref size);
+        return sb.ToString();
+    }
+
+    // ---- internals ----
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        RAWINPUTDEVICE[] devices = new RAWINPUTDEVICE[2];
+        devices[0].UsagePage = 0x01;
+        devices[0].Usage = 0x06; // keyboard
+        devices[0].Flags = RIDEV_INPUTSINK;
+        devices[0].Target = Handle;
+        devices[1].UsagePage = 0x01;
+        devices[1].Usage = 0x02; // mouse
+        devices[1].Flags = RIDEV_INPUTSINK;
+        devices[1].Target = Handle;
+        if (!RegisterRawInputDevices(devices, 2, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE))))
+        {
+            throw new InvalidOperationException("RegisterRawInputDevices failed (Win32 error " + Marshal.GetLastWin32Error() + ")");
+        }
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        switch (m.Msg)
+        {
+            case WM_INPUT:
+                ReadRawInput(m.LParam);
+                break;
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            case WM_CHAR:
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_SYSCHAR:
+                // Swallow keys: Alt must not enter the menu mode, Alt+F4 / Enter / Space do nothing here.
+                return;
+            case WM_SYSCOMMAND:
+                if (((int)m.WParam & 0xFFF0) == SC_KEYMENU)
+                {
+                    return;
+                }
+                break;
+        }
+        base.WndProc(ref m);
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        return true;
+    }
+
+    protected override bool ProcessDialogKey(Keys keyData)
+    {
+        return true;
+    }
+
+    void ReadRawInput(IntPtr handle)
+    {
+        uint headerSize = (uint)(8 + 2 * IntPtr.Size);
+        uint size = 0;
+        GetRawInputData(handle, RID_INPUT, null, ref size, headerSize);
+        if (size == 0)
+        {
+            return;
+        }
+        byte[] data = new byte[size];
+        if (GetRawInputData(handle, RID_INPUT, data, ref size, headerSize) == unchecked((uint)-1))
+        {
+            return;
+        }
+        KcInputEvent e = KcRawInputParser.Parse(data, IntPtr.Size, clock.ElapsedMilliseconds);
+        if (e != null)
+        {
+            lock (sync)
+            {
+                events.Add(e);
+            }
+        }
+    }
+
+    void ApplyClip()
+    {
+        if (!confine || closed || !IsHandleCreated || GetForegroundWindow() != Handle)
+        {
+            return;
+        }
+        Rectangle client = RectangleToScreen(ClientRectangle);
+        RECT r;
+        r.Left = client.Left + 4;
+        r.Top = client.Top + 4;
+        r.Right = client.Right - 4;
+        r.Bottom = client.Bottom - buttonBar.Height - 8;
+        ClipCursor(ref r);
+    }
+
+    void ReleaseClip()
+    {
+        ClipCursorOff(IntPtr.Zero);
+    }
+
+    void RemoveHook()
+    {
+        if (hook != IntPtr.Zero)
+        {
+            UnhookWindowsHookEx(hook);
+            hook = IntPtr.Zero;
+        }
+    }
+
+    IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && maskWin && IsHandleCreated && GetForegroundWindow() == Handle)
+        {
+            int msg = wParam.ToInt32();
+            if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
+            {
+                KBDLLHOOKSTRUCT k = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
+                if ((k.Flags & LLKHF_INJECTED) == 0 && (k.VkCode == 0x5B || k.VkCode == 0x5C))
+                {
+                    // A key event while Win is held keeps Windows from opening the Start menu on release.
+                    keybd_event(VK_MASK, 0, 0, UIntPtr.Zero);
+                    keybd_event(VK_MASK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                }
+            }
+        }
+        return CallNextHookEx(hook, nCode, wParam, lParam);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        ReleaseClip();
+        RemoveHook();
+        base.Dispose(disposing);
+    }
+}
