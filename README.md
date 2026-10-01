@@ -285,6 +285,32 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 2. 左 (`*_left_peripheral*.uf2`) と右 (`*_right_central*.uf2`) のファームウェアをそれぞれ書き込む
 3. 設定リセットでペアリング情報も消えるため、PC の Bluetooth 設定から古いキーボードを削除して再ペアリングする
 
+## ZMK キーボードを複数台 BLE で同時接続するとカーソルがカクつく場合
+
+ZMK は、トラックボールのセンサーが報告するたびに、マウスレポートを 1 つ送ります。BLE では送り切れないレポートを
+最大 20 個まで溜めて順に送るため、送る量が送信の機会より多いと、カーソルが遅れてまとめて動きます。
+満杯になると古いレポートが捨てられ、移動量も抜けます。PC 側の送信の機会は接続しているキーボード全台で分け合うので
+(使っていないキーボードも、接続しているだけで分け合う相手になる)、台数が増えるほど起きやすくなります。
+
+各キーボードが BLE でレポートを送る間隔は次のとおりです。
+
+| キーボード | 間隔 | 決めている設定 |
+| --- | --- | --- |
+| KUKEY42 | 16ms ごと (ドライバは 8ms ごとに報告し、15ms に 1 回までにまとめる) | `KUKEY42_R.overlay` の `trackball_rate_limit` ([zmk-input-processor-report-rate-limit](https://github.com/badjeff/zmk-input-processor-report-rate-limit)) |
+| AroundFortyRB | 15ms 以上 | `AroundForty-RB_R.conf` の `CONFIG_PMW3610_REPORT_INTERVAL_MIN=15` |
+| LisM / Pyuron | 約 15ms ごと | PAW3222 のドライバ (15ms ごとに読み取る。設定は無い) |
+
+- KUKEY42 は以前、8ms ごとに送っていたため、複数台を同時に接続するとカクついていた
+  ([ryo-aoki-pc/zmk-config-KUKEY42#25](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42/pull/25) で修正)
+- まとめるときは、間隔に満たない分の移動量を次のレポートに足すので、移動量は失われない
+- USB 接続中は、KUKEY42 もまとめずに 8ms ごとに送る
+
+それでもカクつくとき:
+
+- 使っていないキーボードの電源を切る
+- KUKEY42 は、`KUKEY42_R.overlay` の `<&trackball_rate_limit 15>` を `30` (32ms ごと) に上げる。
+  カーソルの動きは粗くなるが、送る量が半分になる
+
 ## Keyball39 のトラックボールが動かない場合
 
 キーは入力できるのにトラックボールだけ動かないときの切り分け手順です。
