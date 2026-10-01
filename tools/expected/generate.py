@@ -247,6 +247,8 @@ def gen_common(zv) -> dict:
         'zmk_out': [[v, n] for n, v in ZMK_OUT.items()],
         'zmk_mouse_buttons': [[1, 'MB1'], [2, 'MB2'], [4, 'MB3'], [8, 'MB4'], [16, 'MB5']],
         'zmk_mods': [[v, n] for n, v in ZMK_IMPLICIT_MODS.items()],
+        # Vial の QMK settings (QSID → 名前と幅)。値の幅は vial-qmk の qmk_settings.c と同じ
+        'qmk_settings': [{'qsid': q, 'name': n, 'type': t} for q, (t, n) in sorted(zv.QMK_SETTINGS.items())],
         'thresholds': THRESHOLDS,
         'expect': EXPECT_DIRECTIONS,
     }
