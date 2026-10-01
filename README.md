@@ -37,6 +37,7 @@
 | AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K と修飾キーの位置 (A / - / Z / / / Win / Alt)、マウスクリックでタイマー延長 |
 | マウスレイヤーの修飾キー | MOUSE_MOVE / MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。AML に入ってから Shift + クリック・Ctrl + ホイールなどを押せる |
 | スクロール | `zip_scroll_scaler 1 16` (1/16)。例外: torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
+| スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
 
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
 
@@ -187,6 +188,28 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 - LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa (Seeed XIAO nRF52840 + Adafruit nRF52 UF2 ブートローダ)
 - torabo-tsuki-lp (BLE Micro Pro Boost + BLE Micro Pro の UF2 ブートローダ。乾電池と電源スイッチ付き)
 
+#### XIAO をブートローダにする方法
+
+次のどちらかで切り替える。
+
+- **リセットボタンを素早く 2 回押す**: どの状態でも使える
+- **FUNC レイヤーの `&bootloader` キー**: 押したキーがある側が切り替わる
+  - 右手側: FUNC を押しながら `N`
+  - 左手側: FUNC を押しながら `B`。**右手側の電源が入っていて、左右がつながっているときだけ**使える
+    (左のキー入力は右手側 (セントラル) がキーマップで解釈し、BLE で左手側に切り替えを指示するため。
+    右の電源が切れていると何も起きない)
+  - `tools/flash-zmk.cmd` の設定リセットを含むモード (2 / 5) では、最初の右手側以外はキーで切り替えられない。
+    設定リセット用のファームウェアが動いている側にはキーマップが無く、設定リセット後は左右のペアリングも切れているため。
+    リセットボタンを使う
+
+#### torabo-tsuki-lp (BLE Micro Pro Boost) をブートローダにする方法
+
+- **電源スイッチを OFF にしてから USB ケーブルでつなぐ**: `BLEMICROPRO` という名前のドライブが現れる。どの状態でも使える
+- **FUNC レイヤーの `&bootloader` キー**: XIAO と同じく右手側は FUNC + `N`、左手側は FUNC + `B`
+  (左手側は右手側の電源が入っていて、左右がつながっているときだけ)
+- 書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直すと起動する。
+  電源スイッチが OFF のままだと、再起動してもブートローダに戻る
+
 #### 最新版を書き込む (`tools/flash-zmk.cmd`)
 
 1. `tools/flash-zmk.cmd` をダブルクリックし、機種と書き込む内容を番号で選ぶ
@@ -204,7 +227,8 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
    - `r` / `l` (LisM のみ): 右 / 左のトラックボール有無 (既定は左右ともトラックボールあり)
 3. スクリプトが必要なファイルを [`firmware-latest`](#最新ファームウェアの取得元-firmware-latest-リリース) からまとめてダウンロードする
 4. 「[1/2] 右手側にセントラルを書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
-   (リセットボタンを素早く 2 回、または BT レイヤーの `&bootloader` キー)。書き込みと成否の判定は `flash-uf2.cmd` と同じ
+   (リセットボタンを素早く 2 回、または FUNC レイヤーの `&bootloader` キー。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
+   書き込みと成否の判定は `flash-uf2.cmd` と同じ
    - torabo-tsuki-lp は、表示された側の電源スイッチを OFF にしてから USB ケーブルでつなぐ (もう片側の USB ケーブルは抜く)。
      書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直したときに起動する
    - torabo-tsuki-lp の設定リセットは、書き込んだあとに一度起動させないと動かない。スクリプトの案内に従って
@@ -248,7 +272,8 @@ Windows のバージョンや環境によって出たり出なかったりしま
 
 1. `.uf2` ファイルを `tools/flash-uf2.cmd` にドラッグ＆ドロップする
 2. 「ブートローダのドライブを待っています...」と表示されたら、リセットボタンを素早く 2 回押す
-   (または BT レイヤーの `&bootloader` キーを押す)。既にドライブが出ていればすぐに書き込みが始まります
+   (または FUNC レイヤーの `&bootloader` キーを押す。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
+   既にドライブが出ていればすぐに書き込みが始まります
    - torabo-tsuki-lp (BMP) は、電源スイッチを OFF にしてから USB ケーブルでつなぐ
 3. 「成功」と表示されれば完了
    - torabo-tsuki-lp (BMP) は、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直すと起動する

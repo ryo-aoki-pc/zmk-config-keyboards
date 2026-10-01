@@ -84,7 +84,7 @@ $UF2_FLAG_FAMILY_ID_PRESENT = Get-Hex '00002000'
 # ファミリ ID が同じボードは、書き込み先の先頭アドレスが AppStart と一致するほうを選ぶ。
 # ブートローダのドライブは、VolumeLabel があればボリュームラベルで、無ければ INFO_UF2.TXT に
 # InfoPattern が含まれるかで見分ける (Match はその説明)。
-# BootloaderHint はドライブを待つあいだの案内、AfterFlashHint は書き込み後の案内。
+# BootloaderHint はドライブを待つあいだの案内 (1 要素 1 行)、AfterFlashHint は書き込み後の案内。
 # ReturnsToBootloader は、書き込み後の再起動でブートローダに戻ることがあるボード。
 $BOARDS = @(
     [pscustomobject]@{
@@ -97,7 +97,10 @@ $BOARDS = @(
         InfoPattern         = 'nRF52840'
         VolumeLabel         = $null
         Match               = 'INFO_UF2.TXT に nRF52840 があるドライブ'
-        BootloaderHint      = 'リセットボタンを素早く 2 回押すか、BT レイヤーの &bootloader キーを押してください。'
+        BootloaderHint      = @(
+            'リセットボタンを素早く 2 回押すか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
+            '左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
+        )
         AfterFlashHint      = $null
         ReturnsToBootloader = $false
     },
@@ -111,7 +114,10 @@ $BOARDS = @(
         InfoPattern         = $null
         VolumeLabel         = 'BLEMICROPRO'
         Match               = 'ボリュームラベルが BLEMICROPRO のドライブ'
-        BootloaderHint      = '電源スイッチを OFF にしてから USB ケーブルでつなぐか、FUNC レイヤーの &bootloader キーを押してください。'
+        BootloaderHint      = @(
+            '電源スイッチを OFF にしてから USB ケーブルでつなぐか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
+            '左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
+        )
         AfterFlashHint      = 'USB ケーブルを抜き、電源スイッチを ON にしてから USB ケーブルを差し直すと、書き込んだファームウェアで起動します (settings_reset はこのときに設定を消します)。'
         ReturnsToBootloader = $true
     },
@@ -125,7 +131,7 @@ $BOARDS = @(
         InfoPattern         = 'RPI-RP2'
         VolumeLabel         = $null
         Match               = 'INFO_UF2.TXT に RPI-RP2 があるドライブ'
-        BootloaderHint      = 'Keyboard Quantizer Mini の FUNC レイヤーの QK_BOOT キーを押してください。'
+        BootloaderHint      = @('Keyboard Quantizer Mini の FUNC レイヤーの QK_BOOT キーを押してください。')
         AfterFlashHint      = 'Keyboard Quantizer Mini は、LED が点灯して入力できるようになるまで数十秒かかることがあります。'
         ReturnsToBootloader = $false
     }
@@ -377,10 +383,10 @@ while ($true) {
                 $switched = Request-KqMiniBootloader
             }
             if (-not $switched) {
-                Write-Host "  $($board.BootloaderHint)"
+                foreach ($line in $board.BootloaderHint) { Write-Host "  $line" }
             }
         } else {
-            Write-Host "  $($board.BootloaderHint)"
+            foreach ($line in $board.BootloaderHint) { Write-Host "  $line" }
         }
         $announced = $true
     }
