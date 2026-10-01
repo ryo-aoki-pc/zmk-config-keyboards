@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "generator": "tools/expected/generate.py",
+  "id": "keyball39",
+  "name": "Keyball39",
+  "kind": "via",
+  "sources": [
+    {
+      "submodule": "keyball",
+      "commit": "2f2a27b86ed226feff6fc1d9e18ac074840f5b8c",
+      "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/info.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
+    },
+    {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["vial_keymap_docgen.py"]}
+  ],
+  "device": {"usb_vid": "5957", "usb_pid": "0200", "usage_page": "FF60", "usage": "61"},
+  "layers": [
+    {"index": 0, "name": "BASE (LisM の BASE 相当)"},
+    {"index": 1, "name": "AML (MOUSE_MOVE 相当)"},
+    {"index": 2, "name": "SCROLL (MOUSE_SCROLL 相当)"},
+    {"index": 3, "name": "設定"}
+  ],
+  "physical": {
+    "layout": "LAYOUT_right_ball",
+    "keys": [
+      {"pos": 0, "matrix": [0, 0], "x": 0, "y": 0, "w": 1, "h": 1, "label": "L00", "hand": "left", "present": true, "legend": "Q"},
+      {"pos": 1, "matrix": [0, 1], "x": 1, "y": 0, "w": 1, "h": 1, "label": "L01", "hand": "left", "present": true, "legend": "W"},
+      {"pos": 2, "matrix": [0, 2], "x": 2, "y": 0, "w": 1, "h": 1, "label": "L02", "hand": "left", "present": true, "legend": "E"},
+      {"pos": 3, "matrix": [0, 3], "x": 3, "y": 0, "w": 1, "h": 1, "label": "L03", "hand": "left", "present": true, "legend": "R"},
+      {"pos": 4, "matrix": [0, 4], "x": 4, "y": 0, "w": 1, "h": 1, "label": "L04", "hand": "left", "present": true, "legend": "T"},
+      {"pos": 5, "matrix": [4, 4], "x": 7, "y": 0, "w": 1, "h": 1, "label": "R04", "hand": "right", "present": true, "legend": "Y"},
+      {"pos": 6, "matrix": [4, 3], "x": 8, "y": 0, "w": 1, "h": 1, "label": "R03", "hand": "right", "present": true, "legend": "U"},
+      {"pos": 7, "matrix": [4, 2], "x": 9, "y": 0, "w": 1, "h": 1, "label": "R02", "hand": "right", "present": true, "legend": "I"},
+      {"pos": 8, "matrix": [4, 1], "x": 10, "y": 0, "w": 1, "h": 1, "label": "R01", "hand": "right", "present": true, "legend": "O"},
+      {"pos": 9, "matrix": [4, 0], "x": 11, "y": 0, "w": 1, "h": 1, "label": "R00", "hand": "right", "present": true, "legend": "P"},
+      {"pos": 10, "matrix": [1, 0], "x": 0, "y": 1, "w": 1, "h": 1, "label": "L10", "hand": "left", "present": true, "legend": "A"},
+      {"pos": 11, "matrix": [1, 1], "x": 1, "y": 1, "w": 1, "h": 1, "label": "L11", "hand": "left", "present": true, "legend": "S"},
+      {"pos": 12, "matrix": [1, 2], "x": 2, "y": 1, "w": 1, "h": 1, "label": "L12", "hand": "left", "present": true, "legend": "D"},
+      {"pos": 13, "matrix": [1, 3], "x": 3, "y": 1, "w": 1, "h": 1, "label": "L13", "hand": "left", "present": true, "legend": "F"},
+      {"pos": 14, "matrix": [1, 4], "x": 4, "y": 1, "w": 1, "h": 1, "label": "L14", "hand": "left", "present": true, "legend": "G"},
+      {"pos": 15, "matrix": [5, 4], "x": 7, "y": 1, "w": 1, "h": 1, "label": "R14", "hand": "right", "present": true, "legend": "H"},
+      {"pos": 16, "matrix": [5, 3], "x": 8, "y": 1, "w": 1, "h": 1, "label": "R13", "hand": "right", "present": true, "legend": "J"},
+      {"pos": 17, "matrix": [5, 2], "x": 9, "y": 1, "w": 1, "h": 1, "label": "R12", "hand": "right", "present": true, "legend": "K"},
+      {"pos": 18, "matrix": [5, 1], "x": 10, "y": 1, "w": 1, "h": 1, "label": "R11", "hand": "right", "present": true, "legend": "L"},
+      {"pos": 19, "matrix": [5, 0], "x": 11, "y": 1, "w": 1, "h": 1, "label": "R10", "hand": "right", "present": true, "legend": "-"},
+      {"pos": 20, "matrix": [2, 0], "x": 0, "y": 2, "w": 1, "h": 1, "label": "L20", "hand": "left", "present": true, "legend": "Z"},
+      {"pos": 21, "matrix": [2, 1], "x": 1, "y": 2, "w": 1, "h": 1, "label": "L21", "hand": "left", "present": true, "legend": "X"},
+      {"pos": 22, "matrix": [2, 2], "x": 2, "y": 2, "w": 1, "h": 1, "label": "L22", "hand": "left", "present": true, "legend": "C"},
+      {"pos": 23, "matrix": [2, 3], "x": 3, "y": 2, "w": 1, "h": 1, "label": "L23", "hand": "left", "present": true, "legend": "V"},
+      {"pos": 24, "matrix": [2, 4], "x": 4, "y": 2, "w": 1, "h": 1, "label": "L24", "hand": "left", "present": true, "legend": "B"},
+      {"pos": 25, "matrix": [6, 4], "x": 7, "y": 2, "w": 1, "h": 1, "label": "R24", "hand": "right", "present": true, "legend": "N"},
+      {"pos": 26, "matrix": [6, 3], "x": 8, "y": 2, "w": 1, "h": 1, "label": "R23", "hand": "right", "present": true, "legend": "M"},
+      {"pos": 27, "matrix": [6, 2], "x": 9, "y": 2, "w": 1, "h": 1, "label": "R22", "hand": "right", "present": true, "legend": ","},
+      {"pos": 28, "matrix": [6, 1], "x": 10, "y": 2, "w": 1, "h": 1, "label": "R21", "hand": "right", "present": true, "legend": "."},
+      {"pos": 29, "matrix": [6, 0], "x": 11, "y": 2, "w": 1, "h": 1, "label": "R20", "hand": "right", "present": true, "legend": "/"},
+      {"pos": 30, "matrix": [3, 0], "x": 0, "y": 3, "w": 1, "h": 1, "label": "L30", "hand": "left", "present": true, "legend": "`"},
+      {"pos": 31, "matrix": [3, 1], "x": 1, "y": 3, "w": 1, "h": 1, "label": "L31", "hand": "left", "present": true, "legend": "Win"},
+      {"pos": 32, "matrix": [3, 2], "x": 2, "y": 3, "w": 1, "h": 1, "label": "L32", "hand": "left", "present": true, "legend": "Alt"},
+      {"pos": 33, "matrix": [3, 3], "x": 3, "y": 3, "w": 1, "h": 1, "label": "L33", "hand": "left", "present": true, "legend": "Space"},
+      {"pos": 34, "matrix": [3, 4], "x": 4, "y": 3, "w": 1, "h": 1, "label": "L34", "hand": "left", "present": true, "legend": "Space"},
+      {"pos": 35, "matrix": [3, 5], "x": 5, "y": 3, "w": 1, "h": 1, "label": "L35", "hand": "left", "present": true, "legend": "RAlt"},
+      {"pos": 36, "matrix": [7, 5], "x": 6, "y": 3, "w": 1, "h": 1, "label": "R35", "hand": "right", "present": true, "legend": "Caps"},
+      {"pos": 37, "matrix": [7, 4], "x": 7, "y": 3, "w": 1, "h": 1, "label": "R34", "hand": "right", "present": true, "legend": "Enter"},
+      {"pos": 38, "matrix": [7, 3], "x": 8, "y": 3, "w": 1, "h": 1, "label": "R33", "hand": "right", "present": false, "legend": ""},
+      {"pos": 39, "matrix": [7, 2], "x": 9, "y": 3, "w": 1, "h": 1, "label": "R32", "hand": "right", "present": false, "legend": ""},
+      {"pos": 40, "matrix": [7, 1], "x": 10, "y": 3, "w": 1, "h": 1, "label": "R31", "hand": "right", "present": false, "legend": "`"},
+      {"pos": 41, "matrix": [7, 0], "x": 11, "y": 3, "w": 1, "h": 1, "label": "R30", "hand": "right", "present": true, "legend": "`"}
+    ]
+  },
+  "readout": {
+    "via": {
+      "protocol_min": 12,
+      "layer_count": 4,
+      "rows": 8,
+      "cols": 6,
+      "keymap": [
+        [
+          [20, 26, 8, 21, 23, 0],
+          [4, 22, 7, 9, 10, 0],
+          [29, 27, 6, 25, 5, 0],
+          [53, 227, 226, 44, 44, 230],
+          [19, 18, 12, 24, 28, 0],
+          [45, 15, 14, 13, 11, 0],
+          [56, 55, 54, 16, 17, 0],
+          [53, 53, 0, 0, 40, 57]
+        ],
+        [
+          [0, 0, 0, 0, 0, 0],
+          [224, 0, 21026, 0, 0, 0],
+          [225, 0, 0, 0, 0, 0],
+          [0, 227, 226, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0],
+          [228, 0, 21026, 0, 0, 0],
+          [229, 0, 0, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0]
+        ],
+        [
+          [0, 0, 0, 0, 0, 0],
+          [224, 210, 0, 209, 0, 0],
+          [225, 213, 0, 212, 0, 0],
+          [0, 227, 226, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0],
+          [228, 210, 0, 209, 0, 0],
+          [229, 213, 0, 212, 0, 0],
+          [0, 0, 0, 0, 0, 0]
+        ],
+        [
+          [30752, 32266, 32267, 32268, 1, 0],
+          [30753, 30755, 30757, 30759, 32264, 0],
+          [30754, 30756, 30758, 30760, 32265, 0],
+          [31744, 32256, 1, 1, 1, 1],
+          [32271, 32269, 32270, 1, 1, 0],
+          [1, 1, 1, 1, 1, 0],
+          [32257, 32260, 32258, 32259, 32261, 0],
+          [31744, 32256, 1, 1, 1, 1]
+        ]
+      ],
+      "tokens": [
+        ["KC_Q", "KC_W", "KC_E", "KC_R", "KC_T", "KC_Y", "KC_U", "KC_I", "KC_O", "KC_P", "KC_A", "KC_S", "KC_D", "KC_F", "KC_G", "KC_H", "KC_J", "KC_K", "KC_L", "KC_MINS", "KC_Z", "KC_X", "KC_C", "KC_V", "KC_B", "KC_N", "KC_M", "KC_COMM", "KC_DOT", "KC_SLSH", "KC_GRV", "KC_LGUI", "KC_LALT", "KC_SPC", "KC_SPC", "KC_RALT", "KC_CAPS", "KC_ENT", "&none", "&none", "KC_GRV", "KC_GRV"],
+        ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_LCTL", "&none", "MO(2)", "&none", "&none", "&none", "&none", "MO(2)", "&none", "KC_RCTL", "KC_LSFT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_RSFT", "&none", "KC_LGUI", "KC_LALT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
+        ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_LCTL", "KC_BTN2", "&none", "KC_BTN1", "&none", "&none", "KC_BTN1", "&none", "KC_BTN2", "KC_RCTL", "KC_LSFT", "KC_BTN5", "&none", "KC_BTN4", "&none", "&none", "KC_BTN4", "&none", "KC_BTN5", "KC_RSFT", "&none", "KC_LGUI", "KC_LALT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
+        ["RGB_TOG", "AML_TO", "AML_I50", "AML_D50", "&trans", "&trans", "&trans", "SSNP_HOR", "SSNP_VRT", "SSNP_FRE", "RGB_MOD", "RGB_HUI", "RGB_SAI", "RGB_VAI", "SCRL_DVI", "&trans", "&trans", "&trans", "&trans", "&trans", "RGB_RMOD", "RGB_HUD", "RGB_SAD", "RGB_VAD", "SCRL_DVD", "CPI_D1K", "CPI_D100", "CPI_I100", "CPI_I1K", "KBC_SAVE", "QK_BOOT", "KBC_RST", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "KBC_RST", "QK_BOOT"]
+      ],
+      "layout_options": {"mask": 3, "value": 1, "ball": "Right"},
+      "macros_empty": true,
+      "status": {
+        "format": 1,
+        "model": 39,
+        "cpi": 5,
+        "scroll_div": 5,
+        "scroll_snap": 2,
+        "aml_enabled": true,
+        "aml_layer": 1,
+        "aml_timeout": 10000,
+        "aml_delay": 200,
+        "scroll_layer": 2,
+        "cpi_default": 5,
+        "scroll_div_default": 5
+      },
+      "custom_keycodes": [
+        [32256, "KBC_RST"],
+        [32257, "KBC_SAVE"],
+        [32258, "CPI_I100"],
+        [32259, "CPI_D100"],
+        [32260, "CPI_I1K"],
+        [32261, "CPI_D1K"],
+        [32262, "SCRL_TO"],
+        [32263, "SCRL_MO"],
+        [32264, "SCRL_DVI"],
+        [32265, "SCRL_DVD"],
+        [32266, "AML_TO"],
+        [32267, "AML_I50"],
+        [32268, "AML_D50"],
+        [32269, "SSNP_VRT"],
+        [32270, "SSNP_HOR"],
+        [32271, "SSNP_FRE"]
+      ]
+    }
+  },
+  "interactive": {
+    "taps": [],
+    "skipped": [],
+    "trackball": {
+      "balls": ["right"],
+      "ask_balls": false,
+      "aml": {"layer": 1, "scroll_layer": 2, "timeout_ms": 10000, "require_prior_idle_ms": 200},
+      "keys": {
+        "left": {
+          "scroll": {"pos": 12, "legend": "D"},
+          "click": {"pos": 13, "button": 1, "legend": "F"},
+          "shift": {"pos": 20, "usage": 225, "legend": "Z"},
+          "after_timeout": {"pos": 13, "usage": 9, "legend": "F"}
+        },
+        "right": {
+          "scroll": {"pos": 17, "legend": "K"},
+          "click": {"pos": 16, "button": 1, "legend": "J"},
+          "shift": {"pos": 29, "usage": 229, "legend": "/"},
+          "after_timeout": {"pos": 16, "usage": 13, "legend": "J"}
+        }
+      },
+      "firmware": [
+        {
+          "side": "right",
+          "sensor": "pmw3360",
+          "cpi": 500,
+          "cpi_source": "keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_CPI_DEFAULT (既定 500)",
+          "xy_scaler": [1, 1],
+          "matrix": null,
+          "divisor": null,
+          "correction": "cpi_only",
+          "listener": "Keyball のファーム (X/Y を別々に補正する機能は無い)"
+        }
+      ]
+    },
+    "output_switch": null
+  },
+  "consistency": [
+    {"level": "ok", "message": "AML のタイムアウト AUTO_MOUSE_TIME = 10000 (LisM 10000)"},
+    {"level": "ok", "message": "AML の発動条件 AUTO_MOUSE_DELAY = 200 (LisM require-prior-idle-ms 200)"},
+    {"level": "ok", "message": "スクロールの倍率 1/16 (KEYBALL_SCROLL_DIV_DEFAULT 5、LisM 1/16)"}
+  ]
+}
