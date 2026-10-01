@@ -1,5 +1,5 @@
 ﻿# 各ファームウェアリポジトリの CI が置く firmware-latest リリース (custom ブランチの最新ビルド) から
-# ファームウェアをダウンロードする関数。flash-keyball.ps1 / flash-kq-mini.ps1 から dot-source して使う。
+# ファームウェアをダウンロードする関数。flash-keyball.ps1 / flash-kq-mini.ps1 / flash-zmk.ps1 から dot-source して使う。
 #
 #   https://github.com/<Repo>/releases/download/firmware-latest/<Asset>
 #   https://github.com/<Repo>/releases/download/firmware-latest/BUILD_INFO.txt
@@ -43,16 +43,21 @@ function Get-FirmwareLatest {
         [Parameter(Mandatory = $true)]
         [string]$OutDir,
 
-        [string]$Tag = 'firmware-latest'
+        [string]$Tag = 'firmware-latest',
+
+        # 見出しと BUILD_INFO.txt の表示を省く (同じリリースから複数のファイルを取得するとき用。
+        # BUILD_INFO.txt は Show-FirmwareBuildInfo で別に表示する)
+        [switch]$Quiet
     )
 
     $base = "https://github.com/$Repo/releases/download/$Tag"
-    $dir = Join-Path $OutDir ($Repo -replace '[\\/]', '_')
-    [void](New-Item -ItemType Directory -Force -Path $dir)
+    $dir = Get-FirmwareCacheDir $Repo $OutDir
     $dest = Join-Path $dir $Asset
     $tmp = "$dest.download"
 
-    Write-Host "最新のファームウェアをダウンロードしています: $Repo ($Tag)"
+    if (-not $Quiet) {
+        Write-Host "最新のファームウェアをダウンロードしています: $Repo ($Tag)"
+    }
     try {
         Invoke-FirmwareDownload "$base/$Asset" $tmp
     } catch {
@@ -67,16 +72,37 @@ function Get-FirmwareLatest {
     Move-Item -LiteralPath $tmp -Destination $dest -Force
     Write-Host ("  {0} ({1:N0} バイト)" -f $Asset, (Get-Item -LiteralPath $dest).Length)
 
-    # BUILD_INFO.txt (コミット / ビルド日時) は表示するだけなので、取れなくても続行する
-    $info = Join-Path $dir 'BUILD_INFO.txt'
+    if (-not $Quiet) {
+        Show-FirmwareBuildInfo -Repo $Repo -OutDir $OutDir -Tag $Tag
+    }
+    return $dest
+}
+
+function Get-FirmwareCacheDir([string]$Repo, [string]$OutDir) {
+    $dir = Join-Path $OutDir ($Repo -replace '[\\/]', '_')
+    [void](New-Item -ItemType Directory -Force -Path $dir)
+    return $dir
+}
+
+# BUILD_INFO.txt (コミット / ビルド日時) を表示する。表示するだけなので、取れなくても続行する。
+function Show-FirmwareBuildInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Repo,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutDir,
+
+        [string]$Tag = 'firmware-latest'
+    )
+
+    $info = Join-Path (Get-FirmwareCacheDir $Repo $OutDir) 'BUILD_INFO.txt'
     try {
-        Invoke-FirmwareDownload "$base/BUILD_INFO.txt" $info
+        Invoke-FirmwareDownload "https://github.com/$Repo/releases/download/$Tag/BUILD_INFO.txt" $info
         foreach ($line in [System.IO.File]::ReadAllLines($info)) {
             if ($line -match '^(commit|built):') { Write-Host "  $line" }
         }
     } catch {
         Write-Host '  (BUILD_INFO.txt は取得できませんでした)' -ForegroundColor DarkGray
     }
-
-    return $dest
 }
