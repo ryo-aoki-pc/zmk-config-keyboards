@@ -98,8 +98,9 @@ $BOARDS = @(
         VolumeLabel         = $null
         Match               = 'INFO_UF2.TXT に nRF52840 があるドライブ'
         BootloaderHint      = @(
-            'リセットボタンを素早く 2 回押すか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
-            '左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
+            'リセットボタンを素早く 2 回押すか、Q (左手側) / P (右手側) を押したまま USB ケーブルを挿してください (ドライブが現れたら離す)。'
+            'FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) でも切り替えられます。'
+            '左手側を FUNC + B で切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
         )
         AfterFlashHint      = $null
         ReturnsToBootloader = $false
@@ -115,10 +116,11 @@ $BOARDS = @(
         VolumeLabel         = 'BLEMICROPRO'
         Match               = 'ボリュームラベルが BLEMICROPRO のドライブ'
         BootloaderHint      = @(
-            '電源スイッチを OFF にしてから USB ケーブルでつなぐか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
-            '左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
+            '電源スイッチを OFF にしてから USB ケーブルでつなぐか、スイッチ ON のまま Q (左手側) / P (右手側) を押しながら USB ケーブルでつないでください (ドライブが現れたら離す)。'
+            'FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) でも切り替えられます。'
+            '左手側を FUNC + B で切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
         )
-        AfterFlashHint      = 'USB ケーブルを抜き、電源スイッチを ON にしてから USB ケーブルを差し直すと、書き込んだファームウェアで起動します (settings_reset はこのときに設定を消します)。'
+        AfterFlashHint      = '電源スイッチが OFF のときは、USB ケーブルを抜き、電源スイッチを ON にしてから USB ケーブルを差し直すと、書き込んだファームウェアで起動します (settings_reset はこのときに設定を消します)。'
         ReturnsToBootloader = $true
     },
     [pscustomobject]@{
@@ -148,7 +150,15 @@ $KQMINI_PNP_DEVICE_ID = 'USB\VID_FEED&PID_999C*'
 # それより前のファームウェアが入った KQ-mini も切り替えられるように埋めて送り続ける。
 $KQMINI_CDC_EPSIZE = 16
 
+# キーボードを Q / P + USB でブートローダにすると、押したキーがもう片側や PC 経由でこのコンソールに
+# 入力されることがある。残っていると .cmd の pause がそれを読んで、結果を読む前に窓が閉じるので、
+# 終了する前に捨てる。コンソールが無いホストでは何もしない。
+function Clear-ConsoleInput {
+    try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
+}
+
 function Stop-WithError([string]$Message) {
+    Clear-ConsoleInput
     Write-Host ''
     Write-Host "失敗: $Message" -ForegroundColor Red
     exit 1
@@ -474,7 +484,9 @@ if (-not $gone) {
 
 Start-Sleep -Seconds 3
 if ((Test-Uf2DriveRoot $root) -and -not $board.ReturnsToBootloader) {
-    Stop-WithError 'ドライブが一度消えた後、ブートローダが再び起動しました。ファームウェアが起動していない可能性があります。'
+    Stop-WithError ("ドライブが一度消えた後、ブートローダが再び起動しました。ファームウェアが起動していない可能性があります。`n" +
+        '  Q / P を押したままだった場合は、書き込んだファームウェアが起動してまたブートローダに入っただけで、書き込みはできています。' +
+        'キーを離して、リセットボタンを 1 回押すか、USB ケーブルを挿し直してください。')
 }
 
 Write-Host ''
@@ -486,4 +498,5 @@ if ($writeError) {
     Write-Host "  (ドライブ切断によるエラー「$($writeError.Message.Trim())」は、" -ForegroundColor DarkGray
     Write-Host '   ブートローダが書き込み完了直後に再起動するために出る想定どおりのものです)' -ForegroundColor DarkGray
 }
+Clear-ConsoleInput
 exit 0
