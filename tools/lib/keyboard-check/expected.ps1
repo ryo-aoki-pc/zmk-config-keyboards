@@ -12,7 +12,7 @@ function Read-KcJson([string]$Path) {
 
 $script:KcExpectedCache = @{}
 
-# 期待値の JSON (id: common / kq-mini / keyball39 / lism / kukey42 / aroundfortyrb / pyuron) を読む
+# 期待値の JSON (id: common / kq-mini / keyball39 / lism / kukey42 / aroundfortyrb / pyuron / roba / torabo-tsuki-lp) を読む
 function Get-KcExpected([string]$Id, [string]$Dir) {
     $key = "$Dir|$Id"
     if (-not $script:KcExpectedCache.ContainsKey($key)) {

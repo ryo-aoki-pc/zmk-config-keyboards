@@ -8,7 +8,7 @@
 
 $common = Get-KcExpected 'common' $script:ExpectedDir
 $zmkExpected = @{}
-foreach ($id in @('lism', 'kukey42', 'aroundfortyrb', 'pyuron')) {
+foreach ($id in @('lism', 'kukey42', 'aroundfortyrb', 'pyuron', 'roba', 'torabo-tsuki-lp')) {
     $e = Get-KcExpected $id $script:ExpectedDir
     $zmkExpected[[string]$e.device.product] = $e
 }

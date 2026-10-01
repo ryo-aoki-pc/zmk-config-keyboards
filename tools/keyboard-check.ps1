@@ -8,7 +8,8 @@
     読み出し検査 (キーボードの設定を読み出して比べる。設定は書き換えない)
       - Keyboard Quantizer Mini: Vial でキーマップ・タップホールド設定・タップダンス・キーオーバーライド・マクロ
       - Keyball39 (PC に直結): VIA でキーマップ・Ball availability・CPI / スクロール / AML の設定
-      - ZMK (LisM / AroundFortyRB / KUKEY42 / Pyuron): ZMK Studio 版の右手側を USB でつなぐと、キーマップ
+      - ZMK (LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp): ZMK Studio 版の右手側を USB で
+        つなぐと、キーマップ
 
     実動作テスト (テスト用のウィンドウで、キーを押す・ボールを転がす)
       - BASE レイヤーのキーのタップ、ボールの向き、AML のクリック、Shift + クリック、スクロールの向き、AML のタイムアウト
@@ -17,7 +18,7 @@
     結果は PASS / FAIL / WARN / SKIP で表示し、tools/.cache/keyboard-check/reports/ にも保存します。
 
 .PARAMETER Keyboard
-    機種 (KqMini / Keyball39 / LisM / AroundFortyRB / KUKEY42 / Pyuron)。省略するとメニューで選びます。
+    機種 (KqMini / Keyball39 / LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp)。省略するとメニューで選びます。
     KqMini は、Keyboard Quantizer Mini に Keyball39 をつないだ状態です。
 
 .PARAMETER Mode
@@ -55,7 +56,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('KqMini', 'Keyball39', 'LisM', 'AroundFortyRB', 'KUKEY42', 'Pyuron')]
+    [ValidateSet('KqMini', 'Keyball39', 'LisM', 'AroundFortyRB', 'KUKEY42', 'Pyuron', 'roBa', 'torabo-tsuki-lp')]
     [string]$Keyboard,
 
     [ValidateSet('All', 'Readout', 'Interactive')]
@@ -108,10 +109,13 @@ $common = Get-KcExpected 'common' $ExpectedDir
 $boards = @(
     @{ Key = 'KqMini'; Id = 'kq-mini'; Label = 'Keyboard Quantizer Mini + Keyball39' },
     @{ Key = 'Keyball39'; Id = 'keyball39'; Label = 'Keyball39 (PC に直結)' },
-    @{ Key = 'LisM'; Id = 'lism'; Label = 'LisM' },
-    @{ Key = 'AroundFortyRB'; Id = 'aroundfortyrb'; Label = 'AroundFortyRB' },
-    @{ Key = 'KUKEY42'; Id = 'kukey42'; Label = 'KUKEY42' },
-    @{ Key = 'Pyuron'; Id = 'pyuron'; Label = 'Pyuron' }
+    # Product: ZMK Studio のデバイス名 (期待値の device.product = CONFIG_ZMK_KEYBOARD_NAME)
+    @{ Key = 'LisM'; Id = 'lism'; Label = 'LisM'; Product = 'LisM' },
+    @{ Key = 'AroundFortyRB'; Id = 'aroundfortyrb'; Label = 'AroundFortyRB'; Product = 'AroundFortyRB' },
+    @{ Key = 'KUKEY42'; Id = 'kukey42'; Label = 'KUKEY42'; Product = 'KUKEY42' },
+    @{ Key = 'Pyuron'; Id = 'pyuron'; Label = 'Pyuron'; Product = 'Pyuron' },
+    @{ Key = 'roBa'; Id = 'roba'; Label = 'roBa'; Product = 'roBa' },
+    @{ Key = 'torabo-tsuki-lp'; Id = 'torabo-tsuki-lp'; Label = 'torabo-tsuki-lp'; Product = 'torabo-tsuki' }
 )
 
 function Read-KcChoice([string]$Prompt, [int]$Count, [int]$Default) {
@@ -158,13 +162,13 @@ if ($isWindowsHost) {
     }
 }
 
-function Get-KcDetection([string]$Key) {
-    switch ($Key) {
+function Get-KcDetection($Board) {
+    switch ($Board.Key) {
         'KqMini' { if ($found.KqMini.Count -gt 0) { return '検出: KQ-mini' } }
         'Keyball39' { if ($found.Keyball.Count -gt 0) { return '検出: Keyball39 (VIA)' } }
         default {
             foreach ($p in $found.StudioPorts) {
-                if ([string]::Equals($found.StudioNames[$p.Port], $Key, [System.StringComparison]::OrdinalIgnoreCase)) {
+                if ([string]::Equals($found.StudioNames[$p.Port], $Board.Product, [System.StringComparison]::OrdinalIgnoreCase)) {
                     return ('検出: Studio 版 {0}' -f $p.Port)
                 }
             }
@@ -182,7 +186,7 @@ if (-not $Keyboard) {
     Write-Host '検査するキーボード:'
     $default = 0
     for ($i = 0; $i -lt $boards.Count; $i++) {
-        $d = Get-KcDetection $boards[$i].Key
+        $d = Get-KcDetection $boards[$i]
         if ($d -and $default -eq 0) {
             $default = $i + 1
         }
@@ -291,12 +295,12 @@ if ($Mode -ne 'Interactive') {
         }
         default {
             $zmkExpected = @{}
-            foreach ($id in @('lism', 'kukey42', 'aroundfortyrb', 'pyuron')) {
-                $e = Get-KcExpected $id $ExpectedDir
+            foreach ($b in @($boards | Where-Object { $_.ContainsKey('Product') })) {
+                $e = Get-KcExpected $b.Id $ExpectedDir
                 $zmkExpected[[string]$e.device.product] = $e
             }
             $ports = @($found.StudioPorts)
-            $match = @($ports | Where-Object { [string]::Equals($found.StudioNames[$_.Port], $board.Key, [System.StringComparison]::OrdinalIgnoreCase) })
+            $match = @($ports | Where-Object { [string]::Equals($found.StudioNames[$_.Port], $board.Product, [System.StringComparison]::OrdinalIgnoreCase) })
             if ($match.Count -gt 0) {
                 $ports = $match
             }
@@ -305,7 +309,7 @@ if ($Mode -ne 'Interactive') {
                 [void](Add-KcResult -Results $results -Category ('{0} (Studio)' -f $expected.name) -Item 'キーマップの読み出し' -Status SKIP `
                         -Actual 'ZMK Studio 版が USB で見つかりません' -Hint (
                         "キーマップを読み出すには、右手側に ZMK Studio 版 ($artifacts) を書き込み、USB でつないでください。`n" +
-                        'tools/flash-zmk.cmd で機種と「3. 右手側だけ」を選び、ファイルの一覧で s を押すと Studio 版になります。実動作テストは Studio 版でなくてもできます'))
+                        'tools/flash-zmk.cmd で機種と「3. 右手側 (セントラル) だけ」を選び、ファイルの一覧で s を押すと Studio 版になります。実動作テストは Studio 版でなくてもできます'))
             } else {
                 $t = $null
                 try {

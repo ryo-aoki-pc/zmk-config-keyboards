@@ -382,7 +382,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 | --- | --- | --- |
 | Keyboard Quantizer Mini + Keyball39 | KQ-mini のキーマップ (全 8 レイヤー)、タップホールド設定 (tapping term など)、タップダンス、キーオーバーライド、コンボ、マクロ | KQ-mini を PC につなぐ。Vial は閉じる |
 | Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12) 以降のファームで読める |
-| LisM / AroundFortyRB / KUKEY42 / Pyuron | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash-zmk.cmd` のファイルの一覧で `s`)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash-zmk.cmd` のファイルの一覧で `s`)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
 
 ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio では読めないので、実動作テストで確かめます。
 
@@ -413,19 +413,28 @@ ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio で
 | 機種 | 推奨値 |
 | --- | --- |
 | KUKEY42 | `KUKEY42_R.overlay` の `trackball_matrix` の `matrix` / `divisor` の行 (今の行列に補正を掛けた値) |
-| LisM / AroundFortyRB / Pyuron | listener の `input-processors` の最後に足す `<&zip_x_scaler n d>, <&zip_y_scaler n d>`。傾きがあって軸ごとの倍率で直せないときは、KUKEY42 の 2x2 行列の入力プロセッサ (`src/input_processor_xy_matrix.c`) の移植が必要 |
+| LisM / AroundFortyRB / Pyuron / roBa / torabo-tsuki-lp | listener の `input-processors` で `<&trackball_accel>` より前に足す `<&zip_x_scaler n d>, <&zip_y_scaler n d>`。傾きがあって軸ごとの倍率で直せないときは、KUKEY42 の 2x2 行列の入力プロセッサ (`src/input_processor_xy_matrix.c`) の移植が必要 |
 | Keyball39 / KQ-mini | X と Y を別々に補正する設定が無いので、測った値だけを表示する |
 
 計算は「KUKEY42 真円計測」ページと同じです (移動量の共分散から、楕円を同じ面積の円に戻す行列を求める)。
 ページはブラウザで OS のポインタの加速が入った値を測るため、補正の強さを下げる必要がありました。
-このスクリプトは Raw Input で、そのボールの加速前の値だけを測るので、補正の強さは 100% のまま使えます (`-CalibStrength` で変えられる)。
+このスクリプトは Raw Input で、そのボールの値だけを OS の加速の前に測るので、補正の強さは 100% のまま使えます (`-CalibStrength` で変えられる)。
 直線のテスト (右へ / 手前へ) で 5° 以上ずれていれば、回転も補正に入れます。
+
+キーボードのファームの[カーソルの加速](#カーソルの加速の調整) (ZMK の `trackball_accel`、Keyball39 の `KEYBALL_ACCEL_*`) は、
+測った移動量から取り除いてから計算します。加速の後の値のままだと、速く動く長軸の向きほど大きく出て楕円が実際より細長くなり、
+速さも転がす速さで変わってしまうためです。取り除く計算はファームの処理と完全には同じではありませんが、
+ファームの処理を真似た計算での確認では、縦横比と 1 回転あたりのカウントの誤差は 3% 以内です。
+推奨値の補正は、加速より前 (ZMK は `<&trackball_accel>` より前) に入れます。
 
 **速さ (キーボード間)**: ボールに印を付け、右へちょうど 2 回転を 2 回、手前へちょうど 2 回転を 2 回転がします。
 ボールの直径を入れると、指の移動量あたりの速さ (実効 CPI) で比べます。
 
 - 最初に LisM で測ると、基準として `tools/.cache/keyboard-check/trackball.json` に保存される (`-SpeedReference` でも指定できる)
-- ほかの機種で、基準との差が ±10% を超えると WARN になり、推奨値を出す: ZMK は `<&zip_xy_scaler n d>`、PMW3610 の機種 (KUKEY42 / AroundFortyRB) は CPI の案も、Keyball39 は `KEYBALL_CPI_DEFAULT`
+- ほかの機種で、基準との差が ±10% を超えると WARN になり、推奨値を出す: PMW3610 の機種 (KUKEY42 / AroundFortyRB / roBa) は CPI、
+  ZMK は `<&zip_xy_scaler n d>` (`<&trackball_accel>` より前)、Keyball39 は `KEYBALL_CPI_DEFAULT`。
+  CPI を変えられる機種は CPI を先に出す (倍率を 1 より大きくすると、1 カウントでカーソルが 2 以上動き、細かさが落ちるため)
+- Keyball39 は 1 回の報告が ±127 で頭打ちになるので、速く回しすぎたときはやり直しを促す
 
 ### 判定と対処
 
@@ -449,7 +458,7 @@ ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio で
 `-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに検査します。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron] [-Mode All|Readout|Interactive] [-Section All|Keys|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
+powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive] [-Section All|Keys|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
 ```
 
 終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です。
