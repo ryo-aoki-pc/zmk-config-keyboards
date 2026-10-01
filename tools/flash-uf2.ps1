@@ -1,8 +1,12 @@
 ﻿<#
 .SYNOPSIS
-    XIAO nRF52840 (Adafruit nRF52 UF2 ブートローダ) に .uf2 ファームウェアを書き込みます。
+    UF2 ブートローダ (XIAO nRF52840 / RP2040) に .uf2 ファームウェアを書き込みます。
 
 .DESCRIPTION
+    書き込み先のボードは .uf2 のファミリ ID から自動で判定します。
+      - nRF52840: Seeed XIAO nRF52840 (Adafruit nRF52 UF2 ブートローダ)。LisM / AroundFortyRB / KUKEY42 / Pyuron
+      - RP2040  : Keyboard Quantizer Mini (RP2040 の ROM ブートローダ。ドライブ名は RPI-RP2)
+
     エクスプローラで .uf2 をブートローダのドライブへコピーすると、ブートローダは最後のブロックを
     受け取った直後に書き込みを確定して再起動し、USB ドライブが消えます。エクスプローラはその後で
     コピー先ファイルの属性やタイムスタンプを設定しようとするため、書き込み自体は完了しているのに
@@ -11,8 +15,10 @@
     が表示されます。
 
     このスクリプトは次の手順で書き込み、成否を判定します。
-      1. .uf2 の中身 (UF2 ブロック / nRF52840 のファミリ ID / 書き込み先アドレス) を検証する
-      2. ブートローダのドライブ (INFO_UF2.TXT があるドライブ) が現れるのを待つ
+      1. .uf2 の中身 (UF2 ブロック / ファミリ ID / 書き込み先アドレス) を検証する
+      2. ブートローダのドライブ (INFO_UF2.TXT があり、その内容が対象のボードと合うドライブ) が現れるのを待つ。
+         RP2040 の場合は、先に Keyboard Quantizer Mini のシリアルポートへ dfu コマンドを送って
+         ブートローダに切り替える
       3. ファイルサイズを先に確保してからデータだけを書き込む
       4. ドライブが消えたこと (= ブートローダが全ブロックを受け取って再起動したこと) で成功と判定する
 
@@ -25,11 +31,20 @@
 .PARAMETER WaitSeconds
     ブートローダのドライブが現れるまで待つ秒数。
 
+.PARAMETER Target
+    書き込み先のボード (nRF52840 / RP2040)。指定すると、.uf2 のファミリ ID が一致しない場合に中止します。
+
+.PARAMETER NoAutoBootloader
+    RP2040 のとき、Keyboard Quantizer Mini をシリアルポート経由でブートローダに切り替えません。
+
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 AroundForty-RB_right_central.uf2
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 settings_reset-seeeduino_xiao_ble-zmk.uf2 E:
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 sekigon_keyboard_quantizer_mini_vial.uf2
 #>
 [CmdletBinding()]
 param(
@@ -39,7 +54,12 @@ param(
     [Parameter(Position = 1)]
     [string]$Drive,
 
-    [int]$WaitSeconds = 60
+    [int]$WaitSeconds = 60,
+
+    [ValidateSet('nRF52840', 'RP2040')]
+    [string]$Target,
+
+    [switch]$NoAutoBootloader
 )
 
 Set-StrictMode -Version 2.0
@@ -53,16 +73,46 @@ $UF2_MAGIC_START1 = Get-Hex '9E5D5157'
 $UF2_MAGIC_END = Get-Hex '0AB16F30'
 $UF2_FLAG_NOT_MAIN_FLASH = Get-Hex '00000001'
 $UF2_FLAG_FAMILY_ID_PRESENT = Get-Hex '00002000'
-$UF2_FAMILY_NRF52840 = Get-Hex 'ADA52840'
 
-# Adafruit nRF52 ブートローダ (SoftDevice S140 v7) のアプリケーション領域
-$APP_START = Get-Hex '00027000'
-$BOOTLOADER_START = Get-Hex '000F4000'
+# 対応するボード。FamilyId は UF2 のファミリ ID、AppStart-AppEnd は書き込んでよい範囲、
+# InfoPattern はブートローダのドライブの INFO_UF2.TXT に含まれるはずの文字列。
+$BOARDS = @(
+    [pscustomobject]@{
+        Name        = 'nRF52840'
+        Description = 'nRF52840 (Seeed XIAO nRF52840)'
+        FamilyId    = Get-Hex 'ADA52840'
+        # Adafruit nRF52 ブートローダ (SoftDevice S140 v7) のアプリケーション領域
+        AppStart    = Get-Hex '00027000'
+        AppEnd      = Get-Hex '000F4000'
+        InfoPattern = 'nRF52840'
+    },
+    [pscustomobject]@{
+        Name        = 'RP2040'
+        Description = 'RP2040 (Keyboard Quantizer Mini)'
+        FamilyId    = Get-Hex 'E48BFF56'
+        # RP2040 の XIP フラッシュ (最大 16 MB)
+        AppStart    = Get-Hex '10000000'
+        AppEnd      = Get-Hex '11000000'
+        InfoPattern = 'RPI-RP2'
+    }
+)
+
+# Keyboard Quantizer Mini (vial-qmk-kq-mini) の USB デバイス。ファームウェアの CLI に
+# シリアル (CDC) で "dfu" + Enter を送るとブートローダ (RPI-RP2 ドライブ) に切り替わる。
+$KQMINI_PNP_DEVICE_ID = 'USB\VID_FEED&PID_999C*'
 
 function Stop-WithError([string]$Message) {
     Write-Host ''
     Write-Host "失敗: $Message" -ForegroundColor Red
     exit 1
+}
+
+function Get-Uf2Info([string]$Root) {
+    try {
+        return [System.IO.File]::ReadAllText([System.IO.Path]::Combine($Root, 'INFO_UF2.TXT'))
+    } catch {
+        return $null
+    }
 }
 
 function Test-Uf2DriveRoot([string]$Root) {
@@ -88,6 +138,61 @@ function Find-Uf2DriveRoot {
     }
 }
 
+function Test-BoardInfo([string]$Root, $Board) {
+    $info = Get-Uf2Info $Root
+    return ($null -ne $info -and $info.Contains($Board.InfoPattern))
+}
+
+function Find-KqMiniSerialPort {
+    try {
+        $entities = @(Get-CimInstance -ClassName Win32_PnPEntity -Filter "PNPClass = 'Ports'")
+    } catch {
+        return
+    }
+    foreach ($e in $entities) {
+        if ($e.PNPDeviceID -like $KQMINI_PNP_DEVICE_ID -and $e.Name -match '\((COM\d+)\)') {
+            $Matches[1]
+        }
+    }
+}
+
+function Send-KqMiniDfu([string]$Port) {
+    $serial = New-Object System.IO.Ports.SerialPort -ArgumentList $Port, 115200
+    $serial.WriteTimeout = 2000
+    $serial.DtrEnable = $true
+    try {
+        $serial.Open()
+        # 先頭の CR で入力途中の行があれば確定させてから dfu を送る
+        $serial.Write("`rdfu`r")
+        Start-Sleep -Milliseconds 300
+    } finally {
+        # ブートローダに切り替わってポートが消えると Close で例外になることがある
+        try { $serial.Close() } catch { }
+        $serial.Dispose()
+    }
+}
+
+# KQ-mini をブートローダに切り替える。切り替えを指示できたら $true を返す。
+function Request-KqMiniBootloader {
+    $ports = @(Find-KqMiniSerialPort)
+    if ($ports.Count -eq 0) {
+        Write-Host '  Keyboard Quantizer Mini のシリアルポート (VID FEED / PID 999C) が見つかりません。'
+        return $false
+    }
+    if ($ports.Count -gt 1) {
+        Write-Host "  Keyboard Quantizer Mini が複数つながっています ($($ports -join ', '))。自動では切り替えません。"
+        return $false
+    }
+    try {
+        Send-KqMiniDfu $ports[0]
+    } catch {
+        Write-Host "  $($ports[0]) に dfu コマンドを送れませんでした: $($_.Exception.Message)"
+        return $false
+    }
+    Write-Host "  Keyboard Quantizer Mini ($($ports[0])) に dfu コマンドを送り、ブートローダに切り替えました。"
+    return $true
+}
+
 # ---------------------------------------------------------------------------
 # 1. .uf2 の検証
 # ---------------------------------------------------------------------------
@@ -102,6 +207,7 @@ if ($bytes.Length -eq 0 -or ($bytes.Length % 512) -ne 0) {
 }
 
 $blockCount = $bytes.Length / 512
+$board = $null
 $minAddr = [uint32]::MaxValue
 $maxEnd = [uint32]0
 for ($i = 0; $i -lt $blockCount; $i++) {
@@ -122,8 +228,20 @@ for ($i = 0; $i -lt $blockCount; $i++) {
     if (($flags -band $UF2_FLAG_NOT_MAIN_FLASH) -ne 0) {
         Stop-WithError "ブロック $i がフラッシュ書き込み対象外 (not main flash) になっています。"
     }
-    if (($flags -band $UF2_FLAG_FAMILY_ID_PRESENT) -eq 0 -or $family -ne $UF2_FAMILY_NRF52840) {
-        Stop-WithError ("nRF52840 用の UF2 ではありません (family ID: 0x{0:X8})。" -f $family)
+    if (($flags -band $UF2_FLAG_FAMILY_ID_PRESENT) -eq 0) {
+        Stop-WithError "ブロック $i にファミリ ID がありません。書き込み先のボードを判定できません。"
+    }
+    if ($null -eq $board) {
+        $board = $BOARDS | Where-Object { $_.FamilyId -eq $family } | Select-Object -First 1
+        if ($null -eq $board) {
+            $names = ($BOARDS | ForEach-Object { $_.Name }) -join ' / '
+            Stop-WithError ("対応していないボード用の UF2 です (family ID: 0x{0:X8})。対応しているのは {1} です。" -f $family, $names)
+        }
+        if ($Target -and $board.Name -ne $Target) {
+            Stop-WithError "$Target 用ではなく $($board.Description) 用の UF2 です。書き込むファイルを確認してください: $uf2File"
+        }
+    } elseif ($family -ne $board.FamilyId) {
+        Stop-WithError ("ブロック $i のファミリ ID (0x{0:X8}) が他のブロック (0x{1:X8}) と違います。ファイルが壊れている可能性があります。" -f $family, $board.FamilyId)
     }
     if ($payloadSize -ne 256 -or ($addr % 256) -ne 0) {
         Stop-WithError ("ブロック $i の形式がブートローダの要件 (256 バイト単位) と合いません (addr 0x{0:X8}, size {1})。" -f $addr, $payloadSize)
@@ -131,15 +249,15 @@ for ($i = 0; $i -lt $blockCount; $i++) {
     if ($blockNo -ne $i -or $numBlocks -ne $blockCount) {
         Stop-WithError "ブロック番号が不正です (ブロック $i : blockNo=$blockNo, numBlocks=$numBlocks, 実ブロック数=$blockCount)。ファイルが壊れている可能性があります。"
     }
-    if ($addr -lt $APP_START -or ($addr + 256) -gt $BOOTLOADER_START) {
-        Stop-WithError ("書き込み先 0x{0:X8} がアプリケーション領域 (0x{1:X8}-0x{2:X8}) の外です。" -f $addr, $APP_START, $BOOTLOADER_START)
+    if ($addr -lt $board.AppStart -or ($addr + 256) -gt $board.AppEnd) {
+        Stop-WithError ("書き込み先 0x{0:X8} が {1} の書き込み可能な領域 (0x{2:X8}-0x{3:X8}) の外です。" -f $addr, $board.Name, $board.AppStart, $board.AppEnd)
     }
     if ($addr -lt $minAddr) { $minAddr = $addr }
     if (($addr + 256) -gt $maxEnd) { $maxEnd = $addr + 256 }
 }
 
 Write-Host "ファームウェア: $([System.IO.Path]::GetFileName($uf2File))"
-Write-Host ("  nRF52840 / {0} ブロック / 0x{1:X8}-0x{2:X8} ({3:N0} バイト)" -f $blockCount, $minAddr, $maxEnd, ($blockCount * 256))
+Write-Host ("  {0} / {1} ブロック / 0x{2:X8}-0x{3:X8} ({4:N0} バイト)" -f $board.Description, $blockCount, $minAddr, $maxEnd, ($blockCount * 256))
 
 # ---------------------------------------------------------------------------
 # 2. ブートローダのドライブを待つ
@@ -153,39 +271,65 @@ if ($Drive) {
 
 $deadline = (Get-Date).AddSeconds($WaitSeconds)
 $announced = $false
+$ignored = @{}
 while ($true) {
     if ($Drive) {
+        # 明示されたドライブは INFO_UF2.TXT の内容に関わらず使う (合わなければ下で警告する)
         $found = @(if (Test-Uf2DriveRoot $Drive) { $Drive })
     } else {
-        $found = @(Find-Uf2DriveRoot)
+        $found = @()
+        foreach ($r in @(Find-Uf2DriveRoot)) {
+            if (Test-BoardInfo $r $board) {
+                $found += $r
+            } elseif (-not $ignored.ContainsKey($r)) {
+                # 別のボード (例: XIAO と KQ-mini) のブートローダには書き込まない
+                $ignored[$r] = $true
+                Write-Host "  $r は $($board.Name) のブートローダではないため無視します (INFO_UF2.TXT に $($board.InfoPattern) がありません)。" -ForegroundColor DarkGray
+            }
+        }
     }
     if ($found.Count -eq 1) {
         $root = $found[0]
         break
     }
     if ($found.Count -gt 1) {
-        Stop-WithError "ブートローダのドライブが複数あります ($($found -join ', '))。書き込み先を 2 番目の引数で指定してください (例: E:)。"
+        Stop-WithError "$($board.Name) のブートローダのドライブが複数あります ($($found -join ', '))。書き込み先を 2 番目の引数で指定してください (例: E:)。"
     }
     if (-not $announced) {
         Write-Host ''
         Write-Host 'ブートローダのドライブを待っています...'
-        Write-Host '  リセットボタンを素早く 2 回押すか、BT レイヤーの &bootloader キーを押してください。'
+        if ($board.Name -eq 'RP2040') {
+            $switched = $false
+            if (-not $NoAutoBootloader) {
+                $switched = Request-KqMiniBootloader
+            }
+            if (-not $switched) {
+                Write-Host '  Keyboard Quantizer Mini の FUNC レイヤーの QK_BOOT キーを押してください。'
+            }
+        } else {
+            Write-Host '  リセットボタンを素早く 2 回押すか、BT レイヤーの &bootloader キーを押してください。'
+        }
         $announced = $true
     }
     if ((Get-Date) -gt $deadline) {
-        Stop-WithError "$WaitSeconds 秒待ってもブートローダのドライブ (INFO_UF2.TXT があるドライブ) が見つかりませんでした。"
+        $message = "$WaitSeconds 秒待っても $($board.Name) のブートローダのドライブ (INFO_UF2.TXT に $($board.InfoPattern) があるドライブ) が見つかりませんでした。"
+        if ($ignored.Count -gt 0) {
+            $message += "`n  無視したドライブ ($($ignored.Keys -join ', ')) に書き込む場合は、2 番目の引数でドライブを指定してください。"
+        }
+        Stop-WithError $message
     }
     Start-Sleep -Milliseconds 500
 }
 
 Write-Host ''
 Write-Host "書き込み先: $root"
-$info = [System.IO.File]::ReadAllText([System.IO.Path]::Combine($root, 'INFO_UF2.TXT'))
+$info = Get-Uf2Info $root
+if ($null -eq $info) { $info = '' }
 foreach ($line in ($info.Trim() -split "`r?`n")) {
     Write-Host "  $line"
 }
-if ($info -notmatch 'nRF52840') {
-    Write-Warning 'INFO_UF2.TXT に nRF52840 の記載がありません。XIAO nRF52840 以外のボードに書き込もうとしていないか確認してください。'
+if (-not $info.Contains($board.InfoPattern)) {
+    Write-Warning "INFO_UF2.TXT に $($board.InfoPattern) の記載がありません。$($board.Description) 以外のボードに書き込もうとしていないか確認してください。"
 }
 
 # ---------------------------------------------------------------------------
@@ -246,7 +390,7 @@ while ((Get-Date) -lt $deadline) {
 }
 
 if (-not $gone) {
-    Stop-WithError "書き込み後もブートローダのドライブが残っています。ブートローダがファームウェアを受け付けていません。`n  キーボードを USB から抜き差ししてから、もう一度試してください。"
+    Stop-WithError "書き込み後もブートローダのドライブが残っています。ブートローダがファームウェアを受け付けていません。`n  ボードを USB から抜き差ししてから、もう一度試してください。"
 }
 
 Start-Sleep -Seconds 3
@@ -255,7 +399,10 @@ if (Test-Uf2DriveRoot $root) {
 }
 
 Write-Host ''
-Write-Host '成功: ブートローダが全ブロックを受け取り、キーボードが再起動しました。' -ForegroundColor Green
+Write-Host '成功: ブートローダが全ブロックを受け取り、ボードが再起動しました。' -ForegroundColor Green
+if ($board.Name -eq 'RP2040') {
+    Write-Host '  Keyboard Quantizer Mini は、LED が点灯して入力できるようになるまで数十秒かかることがあります。'
+}
 if ($writeError) {
     Write-Host "  (ドライブ切断によるエラー「$($writeError.Message.Trim())」は、" -ForegroundColor DarkGray
     Write-Host '   ブートローダが書き込み完了直後に再起動するために出る想定どおりのものです)' -ForegroundColor DarkGray
