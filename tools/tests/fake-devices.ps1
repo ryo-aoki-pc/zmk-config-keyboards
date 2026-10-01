@@ -227,3 +227,129 @@ function New-FakeKeyball($Expected, [switch]$OldFirmware) {
         MacroCount = 16; MacroBytes = (New-Object byte[] 599); KeyballStatus = $status
     }
 }
+
+# ---------------------------------------------------------------------------
+# ZMK Studio (zmk-studio.ps1 の関数を使って応答を作る)
+# ---------------------------------------------------------------------------
+
+function New-FakeStudioResponse([int]$RequestId, [int]$Subsystem, [byte[]]$Payload) {
+    $rr = Join-KcBytes @((New-KcPbVarint 1 $RequestId), (New-KcPbBytes $Subsystem $Payload))
+    return , (New-KcPbBytes 1 $rr)
+}
+
+# 期待値どおりの Studio。$State.Keymap[layer][pos] = @{ b; p1; p2 } を書き換えると状態が変わる
+#   Silent: 応答しない (BLE に出力しているとき)、Notify: 応答の前に通知を挟む、Chunk: 1 回に読めるバイト数
+function New-FakeStudio($Expected, $Common, [string]$Name = '') {
+    if (-not $Name) {
+        $Name = [string]$Expected.device.product
+    }
+    $ids = @{}
+    $next = 300
+    foreach ($b in $Common.zmk_behaviors) {
+        $ids[[string]$b.display] = $next
+        $next += 7
+    }
+    $keymap = @()
+    foreach ($layer in $Expected.readout.zmk.bindings) {
+        $row = @()
+        foreach ($x in $layer) {
+            if (-not $ids.ContainsKey([string]$x.b)) {
+                $ids[[string]$x.b] = $next
+                $next += 7
+            }
+            $row += , @{ b = [string]$x.b; p1 = [long]$x.p1; p2 = [long]$x.p2 }
+        }
+        $keymap += , $row
+    }
+    $layouts = @([string]$Expected.physical.layout_name)
+    if ($Expected.id -eq 'lism') {
+        $layouts += '40-Key Layout'
+    }
+    $state = @{
+        Name = $Name; Ids = $ids; Keymap = $keymap; Layouts = $layouts; Active = 0; Unsaved = $false; Lock = 1
+        Silent = $false; Notify = $true; Chunk = 7; LayerIds = $null
+        Out = (New-Object 'System.Collections.Generic.List[byte]'); In = (New-KcStudioFrameDecoder)
+        Requests = (New-Object 'System.Collections.Generic.List[string]')
+    }
+    $state.Transport = @{
+        Write = {
+            param([byte[]]$Bytes)
+            $s = $state
+            Add-KcStudioFrameBytes $s.In $Bytes
+            while ($s.In.Frames.Count -gt 0) {
+                $req = ConvertFrom-KcProtobuf ([byte[]]$s.In.Frames.Dequeue())
+                $id = [int](Get-KcPbUInt $req 1)
+                $sub = 0
+                foreach ($n in @(3, 4, 5)) { if (Test-KcPbHas $req $n) { $sub = $n } }
+                $inner = ConvertFrom-KcProtobuf (Get-KcPbMessage $req $sub)
+                $which = [int]$inner[0].Number
+                $s.Requests.Add(('{0}.{1}' -f $sub, $which))
+                if ($s.Silent) { continue }
+                $payload = $null
+                if ($sub -eq 3 -and $which -eq 1) {
+                    $info = Join-KcBytes @((New-KcPbBytes 1 ([System.Text.Encoding]::UTF8.GetBytes($s.Name))), (New-KcPbBytes 2 ([byte[]](1, 2, 3, 0xAB))))
+                    $payload = New-KcPbBytes 1 $info
+                } elseif ($sub -eq 3 -and $which -eq 2) {
+                    $payload = New-KcPbVarint 2 $s.Lock
+                } elseif ($sub -eq 4 -and $which -eq 1) {
+                    $packed = Join-KcBytes @($s.Ids.Values | Sort-Object | ForEach-Object { , (ConvertTo-KcVarint ([uint64]$_)) })
+                    $payload = New-KcPbBytes 1 (New-KcPbBytes 1 $packed)
+                } elseif ($sub -eq 4 -and $which -eq 2) {
+                    $bid = [long](Get-KcPbUInt (ConvertFrom-KcProtobuf ([byte[]]$inner[0].Value)) 1)
+                    $nm = ($s.Ids.GetEnumerator() | Where-Object { $_.Value -eq $bid } | Select-Object -First 1).Key
+                    $payload = New-KcPbBytes 2 (Join-KcBytes @((New-KcPbVarint 1 $bid), (New-KcPbBytes 2 ([System.Text.Encoding]::UTF8.GetBytes($nm)))))
+                } elseif ($sub -eq 5 -and $which -eq 1) {
+                    $layers = @()
+                    for ($l = 0; $l -lt $s.Keymap.Count; $l++) {
+                        $lid = $l
+                        if ($null -ne $s.LayerIds) { $lid = $s.LayerIds[$l] }
+                        $parts = @()
+                        if ($lid -ne 0) { $parts += , (New-KcPbVarint 1 $lid) }
+                        foreach ($x in $s.Keymap[$l]) {
+                            $bparts = @((New-KcPbVarint 1 (ConvertTo-KcZigZag $s.Ids[$x.b])))
+                            if ($x.p1 -ne 0) { $bparts += , (New-KcPbVarint 2 ([uint64]$x.p1)) }
+                            if ($x.p2 -ne 0) { $bparts += , (New-KcPbVarint 3 ([uint64]$x.p2)) }
+                            $parts += , (New-KcPbBytes 3 (Join-KcBytes $bparts))
+                        }
+                        $layers += , (New-KcPbBytes 1 (Join-KcBytes $parts))
+                    }
+                    $layers += , (New-KcPbVarint 2 $s.Keymap.Count)
+                    $payload = New-KcPbBytes 1 (Join-KcBytes $layers)
+                } elseif ($sub -eq 5 -and $which -eq 3) {
+                    $u = 0
+                    if ($s.Unsaved) { $u = 1 }
+                    $payload = New-KcPbVarint 3 $u
+                } elseif ($sub -eq 5 -and $which -eq 6) {
+                    $parts = @()
+                    if ($s.Active -ne 0) { $parts += , (New-KcPbVarint 1 $s.Active) }
+                    foreach ($nm in $s.Layouts) {
+                        $parts += , (New-KcPbBytes 2 (Join-KcBytes @((New-KcPbBytes 1 ([System.Text.Encoding]::UTF8.GetBytes($nm))), (New-KcPbBytes 2 ([byte[]]@())))))
+                    }
+                    $payload = New-KcPbBytes 6 (Join-KcBytes $parts)
+                } else {
+                    throw ('読み取り専用でない Studio の RPC を受け取りました: {0}.{1}' -f $sub, $which)
+                }
+                if ($s.Notify) {
+                    $note = New-KcPbBytes 2 (New-KcPbBytes 5 (New-KcPbVarint 1 1))
+                    $s.Out.AddRange([byte[]](ConvertTo-KcStudioFrame $note))
+                }
+                $s.Out.AddRange([byte[]](ConvertTo-KcStudioFrame (New-FakeStudioResponse $id $sub $payload)))
+            }
+        }.GetNewClosure()
+        Read = {
+            param([int]$TimeoutMs)
+            $s = $state
+            $n = [math]::Min($s.Chunk, $s.Out.Count)
+            if ($n -eq 0) {
+                Start-Sleep -Milliseconds 10
+            }
+            $chunk = New-Object byte[] $n
+            if ($n -gt 0) {
+                $s.Out.CopyTo(0, $chunk, 0, $n)
+                $s.Out.RemoveRange(0, $n)
+            }
+            return , $chunk
+        }.GetNewClosure()
+    }
+    return $state
+}
