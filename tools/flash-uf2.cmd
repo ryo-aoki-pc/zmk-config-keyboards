@@ -1,5 +1,6 @@
 @echo off
-rem Drag and drop a .uf2 file onto this file to flash a XIAO nRF52840 (UF2 bootloader).
+rem Drag and drop a .uf2 file onto this file to flash a XIAO nRF52840, BLE Micro Pro Boost
+rem or Keyboard Quantizer Mini (UF2 bootloader).
 rem See the "Windows" flashing section in README.md for details.
 setlocal
 if "%~1"=="" (

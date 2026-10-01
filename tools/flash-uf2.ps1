@@ -1,10 +1,12 @@
 ﻿<#
 .SYNOPSIS
-    UF2 ブートローダ (XIAO nRF52840 / RP2040) に .uf2 ファームウェアを書き込みます。
+    UF2 ブートローダ (XIAO nRF52840 / BLE Micro Pro Boost / RP2040) に .uf2 ファームウェアを書き込みます。
 
 .DESCRIPTION
-    書き込み先のボードは .uf2 のファミリ ID から自動で判定します。
-      - nRF52840: Seeed XIAO nRF52840 (Adafruit nRF52 UF2 ブートローダ)。LisM / AroundFortyRB / KUKEY42 / Pyuron
+    書き込み先のボードは .uf2 のファミリ ID と書き込み先アドレスから自動で判定します。
+      - nRF52840: Seeed XIAO nRF52840 (Adafruit nRF52 UF2 ブートローダ)。LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa
+      - BMP     : BLE Micro Pro Boost (BLE Micro Pro の UF2 ブートローダ。ドライブ名は BLEMICROPRO)。torabo-tsuki-lp
+                  XIAO とファミリ ID が同じなので、書き込み先の先頭アドレス (BMP は 0x26000、XIAO は 0x27000) で見分ける
       - RP2040  : Keyboard Quantizer Mini (RP2040 の ROM ブートローダ。ドライブ名は RPI-RP2)
 
     エクスプローラで .uf2 をブートローダのドライブへコピーすると、ブートローダは最後のブロックを
@@ -16,11 +18,12 @@
 
     このスクリプトは次の手順で書き込み、成否を判定します。
       1. .uf2 の中身 (UF2 ブロック / ファミリ ID / 書き込み先アドレス) を検証する
-      2. ブートローダのドライブ (INFO_UF2.TXT があり、その内容が対象のボードと合うドライブ) が現れるのを待つ。
+      2. ブートローダのドライブ (INFO_UF2.TXT があり、その内容 (BMP はボリュームラベル) が対象のボードと合うドライブ) が現れるのを待つ。
          RP2040 の場合は、先に Keyboard Quantizer Mini のシリアルポートへ dfu コマンドを送って
          ブートローダに切り替える
       3. ファイルサイズを先に確保してからデータだけを書き込む
-      4. ドライブが消えたこと (= ブートローダが全ブロックを受け取って再起動したこと) で成功と判定する
+      4. ドライブが消えたこと (= ブートローダが全ブロックを受け取って再起動したこと) で成功と判定する。
+         BMP は電源スイッチが OFF のまま USB 給電で再起動するとブートローダに戻るため、ドライブが再び現れても成功とする
 
 .PARAMETER Path
     書き込む .uf2 ファイル。
@@ -32,7 +35,7 @@
     ブートローダのドライブが現れるまで待つ秒数。
 
 .PARAMETER Target
-    書き込み先のボード (nRF52840 / RP2040)。指定すると、.uf2 のファミリ ID が一致しない場合に中止します。
+    書き込み先のボード (nRF52840 / BMP / RP2040)。複数指定できます。指定すると、.uf2 がどのボード用でもない場合に中止します。
 
 .PARAMETER NoAutoBootloader
     RP2040 のとき、Keyboard Quantizer Mini をシリアルポート経由でブートローダに切り替えません。
@@ -42,6 +45,9 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 settings_reset-seeeduino_xiao_ble-zmk.uf2 E:
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 torabo_tsuki_lp_right_central.uf2
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 sekigon_keyboard_quantizer_mini_vial.uf2
@@ -56,8 +62,8 @@ param(
 
     [int]$WaitSeconds = 60,
 
-    [ValidateSet('nRF52840', 'RP2040')]
-    [string]$Target,
+    [ValidateSet('nRF52840', 'BMP', 'RP2040')]
+    [string[]]$Target,
 
     [switch]$NoAutoBootloader
 )
@@ -74,26 +80,60 @@ $UF2_MAGIC_END = Get-Hex '0AB16F30'
 $UF2_FLAG_NOT_MAIN_FLASH = Get-Hex '00000001'
 $UF2_FLAG_FAMILY_ID_PRESENT = Get-Hex '00002000'
 
-# 対応するボード。FamilyId は UF2 のファミリ ID、AppStart-AppEnd は書き込んでよい範囲、
-# InfoPattern はブートローダのドライブの INFO_UF2.TXT に含まれるはずの文字列。
+# 対応するボード。FamilyId は UF2 のファミリ ID、AppStart-AppEnd は書き込んでよい範囲。
+# ファミリ ID が同じボードは、書き込み先の先頭アドレスが AppStart と一致するほうを選ぶ。
+# ブートローダのドライブは、VolumeLabel があればボリュームラベルで、無ければ INFO_UF2.TXT に
+# InfoPattern が含まれるかで見分ける (Match はその説明)。
+# BootloaderHint はドライブを待つあいだの案内 (1 要素 1 行)、AfterFlashHint は書き込み後の案内。
+# ReturnsToBootloader は、書き込み後の再起動でブートローダに戻ることがあるボード。
 $BOARDS = @(
     [pscustomobject]@{
-        Name        = 'nRF52840'
-        Description = 'nRF52840 (Seeed XIAO nRF52840)'
-        FamilyId    = Get-Hex 'ADA52840'
+        Name                = 'nRF52840'
+        Description         = 'nRF52840 (Seeed XIAO nRF52840)'
+        FamilyId            = Get-Hex 'ADA52840'
         # Adafruit nRF52 ブートローダ (SoftDevice S140 v7) のアプリケーション領域
-        AppStart    = Get-Hex '00027000'
-        AppEnd      = Get-Hex '000F4000'
-        InfoPattern = 'nRF52840'
+        AppStart            = Get-Hex '00027000'
+        AppEnd              = Get-Hex '000F4000'
+        InfoPattern         = 'nRF52840'
+        VolumeLabel         = $null
+        Match               = 'INFO_UF2.TXT に nRF52840 があるドライブ'
+        BootloaderHint      = @(
+            'リセットボタンを素早く 2 回押すか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
+            '左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
+        )
+        AfterFlashHint      = $null
+        ReturnsToBootloader = $false
     },
     [pscustomobject]@{
-        Name        = 'RP2040'
-        Description = 'RP2040 (Keyboard Quantizer Mini)'
-        FamilyId    = Get-Hex 'E48BFF56'
+        Name                = 'BMP'
+        Description         = 'nRF52840 (BLE Micro Pro Boost)'
+        FamilyId            = Get-Hex 'ADA52840'
+        # bmp_boost (SoftDevice S140 v6) のアプリケーション領域。0xE0000 からはブートローダ
+        AppStart            = Get-Hex '00026000'
+        AppEnd              = Get-Hex '000E0000'
+        InfoPattern         = $null
+        VolumeLabel         = 'BLEMICROPRO'
+        Match               = 'ボリュームラベルが BLEMICROPRO のドライブ'
+        BootloaderHint      = @(
+            '電源スイッチを OFF にしてから USB ケーブルでつなぐか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
+            '左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
+        )
+        AfterFlashHint      = 'USB ケーブルを抜き、電源スイッチを ON にしてから USB ケーブルを差し直すと、書き込んだファームウェアで起動します (settings_reset はこのときに設定を消します)。'
+        ReturnsToBootloader = $true
+    },
+    [pscustomobject]@{
+        Name                = 'RP2040'
+        Description         = 'RP2040 (Keyboard Quantizer Mini)'
+        FamilyId            = Get-Hex 'E48BFF56'
         # RP2040 の XIP フラッシュ (最大 16 MB)
-        AppStart    = Get-Hex '10000000'
-        AppEnd      = Get-Hex '11000000'
-        InfoPattern = 'RPI-RP2'
+        AppStart            = Get-Hex '10000000'
+        AppEnd              = Get-Hex '11000000'
+        InfoPattern         = 'RPI-RP2'
+        VolumeLabel         = $null
+        Match               = 'INFO_UF2.TXT に RPI-RP2 があるドライブ'
+        BootloaderHint      = @('Keyboard Quantizer Mini の FUNC レイヤーの QK_BOOT キーを押してください。')
+        AfterFlashHint      = 'Keyboard Quantizer Mini は、LED が点灯して入力できるようになるまで数十秒かかることがあります。'
+        ReturnsToBootloader = $false
     }
 )
 
@@ -145,7 +185,24 @@ function Find-Uf2DriveRoot {
     }
 }
 
+function Get-VolumeLabel([string]$Root) {
+    try {
+        return (New-Object System.IO.DriveInfo -ArgumentList $Root).VolumeLabel
+    } catch {
+        return $null
+    }
+}
+
+# $Root が $Board のブートローダのドライブか。ボリュームラベルで見分けるボード (BMP) のドライブは、
+# INFO_UF2.TXT の内容に関わらず他のボードのドライブとはみなさない。
 function Test-BoardInfo([string]$Root, $Board) {
+    $label = Get-VolumeLabel $Root
+    if ($Board.VolumeLabel) {
+        return ($label -eq $Board.VolumeLabel)
+    }
+    foreach ($b in $BOARDS) {
+        if ($b.VolumeLabel -and $label -eq $b.VolumeLabel) { return $false }
+    }
     $info = Get-Uf2Info $Root
     return ($null -ne $info -and $info.Contains($Board.InfoPattern))
 }
@@ -243,13 +300,24 @@ for ($i = 0; $i -lt $blockCount; $i++) {
         Stop-WithError "ブロック $i にファミリ ID がありません。書き込み先のボードを判定できません。"
     }
     if ($null -eq $board) {
-        $board = $BOARDS | Where-Object { $_.FamilyId -eq $family } | Select-Object -First 1
-        if ($null -eq $board) {
+        $sameFamily = @($BOARDS | Where-Object { $_.FamilyId -eq $family })
+        if ($sameFamily.Count -eq 0) {
             $names = ($BOARDS | ForEach-Object { $_.Name }) -join ' / '
             Stop-WithError ("対応していないボード用の UF2 です (family ID: 0x{0:X8})。対応しているのは {1} です。" -f $family, $names)
         }
-        if ($Target -and $board.Name -ne $Target) {
-            Stop-WithError "$Target 用ではなく $($board.Description) 用の UF2 です。書き込むファイルを確認してください: $uf2File"
+        # XIAO と BMP はファミリ ID が同じなので、先頭ブロックの書き込み先がアプリケーション領域の
+        # 先頭と一致するほうに決める
+        $board = $sameFamily | Where-Object { $_.AppStart -eq $addr } | Select-Object -First 1
+        if ($null -eq $board) {
+            if ($sameFamily.Count -gt 1) {
+                $starts = ($sameFamily | ForEach-Object { '{0}: 0x{1:X8}' -f $_.Name, $_.AppStart }) -join ' / '
+                Stop-WithError ("先頭の書き込み先 0x{0:X8} が、どのボードのアプリケーション領域の先頭 ({1}) とも一致しません。" -f $addr, $starts)
+            }
+            # ボードは 1 つに決まる。書き込み先は下の範囲チェックで確認する
+            $board = $sameFamily[0]
+        }
+        if ($Target -and $Target -notcontains $board.Name) {
+            Stop-WithError "$($Target -join ' / ') 用ではなく $($board.Description) 用の UF2 です。書き込むファイルを確認してください: $uf2File"
         }
     } elseif ($family -ne $board.FamilyId) {
         Stop-WithError ("ブロック $i のファミリ ID (0x{0:X8}) が他のブロック (0x{1:X8}) と違います。ファイルが壊れている可能性があります。" -f $family, $board.FamilyId)
@@ -295,7 +363,7 @@ while ($true) {
             } elseif (-not $ignored.ContainsKey($r)) {
                 # 別のボード (例: XIAO と KQ-mini) のブートローダには書き込まない
                 $ignored[$r] = $true
-                Write-Host "  $r は $($board.Name) のブートローダではないため無視します (INFO_UF2.TXT に $($board.InfoPattern) がありません)。" -ForegroundColor DarkGray
+                Write-Host "  $r は $($board.Name) のブートローダではないため無視します ($($board.Match)ではありません)。" -ForegroundColor DarkGray
             }
         }
     }
@@ -315,16 +383,15 @@ while ($true) {
                 $switched = Request-KqMiniBootloader
             }
             if (-not $switched) {
-                Write-Host '  Keyboard Quantizer Mini の FUNC レイヤーの QK_BOOT キーを押してください。'
+                foreach ($line in $board.BootloaderHint) { Write-Host "  $line" }
             }
         } else {
-            Write-Host '  リセットボタンを素早く 2 回押すか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
-            Write-Host '  左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
+            foreach ($line in $board.BootloaderHint) { Write-Host "  $line" }
         }
         $announced = $true
     }
     if ((Get-Date) -gt $deadline) {
-        $message = "$WaitSeconds 秒待っても $($board.Name) のブートローダのドライブ (INFO_UF2.TXT に $($board.InfoPattern) があるドライブ) が見つかりませんでした。"
+        $message = "$WaitSeconds 秒待っても $($board.Name) のブートローダのドライブ ($($board.Match)) が見つかりませんでした。"
         if ($ignored.Count -gt 0) {
             $message += "`n  無視したドライブ ($($ignored.Keys -join ', ')) に書き込む場合は、2 番目の引数でドライブを指定してください。"
         }
@@ -340,8 +407,8 @@ if ($null -eq $info) { $info = '' }
 foreach ($line in ($info.Trim() -split "`r?`n")) {
     Write-Host "  $line"
 }
-if (-not $info.Contains($board.InfoPattern)) {
-    Write-Warning "INFO_UF2.TXT に $($board.InfoPattern) の記載がありません。$($board.Description) 以外のボードに書き込もうとしていないか確認してください。"
+if (-not (Test-BoardInfo $root $board)) {
+    Write-Warning "$root は $($board.Match)ではありません。$($board.Description) 以外のボードに書き込もうとしていないか確認してください。"
 }
 
 # ---------------------------------------------------------------------------
@@ -406,14 +473,14 @@ if (-not $gone) {
 }
 
 Start-Sleep -Seconds 3
-if (Test-Uf2DriveRoot $root) {
+if ((Test-Uf2DriveRoot $root) -and -not $board.ReturnsToBootloader) {
     Stop-WithError 'ドライブが一度消えた後、ブートローダが再び起動しました。ファームウェアが起動していない可能性があります。'
 }
 
 Write-Host ''
 Write-Host '成功: ブートローダが全ブロックを受け取り、ボードが再起動しました。' -ForegroundColor Green
-if ($board.Name -eq 'RP2040') {
-    Write-Host '  Keyboard Quantizer Mini は、LED が点灯して入力できるようになるまで数十秒かかることがあります。'
+if ($board.AfterFlashHint) {
+    Write-Host "  $($board.AfterFlashHint)"
 }
 if ($writeError) {
     Write-Host "  (ドライブ切断によるエラー「$($writeError.Message.Trim())」は、" -ForegroundColor DarkGray
