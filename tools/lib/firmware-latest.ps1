@@ -65,6 +65,7 @@ function Get-FirmwareLatest {
         if ((Get-HttpStatusCode $_) -eq 404) {
             throw ("$Repo に $Tag リリース (または $Asset) がまだありません。`n" +
                 "  https://github.com/$Repo/actions で custom ブランチのビルドを実行してから、もう一度試してください。`n" +
+                "  https://github.com/$Repo/releases で $Tag が下書き (Draft) になっている場合も、ダウンロードできません。`n" +
                 "  手元の .uf2 / .hex を書き込む場合は、ファイルをこのスクリプトにドラッグ＆ドロップしてください。")
         }
         throw "ダウンロードに失敗しました: $base/$Asset`n  $($_.Exception.Message)"
