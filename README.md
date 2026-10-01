@@ -34,7 +34,8 @@
 | アーティファクト | 全エントリに `artifact-name` を付与し、Studio 版 / 非 Studio 版の両方を生成 |
 | ローカルビルド | `Makefile` + `scripts/` + `.devcontainer/` (`make` / `make single` など) |
 | タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
-| AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K、マウスクリックでタイマー延長 |
+| AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K と修飾キーの位置 (A / - / Z / / / Win / Alt)、マウスクリックでタイマー延長 |
+| マウスレイヤーの修飾キー | MOUSE_MOVE / MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。AML に入ってから Shift + クリック・Ctrl + ホイールなどを押せる |
 | スクロール | `zip_scroll_scaler 1 16` (1/16) |
 
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
@@ -44,6 +45,12 @@ keyball39 (via) は LisM BASE 配列の素の HID コードだけを送り、レ
 (`zmk_to_vial.py` で `lism.keymap` + `lism.vialmap.json` から生成) が担当します。
 Quantizer に無いマウスレイヤー (MOUSE_MOVE / MOUSE_SCROLL) と AML の除外キー・タイムアウト・
 require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&zip_temp_layer` 設定を再現しています。
+
+- マウスレイヤーの修飾キー: keyball39 は AML / スクロールレイヤーで、KQ-mini が mod-tap にする位置
+  (A / - / Z / /) とベースの Win / Alt の位置から素の修飾キー (`KC_LCTL` / `KC_RCTL` / `KC_LSFT` /
+  `KC_RSFT` / `KC_LGUI` / `KC_LALT`) を送ります。KQ-mini はそれをそのまま素通しします
+- マウスボタン: KQ-mini はマウスボタンを自身のキーマップ経由で送ります。ボタンを押したままキーを押したり
+  離したりしても、ボタンは押されたままです (ドラッグ中に Ctrl / Shift を押してもドロップされない)
 
 ## Submodules
 
