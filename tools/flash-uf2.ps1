@@ -101,10 +101,11 @@ $BOARDS = @(
 # シリアル (CDC) で "dfu" + Enter を送るとブートローダ (RPI-RP2 ドライブ) に切り替わる。
 $KQMINI_PNP_DEVICE_ID = 'USB\VID_FEED&PID_999C*'
 
-# vial-qmk の virtser_task (tmk_core/protocol/chibios/usb_main.c) は、CDC のエンドポイントサイズ
+# 古いファームウェアの virtser_task (tmk_core/protocol/chibios/usb_main.c) は、CDC のエンドポイントサイズ
 # (CDC_EPSIZE = 16 バイト) ちょうど読めたときだけ受信データを CLI に渡し、それより短いパケットは
 # 捨てる。"`rdfu`r" (5 バイト) をそのまま送っても届かないので、CLI が無視する NUL で 16 バイトに埋めて
-# 1 パケットで送る。
+# 1 パケットで送る。ファームウェア側は vial-qmk-kq-mini#13 (上流 QMK #26356) で直したが、
+# それより前のファームウェアが入った KQ-mini も切り替えられるように埋めて送り続ける。
 $KQMINI_CDC_EPSIZE = 16
 
 function Stop-WithError([string]$Message) {
