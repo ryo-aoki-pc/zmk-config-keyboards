@@ -1373,6 +1373,14 @@ def generate(sources: Sources) -> dict[str, str]:
     return {name: dumps(data) + '\n' for name, data in out.items()}
 
 
+def without_commits(text: str):
+    """期待値の JSON から、元にした submodule のコミット (sources[].commit) を除いたもの。"""
+    data = json.loads(text)
+    for src in data.get('sources', []):
+        src.pop('commit', None)
+    return data
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description='tools/keyboard-check の期待値 (tools/expected/*.json) を生成する')
     ap.add_argument('--check', action='store_true', help='生成し直した結果とコミット済みのファイルを比べる (差があれば終了コード 1)')
@@ -1401,15 +1409,26 @@ def main(argv=None) -> int:
         files = {k: v for k, v in files.items() if k in wanted}
 
     if args.check:
-        stale = []
+        stale, commit_only = [], []
         for name, text in files.items():
             p = args.out_dir / name
-            if not p.exists() or p.read_text(encoding='utf-8') != text:
+            if not p.exists():
+                stale.append(name)
+                continue
+            old = p.read_text(encoding='utf-8')
+            if old == text:
+                continue
+            if without_commits(old) == without_commits(text):
+                commit_only.append(name)
+            else:
                 stale.append(name)
         if stale:
             print('期待値が submodule の内容と合っていません: ' + ', '.join(stale), file=sys.stderr)
             print('python tools/expected/generate.py を実行して、結果をコミットしてください。', file=sys.stderr)
             return 1
+        if commit_only:
+            # submodule の参照だけが進み、期待値の内容は変わらない (CI を失敗にはしない)
+            print('submodule のコミットだけが違います (期待値の内容は同じ): ' + ', '.join(commit_only))
         print(f'期待値は最新です ({len(files)} ファイル)')
         return 0
 

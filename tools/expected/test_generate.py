@@ -96,6 +96,18 @@ class TestGenerate(unittest.TestCase):
         cls.data = {k: json.loads(v) for k, v in cls.files.items()}
         cls.kd, cls.zv, cls.vd = g.import_docgen(cls.sources)
 
+    def test_check_ignores_commit_only_changes(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(g.main(['--out-dir', d]), 0)
+            p = Path(d, 'lism.json')
+            text = p.read_text(encoding='utf-8')
+            commit = json.loads(text)['sources'][0]['commit']
+            p.write_text(text.replace(commit, '0' * 40), encoding='utf-8')
+            self.assertEqual(g.main(['--check', '--out-dir', d]), 0)       # コミットだけ違う
+            p.write_text(text.replace('"Mod-Tap"', '"Key Press"', 1), encoding='utf-8')
+            self.assertEqual(g.main(['--check', '--out-dir', d]), 1)       # 内容が違う
+
     def test_deterministic(self):
         self.assertEqual(g.generate(g.Sources()), self.files)
 

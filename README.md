@@ -144,7 +144,8 @@ git add .
 git commit -m "Update submodules"
 ```
 
-期待値が submodule の内容と合っていないと、CI (`.github/workflows/keyboard-check.yml`) の `generate.py --check` が失敗します。
+期待値が submodule の内容と合っていないと、CI (`.github/workflows/keyboard-check.yml`) の `generate.py --check` が失敗します
+(submodule のコミットだけが進み、キーマップやトラックボールの設定が変わらないときは失敗しません)。
 
 ## ファームウェアの書き込み (Windows)
 

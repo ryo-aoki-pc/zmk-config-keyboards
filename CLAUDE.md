@@ -18,7 +18,7 @@ README、スクリプトの表示メッセージとコメント、コミット�
 - `zmk-input-processor-xy-accel`: ZMK の入力プロセッサのモジュール。トラックボールを転がす速さに応じてカーソルの移動量に倍率を掛ける (カーソルの加速)。ZMK の 6 リポジトリは submodule ではなく、`config/west.yml` でこのリポジトリのコミットを固定して取り込む。変えたときは `main` に入れ、6 リポジトリの `west.yml` の固定コミットを揃えて上げる。
 - `zmk-keymap-docgen`: Python のツール。ZMK の `.keymap` から KEYMAP.html と KEYMAP.xlsx を生成する。`zmk_to_vial.py` は LisM のキーマップを KQ-mini の EEPROM デフォルトに変換する。ZMK の 6 リポジトリに加えて `keyball` と `vial-qmk-kq-mini` も、これを自身の `tools/keymap-docgen` submodule として取り込んでいる。QMK 側の 2 つは `vial_keymap_docgen.py` で KEYMAP.html を生成している。
 
-**ファームウェアやキーマップの変更は、このリポジトリではなく submodule のリポジトリで行う。** そのリポジトリの `custom` ブランチに PR を出して変更し、その後このリポジトリで submodule の参照を更新する。参照を更新するのは、変えたい submodule だけにする。パスを付けずに `git submodule update --remote` を実行すると、すべての submodule が追跡ブランチの最新に進んでしまう。参照更新のコミットメッセージには、各 submodule を `<submodule>: <旧 SHA> → <新 SHA> (ryo-aoki-pc/<repo>#N)` の形で並べる。submodule の参照を更新するコミットは、タイトルの末尾に `(submodule 参照更新)` を付ける。ZMK の 6 リポジトリ・`keyball`・`zmk-keymap-docgen` の参照を更新したら、`python tools/expected/generate.py` で検査ツールの期待値を作り直して同じコミットに入れる (合っていないと CI の `generate.py --check` が失敗する)。
+**ファームウェアやキーマップの変更は、このリポジトリではなく submodule のリポジトリで行う。** そのリポジトリの `custom` ブランチに PR を出して変更し、その後このリポジトリで submodule の参照を更新する。参照を更新するのは、変えたい submodule だけにする。パスを付けずに `git submodule update --remote` を実行すると、すべての submodule が追跡ブランチの最新に進んでしまう。参照更新のコミットメッセージには、各 submodule を `<submodule>: <旧 SHA> → <新 SHA> (ryo-aoki-pc/<repo>#N)` の形で並べる。submodule の参照を更新するコミットは、タイトルの末尾に `(submodule 参照更新)` を付ける。ZMK の 6 リポジトリ・`keyball`・`zmk-keymap-docgen` の参照を更新したら、`python tools/expected/generate.py` で検査ツールの期待値を作り直して同じコミットに入れる (キーマップやトラックボールの設定が変わったのに作り直していないと、CI の `generate.py --check` が失敗する。元にしたコミットの違いだけなら失敗しない)。
 
 ### LisM 基準
 
