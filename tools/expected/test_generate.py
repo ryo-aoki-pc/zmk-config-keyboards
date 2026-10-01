@@ -104,10 +104,14 @@ class TestGenerate(unittest.TestCase):
         kukey = self.data['kukey42.json']['interactive']['trackball']['firmware'][0]
         self.assertEqual(kukey['correction'], 'matrix')
         self.assertEqual(len(kukey['matrix']), 4)
-        self.assertEqual(kukey['cpi'], 1000)
+        self.assertGreater(kukey['divisor'], 0)
         afrb = self.data['aroundfortyrb.json']['interactive']['trackball']['firmware'][0]
-        self.assertEqual(afrb['xy_scaler'], [2, 1])
-        self.assertEqual(afrb['cpi'], 400)
+        for fw in (kukey, afrb):
+            # PMW3610 の CPI は 200 刻み
+            self.assertEqual(fw['cpi'] % 200, 0)
+            self.assertTrue(200 <= fw['cpi'] <= 3200)
+        self.assertEqual(len(afrb['xy_scaler']), 2)
+        self.assertTrue(all(v > 0 for v in afrb['xy_scaler']))
         self.assertEqual([f['side'] for f in self.data['pyuron.json']['interactive']['trackball']['firmware']],
                          ['left', 'right'])
 

@@ -5,9 +5,15 @@
 
 $common = Get-KcExpected 'common' $script:ExpectedDir
 $thresholds = $common.thresholds
-$kukey = (Get-KcExpected 'kukey42' $script:ExpectedDir).interactive.trackball.firmware[0]
-$lismRight = (Get-KcExpected 'lism' $script:ExpectedDir).interactive.trackball.firmware[0]
-$afrb = (Get-KcExpected 'aroundfortyrb' $script:ExpectedDir).interactive.trackball.firmware[0]
+# ファームの設定は期待値の JSON の形を使い、値は計測ページの例に合わせて固定する (ファームの調整でテストが変わらないように)
+function Copy-Firmware([string]$Id, [hashtable]$Values) {
+    $fw = (Get-KcExpected $Id $script:ExpectedDir).interactive.trackball.firmware[0] | ConvertTo-Json -Depth 6 | ConvertFrom-Json
+    foreach ($k in $Values.Keys) { $fw.$k = $Values[$k] }
+    return $fw
+}
+$kukey = Copy-Firmware 'kukey42' @{ cpi = 1000; matrix = @(995, -497, -305, 2163); divisor = 1000; xy_scaler = @(1, 1) }
+$lismRight = Copy-Firmware 'lism' @{}
+$afrb = Copy-Firmware 'aroundfortyrb' @{ cpi = 400; xy_scaler = @(2, 1) }
 
 # 「KUKEY42 真円計測」ページの例のデータ (＼ 45°、縦横比 3 の楕円) と同じ点を作る
 function New-ExampleSamples {
