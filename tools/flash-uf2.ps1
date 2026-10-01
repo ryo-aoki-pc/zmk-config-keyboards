@@ -318,7 +318,8 @@ while ($true) {
                 Write-Host '  Keyboard Quantizer Mini の FUNC レイヤーの QK_BOOT キーを押してください。'
             }
         } else {
-            Write-Host '  リセットボタンを素早く 2 回押すか、BT レイヤーの &bootloader キーを押してください。'
+            Write-Host '  リセットボタンを素早く 2 回押すか、FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) を押してください。'
+            Write-Host '  左手側をキーで切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
         }
         $announced = $true
     }
