@@ -97,6 +97,8 @@ function Invoke-FakeQmkQuery([hashtable]$s, [byte[]]$Command, [int]$EchoLen) {
             } elseif ($c1 -eq 0 -and $null -ne $s.KeyballStatus -and $Command[2] -eq 2) {
                 $d = [System.Text.Encoding]::ASCII.GetBytes('2026-10-01-12:00:00')
                 [Array]::Copy($d, 0, $r, 3, $d.Length)
+            } elseif ($c1 -eq 0 -and $null -ne $s.KeyballAccel -and $Command[2] -eq 3) {
+                [Array]::Copy($s.KeyballAccel, 0, $r, 3, $s.KeyballAccel.Length)
             } elseif ($c1 -eq 2) {
                 $r[3] = 100; $r[4] = 200
             } else {
@@ -203,7 +205,7 @@ function New-FakeKqMini($Expected) {
         Vial = $true; Protocol = 0x000C; Uptime = 60000; LayoutOptions = 0; Uid = @($Expected.device.vial_uid)
         UnlockInProgress = 0; Layers = [int]$v.layer_count; Keymap = (Copy-FakeKeymap $v.keymap)
         Settings = $settings; TapDance = $td; KeyOverride = $ko; Combo = $combo; AltRepeat = $alt
-        MacroCount = 16; MacroBytes = $macro.ToArray(); KeyballStatus = $null
+        MacroCount = 16; MacroBytes = $macro.ToArray(); KeyballStatus = $null; KeyballAccel = $null
     }
 }
 
@@ -228,17 +230,31 @@ function New-FakeKeyballStatusBytes($Status) {
     return , $b
 }
 
-# 期待値どおりの Keyball39 (VIA)。-OldFirmware で 08 00 01 の無いファーム
+# Keyball のファームのコマンド (08 00 03) の応答 ([3] 以降)
+function New-FakeKeyballAccelBytes($Accel) {
+    $b = New-Object byte[] 9
+    $i = 0
+    foreach ($k in @('min_factor', 'max_factor', 'speed_threshold', 'speed_max')) {
+        [Array]::Copy((ConvertTo-FakeBytesBE ([int]$Accel.$k) 2), 0, $b, $i, 2)
+        $i += 2
+    }
+    $b[8] = [byte]$Accel.interval_ms
+    return , $b
+}
+
+# 期待値どおりの Keyball39 (VIA)。-OldFirmware で 08 00 01 / 03 の無いファーム
 function New-FakeKeyball($Expected, [switch]$OldFirmware) {
     $v = $Expected.readout.via
     $status = $null
+    $accel = $null
     if (-not $OldFirmware) {
         $status = New-FakeKeyballStatusBytes $v.status
+        $accel = New-FakeKeyballAccelBytes (@($Expected.interactive.trackball.firmware)[0].accel)
     }
     return New-FakeQmkDevice @{
         Vial = $false; Protocol = 0x000C; Uptime = 30000; LayoutOptions = [int]$v.layout_options.value
         Layers = [int]$v.layer_count; Keymap = (Copy-FakeKeymap $v.keymap)
-        MacroCount = 16; MacroBytes = (New-Object byte[] 599); KeyballStatus = $status
+        MacroCount = 16; MacroBytes = (New-Object byte[] 599); KeyballStatus = $status; KeyballAccel = $accel
     }
 }
 

@@ -25,7 +25,7 @@ function Test-KcQmkCommandAllowed([byte[]]$Command) {
         0x02 { return ($c1 -eq 0x01 -or $c1 -eq 0x02) }        # id_get_keyboard_value (uptime / layout options)
         0x08 {                                                 # id_custom_get_value
             if ($c1 -eq 0x02) { return ($c2 -ge 1 -and $c2 -le 4) }   # RGB ライティング
-            if ($c1 -eq 0x00) { return ($c2 -eq 1 -or $c2 -eq 2) }    # Keyball の状態 / ビルド日付
+            if ($c1 -eq 0x00) { return ($c2 -ge 1 -and $c2 -le 3) }   # Keyball の状態 / ビルド日付 / カーソルの加速
             return $false
         }
         0x0C { return $true }                                  # id_dynamic_keymap_macro_get_count
@@ -282,6 +282,23 @@ function Read-KcKeyballStatus($Query) {
         return $null
     }
     return (ConvertFrom-KcKeyballStatus $r)
+}
+
+# カーソルの加速の設定 (08 00 03。config.h の KEYBALL_ACCEL_*)。読めなければ $null
+function Read-KcKeyballAccel($Query) {
+    $r = Invoke-KcQmk $Query ([byte[]](0x08, 0x00, 0x03)) 3
+    if ($r[0] -eq 0xFF) {
+        return $null
+    }
+    return [pscustomobject]@{
+        min_factor = [int](ConvertFrom-KcBigEndian $r 3 2); max_factor = [int](ConvertFrom-KcBigEndian $r 5 2)
+        speed_threshold = [int](ConvertFrom-KcBigEndian $r 7 2); speed_max = [int](ConvertFrom-KcBigEndian $r 9 2)
+        interval_ms = [int]$r[11]
+    }
+}
+
+function Format-KcAccel($Accel) {
+    return ('min-factor {0} / max-factor {1} / speed-threshold {2} / speed-max {3}' -f $Accel.min_factor, $Accel.max_factor, $Accel.speed_threshold, $Accel.speed_max)
 }
 
 function Read-KcKeyballBuildDate($Query) {
@@ -740,6 +757,27 @@ function Invoke-KcKeyballReadout {
                 -Actual 'このファームでは読めません' -Hint 'tools/flash-keyball.cmd で最新のファームを書き込むと読めるようになります')
     } else {
         Add-KcKeyballStatusResults $Results $cat $st $v.status
+        $accel = Read-KcKeyballAccel $Query
+        $expAccel = Get-KcProp (@($Expected.interactive.trackball.firmware)[0]) 'accel' $null
+        if ($null -eq $accel) {
+            [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status SKIP `
+                    -Actual 'このファームでは読めません' -Hint 'tools/flash-keyball.cmd で最新のファームを書き込むと読めるようになります')
+        } elseif ($null -eq $expAccel) {
+            [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status INFO -Actual (Format-KcAccel $accel))
+        } else {
+            $same = $true
+            foreach ($k in @('min_factor', 'max_factor', 'speed_threshold', 'speed_max')) {
+                if ([int]$accel.$k -ne [int]$expAccel.$k) {
+                    $same = $false
+                }
+            }
+            if ($same) {
+                [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status PASS -Actual (Format-KcAccel $accel))
+            } else {
+                [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status FAIL -Expected (Format-KcAccel $expAccel) -Actual (Format-KcAccel $accel) `
+                        -Hint 'ファームの config.h の KEYBALL_ACCEL_* が期待値 (LisM 基準) と違います。tools/flash-keyball.cmd で最新のファームを書き込んでください')
+            }
+        }
         $date = Read-KcKeyballBuildDate $Query
         if ($date) {
             [void](Add-KcResult -Results $Results -Category $cat -Item 'ファームのビルド日時' -Status INFO -Actual $date)

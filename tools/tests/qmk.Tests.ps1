@@ -22,12 +22,12 @@ function Get-FailItems($Results) {
 }
 
 Test-Case '許可リスト: 読み取りコマンドだけ通す' {
-    foreach ($ok in @(@(0x01), @(0x02, 0x01), @(0x02, 0x02), @(0x08, 0x02, 0x01), @(0x08, 0x00, 0x01), @(0x0C), @(0x0D), @(0x0E, 0, 0, 28),
+    foreach ($ok in @(@(0x01), @(0x02, 0x01), @(0x02, 0x02), @(0x08, 0x02, 0x01), @(0x08, 0x00, 0x01), @(0x08, 0x00, 0x03), @(0x0C), @(0x0D), @(0x0E, 0, 0, 28),
             @(0x11), @(0x12, 0, 0, 28), @(0xFE, 0x00), @(0xFE, 0x05), @(0xFE, 0x09, 0, 0), @(0xFE, 0x0A, 7, 0), @(0xFE, 0x0D, 0x05, 3))) {
         Assert-True (Test-KcQmkCommandAllowed ([byte[]]$ok)) ('許可されるべき: ' + ($ok -join ' '))
     }
     foreach ($ng in @(@(0x03), @(0x05, 0, 0, 0, 0, 4), @(0x06), @(0x07), @(0x09), @(0x0A), @(0x0B), @(0x0F), @(0x10), @(0x13),
-            @(0x02, 0x03), @(0x07, 0x02, 0x01), @(0x08, 0x00, 0x03), @(0xFE, 0x06), @(0xFE, 0x07), @(0xFE, 0x0B), @(0xFE, 0x0C),
+            @(0x02, 0x03), @(0x07, 0x02, 0x01), @(0x08, 0x00, 0x04), @(0xFE, 0x06), @(0xFE, 0x07), @(0xFE, 0x0B), @(0xFE, 0x0C),
             @(0xFE, 0x0D, 0x02), @(0xFE, 0x0D, 0x06), @(0xFE, 0x04))) {
         Assert-True (-not (Test-KcQmkCommandAllowed ([byte[]]$ng))) ('拒否されるべき: ' + ($ng -join ' '))
     }
@@ -124,6 +124,18 @@ Test-Case 'Keyball39: 期待値どおりなら全部 PASS' {
     Assert-Equal 'PASS' (Get-StatusOf $r 'AML のタイムアウト').Status
     Assert-Equal 'Right' (Get-StatusOf $r 'Ball availability').Actual
     Assert-Equal 'PASS' (Get-StatusOf $r 'マクロ').Status
+    Assert-Equal 'PASS' (Get-StatusOf $r 'カーソルの加速').Status
+    Assert-True ((Get-StatusOf $r 'カーソルの加速').Actual -like 'min-factor 500 / max-factor 1300*') (Get-StatusOf $r 'カーソルの加速').Actual
+}
+
+Test-Case 'Keyball39: カーソルの加速が期待値と違うと FAIL' {
+    $dev = New-FakeKeyball $kbExp
+    $dev.KeyballAccel[2] = 0x03      # max-factor 1000 (0x03E8): 加速なし
+    $dev.KeyballAccel[3] = 0xE8
+    $r = New-KcResultList
+    Invoke-KcKeyballReadout -Query $dev.Query -Expected $kbExp -Common $common -Results $r
+    Assert-Equal 'カーソルの加速' (Get-FailItems $r)
+    Assert-True ((Get-StatusOf $r 'カーソルの加速').Actual -like '*max-factor 1000*') (Get-StatusOf $r 'カーソルの加速').Actual
 }
 
 Test-Case 'Keyball39: EEPROM に古い CPI が残っていると FAIL と Bootmagic の案内' {
@@ -144,4 +156,11 @@ Test-Case 'Keyball39: 古いファームでは設定を SKIP' {
     Invoke-KcKeyballReadout -Query $dev.Query -Expected $kbExp -Common $common -Results $r
     Assert-Equal '' (Get-FailItems $r)
     Assert-Equal 'SKIP' (Get-StatusOf $r 'トラックボールの設定 (CPI / スクロール / AML)').Status
+    # 08 00 01 はあるが 08 00 03 の無いファーム
+    $dev = New-FakeKeyball $kbExp
+    $dev.KeyballAccel = $null
+    $r = New-KcResultList
+    Invoke-KcKeyballReadout -Query $dev.Query -Expected $kbExp -Common $common -Results $r
+    Assert-Equal '' (Get-FailItems $r)
+    Assert-Equal 'SKIP' (Get-StatusOf $r 'カーソルの加速').Status
 }

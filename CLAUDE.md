@@ -68,7 +68,7 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 
 接続したキーボードの設定 (キーマップ・トラックボール) が LisM 基準の意図どおりかを検査する。キーボードの設定は書き換えない。
 - 期待値: `tools/expected/generate.py` (Python 3.10 以上、標準ライブラリだけ) が submodule の `.keymap` / overlay / `.conf` / `keymap.c` と `zmk-keymap-docgen` の `zmk_to_vial.py` から `tools/expected/*.json` を生成し、コミットしておく。機種を足すときは `ZMK_BOARDS` と `keyboard-check.ps1` の `$boards`、CI の submodule の一覧を揃える。
-- 読み出し検査: KQ-mini は Vial、Keyball39 は VIA (ryo-aoki-pc/keyball#12 で足した読み取り専用のコマンド `08 00 01/02` を含む)、ZMK は ZMK Studio の RPC。送るのは読み取りのコマンドだけで、`lib/keyboard-check/qmk.ps1` の許可リストで縛っている。Vial の unlock (`FE 06`) や VIA / Studio の set 系は送らないこと。
+- 読み出し検査: KQ-mini は Vial、Keyball39 は VIA (ryo-aoki-pc/keyball#12 で足した読み取り専用のコマンド `08 00 01`〜`03` を含む)、ZMK は ZMK Studio の RPC。送るのは読み取りのコマンドだけで、`lib/keyboard-check/qmk.ps1` の許可リストで縛っている。Vial の unlock (`FE 06`) や VIA / Studio の set 系は送らないこと。
 - 実動作テストとトラックボールの正規化: `lib/keyboard-check/InputTestForm.cs` (Raw Input) のウィンドウで入力を記録し、`input-eval.ps1` / `trackball-calib.ps1` の純粋関数で判定する。ファームのカーソルの加速は `Remove-KcAccel` で取り除いてから計算する (加速の処理を変えたら、`tests/trackball-calib.Tests.ps1` のファームを真似た計算も合わせる)。
 - テスト: `python tools/expected/generate.py --check`、`python -m unittest discover -s tools/expected`、`tools/tests/run.ps1` (Pester は使わない。Linux の `pwsh` でも Windows 専用のテスト以外は動く)。CI は `.github/workflows/keyboard-check.yml` (Linux と Windows PowerShell 5.1)。
 - `.cs` は ASCII だけで書き、Windows PowerShell 5.1 の `Add-Type` がコンパイルできる C# 5 の構文にする。
