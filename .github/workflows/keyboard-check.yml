@@ -1,0 +1,73 @@
+# キーボード検査ツール (tools/keyboard-check.cmd) の CI
+#
+#   expected   : 期待値 (tools/expected/*.json) が submodule の内容と合っているか。
+#                submodule の参照を更新したら python tools/expected/generate.py を実行してコミットする
+#   powershell : Windows PowerShell 5.1 でスクリプトの構文・C# のコンパイル・テストが通るか
+#                (実機は使わない。偽のデバイスで読み出し検査や判定の計算を確かめる)
+
+name: Keyboard check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  expected:
+    name: Expected values (generate.py --check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # vial-qmk-kq-mini (QMK 本体を含み大きい) は使わないので取得しない
+      - name: Checkout submodules
+        run: |
+          git submodule update --init --depth 1 \
+            zmk-keymap-docgen zmk-config-LisM zmk-config-KUKEY42 zmk-config-AroundFortyRB zmk-config-Pyuron keyball
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check expected values
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python tools/expected/generate.py --check
+
+      - name: Unit tests (generator)
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -m unittest discover -s tools/expected -v
+
+      - name: Unit tests (PowerShell 7 on Linux)
+        shell: pwsh
+        run: ./tools/tests/run.ps1
+
+  powershell:
+    name: Windows PowerShell 5.1
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Unit tests (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $PSVersionTable.PSVersion.ToString()
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\tests\run.ps1
+          exit $LASTEXITCODE
