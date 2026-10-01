@@ -119,7 +119,7 @@ function Measure-KcMotion($Events) {
             $dx += $e.Dx; $dy += $e.Dy
             $ax += [math]::Abs($e.Dx); $ay += [math]::Abs($e.Dy)
             $n++
-            $samples.Add(@([double]$e.Dx, [double]$e.Dy))
+            $samples.Add(@([double]$e.Dx, [double]$e.Dy, [double]$e.Time))
         }
         if ($e.Wheel -gt 0) { $wheelPos++ } elseif ($e.Wheel -lt 0) { $wheelNeg++ }
         if ($e.HWheel -gt 0) { $hPos++ } elseif ($e.HWheel -lt 0) { $hNeg++ }

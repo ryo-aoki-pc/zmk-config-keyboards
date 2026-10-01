@@ -594,6 +594,8 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
     $bn = $script:KcBallNames[$Ball]
     $cat = $Ctx.CalibCategory
     $fw = Get-KcBallFirmware $Ctx.Expected $Ball
+    $accel = Get-KcProp $fw 'accel' $null
+    $th = $Ctx.Common.thresholds
     $revs = 2
     $plan = @(
         @{ Axis = 'x'; Text = '右へ' }, @{ Axis = 'x'; Text = '右へ' },
@@ -601,6 +603,7 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
     )
     while ($true) {
         $strokes = @()
+        $saturated = 0
         $n = 0
         foreach ($p in $plan) {
             $n++
@@ -619,8 +622,16 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
                 return 'done'
             }
             $m = Measure-KcMotion $r.Events
-            $strokes += @{ Axis = $p.Axis; Dx = $m.Dx; Dy = $m.Dy; Revolutions = $revs }
-            Show-KcStepResult $Ctx 'PASS' ('X {0} / Y {1} カウント' -f $m.Dx, $m.Dy)
+            if ($null -ne $accel) {
+                # ファームのカーソルの加速を取り除く (転がす速さで倍率が変わるため)
+                $pre = Remove-KcAccel $m.Samples $accel ([int]$th.accel_window_ms) ([int]$th.accel_idle_ms)
+                $saturated += $pre.Saturated
+                $strokes += @{ Axis = $p.Axis; Dx = $pre.Dx; Dy = $pre.Dy; Revolutions = $revs }
+                Show-KcStepResult $Ctx 'PASS' ('X {0:F0} / Y {1:F0} カウント (加速を除く。加速の後は X {2} / Y {3})' -f $pre.Dx, $pre.Dy, $m.Dx, $m.Dy)
+            } else {
+                $strokes += @{ Axis = $p.Axis; Dx = $m.Dx; Dy = $m.Dy; Revolutions = $revs }
+                Show-KcStepResult $Ctx 'PASS' ('X {0} / Y {1} カウント' -f $m.Dx, $m.Dy)
+            }
             Wait-KcPause $Ctx 600
         }
         $meas = Get-KcSpeedMeasurement $strokes $Ctx.Options.Diameter
@@ -628,8 +639,14 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
         $ref = $Ctx.SpeedReference
         $rec = New-KcSpeedRecommendation -Measurement $meas -Reference $ref -Firmware $fw -Thresholds $Ctx.Common.thresholds
         $text = $rec.Summary
-        if ($meas.Spread -gt $tol) {
-            $text = ('2 回の計測の差が {0:P0} あります。回転数がずれていないか確かめて、やり直してください。' -f $meas.Spread) + "`n" + $text
+        $redo = ''
+        if ($saturated -gt 0) {
+            $redo = ('速く回しすぎて、1 回の報告の上限 ({0}) に達しました ({1} 回)。もう少しゆっくり回して、やり直してください。' -f [int]$accel.clamp, $saturated)
+        } elseif ($meas.Spread -gt $tol) {
+            $redo = ('2 回の計測の差が {0:P0} あります。回転数がずれていないか確かめて、やり直してください。' -f $meas.Spread)
+        }
+        if ($redo) {
+            $text = $redo + "`n" + $text
             Show-KcStepResult $Ctx 'WARN' $text
         } else {
             Show-KcStepResult $Ctx $rec.Status $text
@@ -639,11 +656,13 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
         if ($o -eq 'abort') { return 'abort' }
         if ($o -eq 'retry') { continue }
         $status = $rec.Status
-        if ($meas.Spread -gt $tol -and $status -eq 'PASS') {
+        if ($redo -and $status -eq 'PASS') {
             $status = 'WARN'
         }
         $hint = ''
-        if ($status -eq 'WARN') {
+        if ($redo) {
+            $hint = $redo
+        } elseif ($status -eq 'WARN') {
             $hint = '推奨値 (Details) を overlay / 設定に反映してください。ツールはファームを書き換えません'
         }
         Add-KcInputResult $Ctx $cat ('速さ ({0}のボール)' -f $bn) $status $rec.Summary $hint (@($rec.Lines) + @($rec.Notes))
