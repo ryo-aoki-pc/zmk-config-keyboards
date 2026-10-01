@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-LisM",
-      "commit": "6ef99ab02e5ba03afbd40ed8c217207f886f0b74",
+      "commit": "5a6884745c3a167b034d1d6f2e7317c8960b7de7",
       "files": ["config/lism.keymap", "config/lism.json", "boards/shields/lism/lism.dtsi", "build.yaml", "snippets/trackball-central/trackball.overlay", "snippets/trackball-peripheral/trackball.overlay", "snippets/non-trackball-central/non_trackball.overlay"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}

@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-KUKEY42",
-      "commit": "1f7b891b00f5ddd2510944ca6a86a37ddef07c4f",
+      "commit": "ad06d403e5ae064952766ee9bf5ce1ae025b8b01",
       "files": ["config/KUKEY42.keymap", "config/KUKEY42.json", "boards/shields/KUKEY42/KUKEY42.dtsi", "boards/shields/KUKEY42/KUKEY42_R.overlay", "boards/shields/KUKEY42/KUKEY42_R.conf", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
