@@ -31,6 +31,49 @@ def have_submodules() -> bool:
         return False
 
 
+class TestAccelParser(unittest.TestCase):
+    OVERLAY = '''
+/ {
+    /omit-if-no-ref/ trackball_accel: trackball_accel {
+        compatible = "zmk,input-processor-xy-accel";
+        #input-processor-cells = <0>;
+        min-factor = <500>; // コメント
+        max-factor = <1300>;
+        speed-threshold = <1000>;
+        speed-max = <4000>;
+    };
+};
+&pointing_listener {
+    input-processors =
+        <&zip_xy_scaler 1 1>,
+        <&trackball_accel>,
+        <&zip_temp_layer 8 10000>;
+
+    scroller {
+        layers = <9>;
+        input-processors = <&zip_xy_to_scroll_mapper>;
+    };
+};
+'''
+
+    def test_nodes_and_listener(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, 'a.overlay').write_text(self.OVERLAY, encoding='utf-8')
+            nodes = g.xy_accel_nodes(Path(d), ['a.overlay', 'missing.overlay'])
+            text = g.strip_c_comments(self.OVERLAY)
+            proc = g.listener_block(text, 'pointing_listener', Path(d, 'a.overlay'))
+        self.assertEqual(nodes['trackball_accel']['min_factor'], 500)
+        self.assertEqual(nodes['trackball_accel']['speed_max'], 4000)
+        self.assertNotIn('scroll_mapper', proc)
+        a = g.accel_in(nodes, proc)
+        self.assertEqual(a['label'], 'trackball_accel')
+        self.assertIsNone(g.accel_in(nodes, '<&zip_temp_layer 8 10000>'))
+        self.assertTrue(g.same_accel(a, nodes['trackball_accel']))
+        self.assertFalse(g.same_accel(a, None))
+        self.assertEqual(g.accel_consistency('x', a, dict(a, max_factor=1000))['level'], 'warn')
+
+
 class TestTables(unittest.TestCase):
     def test_scan_codes(self):
         self.assertEqual(g.HID_SCAN[0x04][:2], (0x1E, 0))          # A
@@ -83,7 +126,7 @@ class TestGenerate(unittest.TestCase):
         self.assertEqual(d['physical']['layout_name'], '42-Key Layout')
 
     def test_zmk_interactive(self):
-        for name in ('lism', 'kukey42', 'aroundfortyrb', 'pyuron'):
+        for name in [b['id'] for b in g.ZMK_BOARDS]:
             d = self.data[f'{name}.json']
             it = d['interactive']
             keys = it['trackball']['keys']
@@ -94,9 +137,9 @@ class TestGenerate(unittest.TestCase):
             self.assertEqual(keys['right']['after_timeout']['usage'], 0x0D, name)  # J
             self.assertEqual(it['trackball']['aml']['timeout_ms'], 10000, name)
             self.assertEqual(it['output_switch']['usb']['legend'], 'U', name)
-            taps = {t['pos']: t for t in it['taps']}
-            self.assertEqual(taps[10]['usage'], 0x04, name)        # A (タップ)
-            self.assertEqual(taps[10]['hold_usage'], 0xE0, name)   # A (ホールド = 左 Ctrl)
+            a = [t for t in it['taps'] if t['usage'] == 0x04]
+            self.assertEqual(len(a), 1, name)                      # A (タップ)
+            self.assertEqual(a[0]['hold_usage'], 0xE0, name)       # A (ホールド = 左 Ctrl)
             total = len(it['taps']) + len(it['skipped'])
             self.assertEqual(total, d['readout']['zmk']['key_count'], name)
 
@@ -114,6 +157,25 @@ class TestGenerate(unittest.TestCase):
         self.assertTrue(all(v > 0 for v in afrb['xy_scaler']))
         self.assertEqual([f['side'] for f in self.data['pyuron.json']['interactive']['trackball']['firmware']],
                          ['left', 'right'])
+        # カーソルの加速: ZMK はすべてのボールの listener に入っている
+        for b in g.ZMK_BOARDS:
+            for fw in self.data[f'{b["id"]}.json']['interactive']['trackball']['firmware']:
+                self.assertEqual(fw['accel']['model'], 'zmk', b['id'])
+                self.assertEqual(fw['accel']['label'], 'trackball_accel', b['id'])
+        kb = self.data['keyball39.json']['interactive']['trackball']['firmware'][0]['accel']
+        self.assertEqual(kb['model'], 'keyball')
+        self.assertEqual(kb['clamp'], 127)
+        kq = self.data['kq-mini.json']['interactive']['trackball']['firmware']
+        self.assertEqual(kq[0]['accel'], kb)                 # KQ-mini 経由でも Keyball の加速
+        self.assertIsNone(kq[1]['accel'])
+
+    def test_products(self):
+        products = {b['id']: self.data[f'{b["id"]}.json']['device']['product'] for b in g.ZMK_BOARDS}
+        self.assertEqual(products['lism'], 'LisM')
+        self.assertEqual(products['roba'], 'roBa')
+        self.assertEqual(products['torabo-tsuki-lp'], 'torabo-tsuki')
+        self.assertEqual(self.data['lism.json']['physical']['layout_name'], '42-Key Layout')
+        self.assertEqual(self.data['torabo-tsuki-lp.json']['physical']['layout_name'], 'L Layout')
 
     def test_keyball(self):
         v = self.data['keyball39.json']['readout']['via']

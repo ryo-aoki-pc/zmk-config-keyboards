@@ -320,7 +320,10 @@
   "thresholds": {
     "ellipse_ratio_pass": 1.1,
     "rotation_min_deg": 5.0,
-    "calib_min_points": 300,
+    "calib_min_points": 250,
+    "calib_bin_ms": 40,
+    "accel_window_ms": 40,
+    "accel_idle_ms": 50,
     "calib_speed_split_tolerance": 0.15,
     "speed_tolerance": 0.1,
     "speed_repeat_tolerance": 0.1,

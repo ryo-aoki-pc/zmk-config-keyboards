@@ -596,7 +596,9 @@
           "matrix": null,
           "divisor": null,
           "correction": "zip_scaler",
-          "listener": "zmk-config-LisM/snippets/trackball-central/trackball.overlay の central_listener"
+          "listener": "zmk-config-LisM/snippets/trackball-central/trackball.overlay の central_listener",
+          "accel": {"model": "zmk", "label": "trackball_accel", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000},
+          "xy_scaler_set": false
         },
         {
           "side": "left",
@@ -608,7 +610,9 @@
           "matrix": null,
           "divisor": null,
           "correction": "zip_scaler",
-          "listener": "zmk-config-LisM の右手側 (セントラル) の snippet (trackball-central/trackball.overlay または non-trackball-central/non_trackball.overlay) の peripheral_listener"
+          "listener": "zmk-config-LisM の右手側 (セントラル) の snippet (trackball-central/trackball.overlay と non-trackball-central/non_trackball.overlay) の peripheral_listener",
+          "accel": {"model": "zmk", "label": "trackball_accel", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000},
+          "xy_scaler_set": false
         }
       ]
     },
@@ -622,7 +626,9 @@
     {"level": "ok", "message": "AML の除外位置 (10 12 17 19 20 29 31 32) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
-    {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/16 (LisM 基準 1/16)"},
+    {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/16 (README の共通基盤: 1/16)"},
+    {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
+    {"level": "ok", "message": "カーソルの加速 (左のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {
       "level": "warn",
       "message": "左ボールのスクロールの処理が、右手側の版で違います (trackball-central: <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>, <&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16> / non-trackball-central: <&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16>)。右手側の版によって左ボールのスクロールの向きが変わる可能性があります"

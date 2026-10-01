@@ -35,7 +35,8 @@ jobs:
       - name: Checkout submodules
         run: |
           git submodule update --init --depth 1 \
-            zmk-keymap-docgen zmk-config-LisM zmk-config-KUKEY42 zmk-config-AroundFortyRB zmk-config-Pyuron keyball
+            zmk-keymap-docgen zmk-config-LisM zmk-config-KUKEY42 zmk-config-AroundFortyRB zmk-config-Pyuron \
+            zmk-config-roBa zmk-keyboard-torabo-tsuki-lp keyball
 
       - name: Setup Python
         uses: actions/setup-python@v5

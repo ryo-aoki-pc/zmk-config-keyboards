@@ -38,6 +38,8 @@ SUBMODULES = {
     'KUKEY42': 'zmk-config-KUKEY42',
     'AroundFortyRB': 'zmk-config-AroundFortyRB',
     'Pyuron': 'zmk-config-Pyuron',
+    'roBa': 'zmk-config-roBa',
+    'torabo': 'zmk-keyboard-torabo-tsuki-lp',
     'keyball': 'keyball',
 }
 
@@ -204,7 +206,10 @@ QMK_MOUSE_NAMES = {
 THRESHOLDS = {
     'ellipse_ratio_pass': 1.10,       # 楕円の縦横比 (長軸 ÷ 短軸) がこれ以下なら PASS
     'rotation_min_deg': 5.0,          # 直線テストのずれがこれ以上なら、補正行列に回転も入れる
-    'calib_min_points': 300,          # 楕円計測に必要な点の数
+    'calib_min_points': 250,          # 楕円計測に必要な点の数 (calib_bin_ms ごとにまとめた数)
+    'calib_bin_ms': 40,               # 楕円計測の移動量をこの間隔ごとにまとめる (1 カウント単位の誤差を減らす)
+    'accel_window_ms': 40,            # カーソルの加速を取り除くとき、速さを測る区間
+    'accel_idle_ms': 50,              # これより長く止まっていたら、加速は最小の倍率から始まる (ファームと同じ)
     'calib_speed_split_tolerance': 0.15,  # 遅い動きと速い動きの縦横比の差 (これを超えたらやり直し)
     'speed_tolerance': 0.10,          # 基準 (LisM) との速さの差がこれ以内なら PASS
     'speed_repeat_tolerance': 0.10,   # 回転数の計測を 2 回したときの差
@@ -422,9 +427,10 @@ class ZmkKeymap:
 
 ZMK_BOARDS = [
     {
-        'id': 'lism', 'name': 'LisM', 'sub': 'LisM', 'product': 'LisM',
+        'id': 'lism', 'name': 'LisM', 'sub': 'LisM',
         'keymap': 'config/lism.keymap', 'layout': 'config/lism.json',
-        'dtsi': 'boards/shields/lism/lism.dtsi',
+        'dtsi': 'boards/shields/lism/lism.dtsi', 'kconfig': 'boards/shields/lism/Kconfig.defconfig',
+        'scroll': {'scaler': [1, 16]},
         'files': ['config/lism.keymap', 'config/lism.json', 'boards/shields/lism/lism.dtsi', 'build.yaml',
                   'snippets/trackball-central/trackball.overlay',
                   'snippets/trackball-peripheral/trackball.overlay',
@@ -432,29 +438,53 @@ ZMK_BOARDS = [
         'balls': ['left', 'right'], 'ask_balls': True,
     },
     {
-        'id': 'kukey42', 'name': 'KUKEY42', 'sub': 'KUKEY42', 'product': 'KUKEY42',
+        'id': 'kukey42', 'name': 'KUKEY42', 'sub': 'KUKEY42',
         'keymap': 'config/KUKEY42.keymap', 'layout': 'config/KUKEY42.json',
-        'dtsi': 'boards/shields/KUKEY42/KUKEY42.dtsi',
+        'dtsi': 'boards/shields/KUKEY42/KUKEY42.dtsi', 'kconfig': 'boards/shields/KUKEY42/Kconfig.defconfig',
+        'scroll': {'tick': 32},
         'files': ['config/KUKEY42.keymap', 'config/KUKEY42.json', 'boards/shields/KUKEY42/KUKEY42.dtsi',
                   'boards/shields/KUKEY42/KUKEY42_R.overlay', 'boards/shields/KUKEY42/KUKEY42_R.conf', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
     },
     {
-        'id': 'aroundfortyrb', 'name': 'AroundFortyRB', 'sub': 'AroundFortyRB', 'product': 'AroundFortyRB',
+        'id': 'aroundfortyrb', 'name': 'AroundFortyRB', 'sub': 'AroundFortyRB',
         'keymap': 'config/AroundForty-RB.keymap', 'layout': 'config/AroundForty-RB.json',
         'dtsi': 'boards/shields/AroundForty-RB/AroundForty-RB.dtsi',
+        'kconfig': 'boards/shields/AroundForty-RB/Kconfig.defconfig',
+        'scroll': {'scaler': [1, 32], 'why': 'CPI 800 のため'},
         'files': ['config/AroundForty-RB.keymap', 'config/AroundForty-RB.json',
                   'boards/shields/AroundForty-RB/AroundForty-RB.dtsi',
                   'boards/shields/AroundForty-RB/AroundForty-RB_R.overlay', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
     },
     {
-        'id': 'pyuron', 'name': 'Pyuron', 'sub': 'Pyuron', 'product': 'Pyuron',
+        'id': 'pyuron', 'name': 'Pyuron', 'sub': 'Pyuron',
         'keymap': 'config/Pyuron.keymap', 'layout': 'config/Pyuron.json',
-        'dtsi': 'boards/shields/Pyuron/Pyuron.dtsi',
+        'dtsi': 'boards/shields/Pyuron/Pyuron.dtsi', 'kconfig': 'boards/shields/Pyuron/Kconfig.defconfig',
+        'scroll': {'scaler': [1, 16]},
         'files': ['config/Pyuron.keymap', 'config/Pyuron.json', 'boards/shields/Pyuron/Pyuron.dtsi',
                   'boards/shields/Pyuron/Pyuron_R.overlay', 'boards/shields/Pyuron/Pyuron_L.overlay', 'build.yaml'],
         'balls': ['left', 'right'], 'ask_balls': False,
+    },
+    {
+        'id': 'roba', 'name': 'roBa', 'sub': 'roBa',
+        'keymap': 'config/roBa.keymap', 'layout': 'config/roBa.json',
+        'dtsi': 'boards/shields/roBa/roBa.dtsi', 'kconfig': 'boards/shields/roBa/Kconfig.defconfig',
+        'scroll': {'scaler': [1, 32], 'why': 'CPI 800 のため'},
+        'files': ['config/roBa.keymap', 'config/roBa.json', 'boards/shields/roBa/roBa.dtsi',
+                  'boards/shields/roBa/roBa_R.overlay', 'boards/shields/roBa/roBa_R.conf', 'build.yaml'],
+        'balls': ['right'], 'ask_balls': False,
+    },
+    {
+        'id': 'torabo-tsuki-lp', 'name': 'torabo-tsuki-lp', 'sub': 'torabo',
+        'keymap': 'config/keymap.keymap', 'layout': 'config/info.json',
+        'dtsi': 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi',
+        'kconfig': 'boards/shields/torabo_tsuki_lp/Kconfig.defconfig',
+        'scroll': {'scaler': [1, 1], 'why': '実機で調整した値 + スムーズスクロール'},
+        'files': ['config/keymap.keymap', 'config/info.json', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi',
+                  'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi',
+                  'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay', 'build.yaml'],
+        'balls': ['right'], 'ask_balls': False,
     },
 ]
 
@@ -471,20 +501,94 @@ def strip_c_comments(text: str) -> str:
     return re.sub(r'//[^\n]*', '', text)
 
 
+XY_ACCEL_PROPS = ('min-factor', 'max-factor', 'speed-threshold', 'speed-max')
+
+
+def xy_accel_nodes(base: Path, files: list[str]) -> dict[str, dict]:
+    """ファイルで定義したカーソルの加速 (zmk,input-processor-xy-accel) のノード。ラベル → 値"""
+    out: dict[str, dict] = {}
+    for rel in files:
+        p = base / rel
+        if not p.exists():
+            continue
+        t = strip_c_comments(read_text(p))
+        for m in re.finditer(r'(\w+)\s*:\s*[\w-]+\s*\{([^{}]*?compatible\s*=\s*"zmk,input-processor-xy-accel"[^{}]*)\}', t):
+            vals = {}
+            for prop in XY_ACCEL_PROPS:
+                pm = re.search(rf'{prop}\s*=\s*<\s*(\d+)\s*>', m.group(2))
+                if not pm:
+                    raise GenError(f'{rel} の {m.group(1)} に {prop} がありません')
+                vals[prop.replace('-', '_')] = int(pm.group(1))
+            out[m.group(1)] = {'model': 'zmk', 'label': m.group(1), **vals}
+    return out
+
+
+def accel_in(nodes: dict[str, dict], processors: str) -> dict | None:
+    """listener の input-processors に入っている加速のノード (無ければ None)。"""
+    for ref in re.findall(r'&(\w+)', processors):
+        if ref in nodes:
+            return dict(nodes[ref])
+    return None
+
+
+def accel_text(a: dict | None) -> str:
+    if a is None:
+        return 'なし'
+    return (f'min-factor {a["min_factor"]} / max-factor {a["max_factor"]} / '
+            f'speed-threshold {a["speed_threshold"]} / speed-max {a["speed_max"]}')
+
+
+def same_accel(a: dict | None, b: dict | None) -> bool:
+    if a is None or b is None:
+        return a is b
+    return all(a[k.replace('-', '_')] == b[k.replace('-', '_')] for k in XY_ACCEL_PROPS)
+
+
+def accel_consistency(what: str, a: dict | None, baseline: dict | None) -> dict:
+    if same_accel(a, baseline):
+        return {'level': 'ok', 'message': f'{what}: {accel_text(a)} (LisM 基準と同じ)'}
+    return {'level': 'warn', 'message': f'{what}: {accel_text(a)} (LisM 基準: {accel_text(baseline)})'}
+
+
+def listener_block(text: str, name: str, path: Path) -> str:
+    """ノード (name { ... } または &name { ... }) の中身。子ノード (スクロール) より前の部分。"""
+    m = re.search(rf'(?:&|\b){re.escape(name)}\s*(?::\s*[\w-]+\s*)?\{{(.*?)\n\s*\}};', text, re.DOTALL)
+    if not m:
+        raise GenError(f'{path} に {name} が見つかりません')
+    body = m.group(1)
+    child = re.search(r'\n\s*[\w-]+\s*\{', body)
+    return body[:child.start()] if child else body
+
+
 def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
     """ボールごとの、今のファームの設定 (正規化の推奨値を作るため)。"""
+    entries = zmk_trackball_firmware_base(board, base)
+    nodes = xy_accel_nodes(base, board['files'])
+    for e in entries:
+        processors = e.pop('processors')
+        e['accel'] = accel_in(nodes, processors)
+        e['xy_scaler_set'] = bool(re.search(r'&zip_xy_scaler\b', processors))
+    return entries
+
+
+def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
     bid = board['id']
     if bid == 'lism':
         central = 'snippets/trackball-central/trackball.overlay'
-        return [
-            {'side': 'right', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None, 'xy_scaler': [1, 1],
-             'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
-             'listener': f'zmk-config-LisM/{central} の central_listener'},
-            {'side': 'left', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None, 'xy_scaler': [1, 1],
-             'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
-             'listener': ('zmk-config-LisM の右手側 (セントラル) の snippet (trackball-central/trackball.overlay '
-                          'または non-trackball-central/non_trackball.overlay) の peripheral_listener')},
-        ]
+        ct = strip_c_comments(read_text(base / central))
+        cp = listener_block(ct, 'central_listener', base / central)
+        pp = listener_block(ct, 'peripheral_listener', base / central)
+        out = []
+        for side, proc, listener in (
+                ('right', cp, f'zmk-config-LisM/{central} の central_listener'),
+                ('left', pp, ('zmk-config-LisM の右手側 (セントラル) の snippet (trackball-central/trackball.overlay '
+                              'と non-trackball-central/non_trackball.overlay) の peripheral_listener'))):
+            sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
+            out.append({'side': side, 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
+                        'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
+                        'matrix': None, 'divisor': None, 'correction': 'zip_scaler', 'listener': listener,
+                        'processors': proc})
+        return out
     if bid == 'kukey42':
         conf = base / 'boards/shields/KUKEY42/KUKEY42_R.conf'
         overlay = base / 'boards/shields/KUKEY42/KUKEY42_R.overlay'
@@ -500,11 +604,13 @@ def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
         values = [int(v.strip('()')) for v in mm.group(1).split()]
         if len(values) != 4:
             raise GenError(f'{overlay} の matrix は 4 要素である必要があります')
+        procs = ' '.join(m.group(1) for m in re.finditer(r'input-processors\s*=(.*?);', text, re.DOTALL))
         return [{'side': 'right', 'sensor': 'pmw3610', 'cpi': cpi,
                  'cpi_source': 'zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.conf の CONFIG_PMW3610_CPI',
                  'cpi_setting': {'template': 'CONFIG_PMW3610_CPI={cpi}', 'step': 200, 'min': 200, 'max': 3200},
                  'xy_scaler': [1, 1], 'matrix': values, 'divisor': int(dm.group(1)), 'correction': 'matrix',
-                 'listener': 'zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.overlay の trackball_matrix'}]
+                 'listener': 'zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.overlay の trackball_matrix',
+                 'processors': procs}]
     if bid == 'aroundfortyrb':
         overlay = base / 'boards/shields/AroundForty-RB/AroundForty-RB_R.overlay'
         text = strip_c_comments(read_text(overlay))
@@ -520,7 +626,8 @@ def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
                  'cpi_source': 'zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball の cpi',
                  'cpi_setting': {'template': 'cpi = <{cpi}>;', 'step': 200, 'min': 200, 'max': 3200},
                  'xy_scaler': scaler, 'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
-                 'listener': 'zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball_listener'}]
+                 'listener': 'zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball_listener',
+                 'processors': lm.group(1)}]
     if bid == 'pyuron':
         dtsi = base / 'boards/shields/Pyuron/Pyuron.dtsi'
         text = strip_c_comments(read_text(dtsi))
@@ -530,16 +637,39 @@ def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
                           re.DOTALL)
             if not m:
                 raise GenError(f'{dtsi} に trackball_listener_{suffix} が見つかりません')
-            sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', m.group(1).split('scroller')[0])
+            proc = m.group(1).split('scroller')[0]
+            sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
             out.append({'side': side, 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
                         'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
                         'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
-                        'listener': f'zmk-config-Pyuron/boards/shields/Pyuron/Pyuron.dtsi の trackball_listener_{suffix}'})
+                        'listener': f'zmk-config-Pyuron/boards/shields/Pyuron/Pyuron.dtsi の trackball_listener_{suffix}',
+                        'processors': proc})
         return out
+    if bid == 'roba':
+        rel = 'boards/shields/roBa/roBa_R.overlay'
+        conf = base / 'boards/shields/roBa/roBa_R.conf'
+        cpi = int(search(conf, r'(?m)^CONFIG_PMW3610_CPI=(\d+)', 'CONFIG_PMW3610_CPI').group(1))
+        proc = listener_block(strip_c_comments(read_text(base / rel)), 'trackball_listener', base / rel)
+        sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
+        return [{'side': 'right', 'sensor': 'pmw3610', 'cpi': cpi,
+                 'cpi_source': 'zmk-config-roBa/boards/shields/roBa/roBa_R.conf の CONFIG_PMW3610_CPI',
+                 'cpi_setting': {'template': 'CONFIG_PMW3610_CPI={cpi}', 'step': 200, 'min': 200, 'max': 3200},
+                 'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
+                 'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
+                 'listener': f'zmk-config-roBa/{rel} の trackball_listener', 'processors': proc}]
+    if bid == 'torabo-tsuki-lp':
+        rel = 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay'
+        proc = listener_block(strip_c_comments(read_text(base / rel)), 'pointing_listener', base / rel)
+        sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
+        return [{'side': 'right', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
+                 'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
+                 'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
+                 'listener': f'zmk-keyboard-torabo-tsuki-lp/{rel} の pointing_listener', 'processors': proc}]
     raise GenError(f'知らない機種です: {bid}')
 
 
-def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int) -> list[dict]:
+def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int,
+                    firmware: list[dict], baseline_accel: dict | None) -> list[dict]:
     """静的な整合チェック (情報 / 警告)。検査ツールは表示するだけ。"""
     out: list[dict] = []
     text = km.text
@@ -578,19 +708,44 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
         out.append({'level': 'ok', 'message': f'zip_temp_layer はすべて {mous} 10000 (AML: MOUSE_MOVE、10 秒)'})
     else:
         out.append({'level': 'warn', 'message': f'zip_temp_layer の設定がそろっていません: {sorted(temp_layers)}'})
-    if scalers:
-        txt = ', '.join(f'{a}/{b}' for a, b in sorted(scalers))
-        out.append({'level': 'ok' if scalers == {(1, 16)} else 'warn', 'message': f'スクロールの倍率 zip_scroll_scaler: {txt} (LisM 基準 1/16)'})
-    if board['id'] == 'kukey42':
+    # スクロールの速さ: README の「共通基盤」の表の値 (LisM は 1/16。CPI などが違う機種は例外として書いてある)
+    want = board['scroll']
+    why = f'、{want["why"]}' if 'why' in want else ''
+    if 'scaler' in want:
+        exp = tuple(want['scaler'])
+        txt = ', '.join(f'{a}/{b}' for a, b in sorted(scalers)) or 'なし'
+        out.append({'level': 'ok' if scalers == {exp} else 'warn',
+                    'message': f'スクロールの倍率 zip_scroll_scaler: {txt} (README の共通基盤: {exp[0]}/{exp[1]}{why})'})
+    if 'tick' in want:
         conf = read_text(base / 'boards/shields/KUKEY42/KUKEY42_R.conf')
         tm = re.search(r'(?m)^CONFIG_PMW3610_SCROLL_TICK=(\d+)', conf)
-        out.append({'level': 'info', 'message': f'スクロールはドライバの scroll-layers (CONFIG_PMW3610_SCROLL_TICK={tm.group(1) if tm else "?"}) で行う'})
+        tick = int(tm.group(1)) if tm else None
+        out.append({'level': 'ok' if tick == want['tick'] else 'warn',
+                    'message': f'スクロールはドライバの scroll-layers で行う: CONFIG_PMW3610_SCROLL_TICK={tick} '
+                               f'(README の共通基盤: {want["tick"]})'})
+    # カーソルの加速: LisM 基準と同じ値か
+    for fw in firmware:
+        a = fw['accel']
+        name = {'right': '右のボール', 'left': '左のボール'}.get(fw['side'], fw['side'])
+        if a is None:
+            out.append({'level': 'warn', 'message': f'カーソルの加速 ({name}): listener に入っていません'})
+        else:
+            out.append(accel_consistency(f'カーソルの加速 ({name}) {a["label"]}', a, baseline_accel))
     if board['id'] == 'lism':
         # 左ボールのスクロールは、右手側の版 (trackball / non_trackball) の peripheral_listener で処理する
         def scroller(rel: str) -> str:
             t = strip_c_comments(read_text(base / rel))
             m = re.search(r'&peripheral_listener\s*\{.*?scroller\s*\{.*?input-processors\s*=(.*?);', t, re.DOTALL)
             return re.sub(r'\s+', ' ', m.group(1)).strip() if m else ''
+        nodes = xy_accel_nodes(base, board['files'])
+        procs = []
+        for rel in ('snippets/trackball-central/trackball.overlay', 'snippets/non-trackball-central/non_trackball.overlay'):
+            t = strip_c_comments(read_text(base / rel))
+            procs.append(accel_in(nodes, listener_block(t, 'peripheral_listener', base / rel)))
+        if not same_accel(procs[0], procs[1]):
+            out.append({'level': 'warn', 'message': (
+                f'左ボールのカーソルの加速が、右手側の版で違います (trackball-central: {accel_text(procs[0])} / '
+                f'non-trackball-central: {accel_text(procs[1])})')})
         a = scroller('snippets/trackball-central/trackball.overlay')
         b = scroller('snippets/non-trackball-central/non_trackball.overlay')
         if a != b:
@@ -617,7 +772,14 @@ def find_positions(layer: list[str], pred) -> list[int]:
     return [i for i, b in enumerate(layer) if pred(b.split())]
 
 
-def gen_zmk(board: dict, sources: Sources, kd, zv) -> dict:
+def zmk_product(board: dict, base: Path) -> str:
+    """ZMK Studio のデバイス名 (CONFIG_ZMK_KEYBOARD_NAME の既定値)。"""
+    m = search(base / board['kconfig'], r'config\s+ZMK_KEYBOARD_NAME\s+default\s+"([^"]+)"', 'ZMK_KEYBOARD_NAME',
+               re.DOTALL)
+    return m.group(1)
+
+
+def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None) -> dict:
     base = sources.path(board['sub'])
     km = ZmkKeymap(kd, zv, base / board['keymap'])
     n_layers = len(km.layer_names)
@@ -639,7 +801,8 @@ def gen_zmk(board: dict, sources: Sources, kd, zv) -> dict:
     cm = re.search(r'zmk,physical-layout\s*=\s*&(\w+)\s*;', dtsi)
     if not cm:
         raise GenError(f'{board["dtsi"]} に chosen zmk,physical-layout がありません')
-    lm = re.search(re.escape(cm.group(1)) + r'\s*:\s*[\w-]+\s*\{[^}]*?display-name\s*=\s*"([^"]+)"', dtsi, re.DOTALL)
+    lm = (re.search(re.escape(cm.group(1)) + r'\s*:\s*[\w-]+\s*\{[^}]*?display-name\s*=\s*"([^"]+)"', dtsi, re.DOTALL) or
+          re.search(r'&' + re.escape(cm.group(1)) + r'\s*\{[^}]*?display-name\s*=\s*"([^"]+)"', dtsi, re.DOTALL))
     layout_name = lm.group(1) if lm else None
 
     # Studio 版のアーティファクト (build.yaml)
@@ -720,11 +883,12 @@ def gen_zmk(board: dict, sources: Sources, kd, zv) -> dict:
         layers.append({'index': i, 'name': name, 'alias': km.alias_by_index.get(i, '')})
 
     files = board['files']
+    firmware = zmk_trackball_firmware(board, base)
     return {
         'schema': SCHEMA, 'generator': GENERATOR, 'id': board['id'], 'name': board['name'], 'kind': 'zmk',
         'sources': [sources.source_entry(board['sub'], files),
                     sources.source_entry('docgen', ['keymap_docgen.py', 'zmk_to_vial.py'])],
-        'device': {'usb_vid': '1D50', 'usb_pid': '615E', 'product': board['product'],
+        'device': {'usb_vid': '1D50', 'usb_pid': '615E', 'product': zmk_product(board, base),
                    'studio_artifacts': studio},
         'layers': layers,
         'physical': {'layout_name': layout_name, 'keys': keys},
@@ -735,11 +899,11 @@ def gen_zmk(board: dict, sources: Sources, kd, zv) -> dict:
                 'balls': board['balls'], 'ask_balls': board['ask_balls'],
                 'aml': {'layer': mous, 'scroll_layer': scrl, 'timeout_ms': aml_timeout, 'require_prior_idle_ms': idle},
                 'keys': hand_keys,
-                'firmware': zmk_trackball_firmware(board, base),
+                'firmware': firmware,
             },
             'output_switch': output_switch,
         },
-        'consistency': zmk_consistency(board, base, km, mous, scrl),
+        'consistency': zmk_consistency(board, base, km, mous, scrl, firmware, baseline_accel),
     }
 
 
@@ -887,6 +1051,16 @@ class Keyball:
             raise GenError('keymap.c でスクロールスナップを FREE にしていません')
         if 'set_auto_mouse_enable(true)' not in km_text:
             raise GenError('keymap.c で AML を有効にしていません')
+        # カーソルの加速 (keymap.c の keyball_on_apply_motion_to_mouse_move。値は config.h)
+        self.accel = None
+        accel_vals = {k: define_int(config_h, f'KEYBALL_ACCEL_{k.upper()}')
+                      for k in ('min_factor', 'max_factor', 'speed_threshold', 'speed_max')}
+        if all(v is not None for v in accel_vals.values()):
+            if 'keyball_on_apply_motion_to_mouse_move' not in km_text:
+                raise GenError('config.h に KEYBALL_ACCEL_* がありますが、keymap.c に加速の処理がありません')
+            # 速さは 8ms ごとの移動量 (大きいほう + 小さいほうの半分) から求め、1 回の報告は ±127 で頭打ちになる
+            self.accel = {'model': 'keyball', 'label': 'KEYBALL_ACCEL_*', **accel_vals,
+                          'interval_ms': need('KEYBALL_REPORTMOUSE_INTERVAL', config_h, lib_h), 'clamp': 127}
         self.status = {
             'format': 1, 'model': 39, 'cpi': cpi // 100, 'scroll_div': sdiv, 'scroll_snap': 2,
             'aml_enabled': True, 'aml_layer': aml_layer, 'aml_timeout': aml_time, 'aml_delay': aml_delay,
@@ -922,8 +1096,8 @@ class Keyball:
         return [{'side': 'right', 'sensor': 'pmw3360', 'cpi': self.status['cpi'] * 100,
                  'cpi_source': 'keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_CPI_DEFAULT (既定 500)',
                  'cpi_setting': {'template': '#define KEYBALL_CPI_DEFAULT {cpi}', 'step': 100, 'min': 100, 'max': 12000},
-                 'xy_scaler': [1, 1], 'matrix': None, 'divisor': None, 'correction': 'cpi_only',
-                 'listener': 'Keyball のファーム (X/Y を別々に補正する機能は無い)'}]
+                 'xy_scaler': [1, 1], 'xy_scaler_set': False, 'matrix': None, 'divisor': None, 'correction': 'cpi_only',
+                 'listener': 'Keyball のファーム (X/Y を別々に補正する機能は無い)', 'accel': self.accel}]
 
 
 QMK_LABEL_OVERRIDES = {0xE6: 'RAlt', 0x39: 'Caps'}
@@ -947,7 +1121,7 @@ def add_legends(keys: list[dict], legend_of_pos) -> None:
         k['legend'] = legend_of_pos(k['pos'])
 
 
-def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict) -> dict:
+def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict, baseline_accel: dict | None) -> dict:
     keys = [dict(k) for k in kb.keys]
     names = {1: 'AML', 2: 'SCROLL', 3: '設定'}
     add_legends(keys, lambda pos: qmk_legend(kb.cell(0, pos), names))
@@ -964,6 +1138,7 @@ def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict) -> dict:
          'message': f'AML の発動条件 AUTO_MOUSE_DELAY = {st["aml_delay"]} (LisM require-prior-idle-ms {lism_aml["require_prior_idle_ms"]})'},
         {'level': 'ok' if 2 ** (st['scroll_div'] - 1) == 16 else 'warn',
          'message': f'スクロールの倍率 1/{2 ** (st["scroll_div"] - 1)} (KEYBALL_SCROLL_DIV_DEFAULT {st["scroll_div"]}、LisM 1/16)'},
+        accel_consistency('カーソルの加速 KEYBALL_ACCEL_*', kb.accel, baseline_accel),
     ]
     return {
         'schema': SCHEMA, 'generator': GENERATOR, 'id': 'keyball39', 'name': 'Keyball39', 'kind': 'via',
@@ -1135,8 +1310,8 @@ def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball) -> dict:
                         'timeout_ms': st['aml_timeout'], 'require_prior_idle_ms': st['aml_delay']},
                 'keys': tb_keys,
                 'firmware': kb.firmware() + [{'side': 'kq-mini', 'sensor': None, 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
-                                              'xy_scaler': [1, 1], 'matrix': None, 'divisor': None,
-                                              'correction': 'none',
+                                              'xy_scaler': [1, 1], 'xy_scaler_set': False, 'matrix': None, 'divisor': None,
+                                              'correction': 'none', 'accel': None,
                                               'listener': 'KQ-mini はマウスを等倍で中継する (倍率は変えられない)'}],
             },
             'output_switch': None,
@@ -1182,13 +1357,18 @@ def generate(sources: Sources) -> dict[str, str]:
     kd, zv, vd = import_docgen(sources)
     out: dict[str, dict] = {'common.json': gen_common(zv)}
     lism = None
+    # カーソルの加速の基準: LisM の trackball_accel
+    lism_board = ZMK_BOARDS[0]
+    baseline = xy_accel_nodes(sources.path(lism_board['sub']), [lism_board['dtsi']]).get('trackball_accel')
+    if baseline is None:
+        raise GenError(f'{lism_board["dtsi"]} に trackball_accel がありません')
     for board in ZMK_BOARDS:
-        data = gen_zmk(board, sources, kd, zv)
+        data = gen_zmk(board, sources, kd, zv, baseline)
         out[f'{board["id"]}.json'] = data
         if board['id'] == 'lism':
             lism = data
     kb = Keyball(sources, kd, zv, vd)
-    out['keyball39.json'] = gen_keyball(kb, sources, lism['interactive']['trackball']['aml'])
+    out['keyball39.json'] = gen_keyball(kb, sources, lism['interactive']['trackball']['aml'], baseline)
     out['kq-mini.json'] = gen_kq_mini(sources, kd, zv, kb)
     return {name: dumps(data) + '\n' for name, data in out.items()}
 
