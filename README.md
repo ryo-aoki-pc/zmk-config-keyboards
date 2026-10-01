@@ -36,9 +36,44 @@
 | タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
 | AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K と修飾キーの位置 (A / - / Z / / / Win / Alt)、マウスクリックでタイマー延長 |
 | マウスレイヤーの修飾キー | MOUSE_MOVE / MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。AML に入ってから Shift + クリック・Ctrl + ホイールなどを押せる |
-| スクロール | `zip_scroll_scaler 1 16` (1/16)。例外: torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
+| トラックボールの細かさ | センサーの値を引き伸ばさず、1 カウントでカーソルが 1 動く (2 倍などにすると 2 ずつ飛ぶ)。AroundFortyRB / roBa は CPI 800、KUKEY42 は CPI 2000 + 楕円の補正 (`trackball_matrix` の divisor 2000)。LisM / Pyuron / torabo-tsuki-lp (PAW3222) は CPI を設定せず等倍 |
+| カーソルの加速 | 転がす速さに応じて移動量に倍率を掛ける ([zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) の `trackball_accel`)。速さ 0 で 0.5 倍 → 1000 カウント/秒で等倍 → 4000 カウント/秒以上で 1.3 倍 (`min-factor 500` / `speed-threshold 1000` / `max-factor 1300` / `speed-max 4000`)。カーソル移動だけに掛け、スクロールには掛けない。Keyball39 も同じ値 (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`)。調整は [カーソルの加速の調整](#カーソルの加速の調整) |
+| スクロール | `zip_scroll_scaler 1 16` (1/16)。例外: AroundFortyRB / roBa は CPI 800 なので `zip_scroll_scaler 1 32` (CPI 400 のときの 1/16 と同じ速さ)、KUKEY42 はドライバの `CONFIG_PMW3610_SCROLL_TICK=32`、torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
 | スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
 | ブートローダ | 左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿すと、その側がブートローダになる (Keyball の Bootmagic と同じ操作)。各リポジトリの `src/usb_bootmagic.c` (`zmk,usb-bootmagic`) で、キーは左右の overlay の `row` / `column` で指定する。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照 |
+
+### カーソルの加速の調整
+
+ゆっくり転がしたときはカーソルを細かく動かし (狙った位置に止めやすくする)、速く転がしたときは遠くまで動かします。
+倍率は速さ (カウント/秒) で次のように変わり、その間は直線で補間します。
+
+| 速さ (カウント/秒) | 0 | 500 | 1000 | 2500 | 4000 以上 |
+| --- | --- | --- | --- | --- | --- |
+| 倍率 | 0.5 | 0.75 | 1.0 | 1.15 | 1.3 |
+
+- 速さは X と Y を合わせた移動量から求めるので、斜めに動かしても縦横と同じ倍率になる
+- 1 に満たない端数は次へ持ち越すので、0.5 倍でも移動量は失われない (2 カウントで 1 動く)
+- 50ms 以上止まっていたら 0.5 倍から始める (速く転がした直後に止めて細かく合わせるとき、前の速さを引き継がない)
+- Windows の「ポインターの精度を高める」(マウスのプロパティ) が ON のときは、OS 側でも加速がかかる
+
+値は各キーボードの `trackball_accel` ノード (Keyball39 は `config.h` の `KEYBALL_ACCEL_*`) で変えます。
+
+| 症状 | 変える値 |
+| --- | --- |
+| ゆっくり動かしたときに遅すぎる | `min-factor` を上げる (例: 700) |
+| ゆっくり動かしても細かく止められない | `min-factor` を下げる、または `speed-threshold` を上げる |
+| 速く動かすと飛びすぎる (OS の加速と重なる) | `max-factor` を下げる (1000 で加速なし) |
+| 速く動かしても遠くまで届かない | `max-factor` を上げる、または `speed-max` を下げる |
+
+| キーボード | `trackball_accel` の場所 |
+| --- | --- |
+| LisM | `boards/shields/lism/lism.dtsi` (左右のトラックボールで共有) |
+| Pyuron | `boards/shields/Pyuron/Pyuron.dtsi` (左右のトラックボールで共有) |
+| torabo-tsuki-lp | `boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi` |
+| AroundFortyRB | `boards/shields/AroundForty-RB/AroundForty-RB_R.overlay` |
+| roBa | `boards/shields/roBa/roBa_R.overlay` |
+| KUKEY42 | `boards/shields/KUKEY42/KUKEY42_R.overlay` |
+| Keyball39 | `qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h` |
 
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
 
@@ -53,6 +88,8 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
   `KC_RSFT` / `KC_LGUI` / `KC_LALT`) を送ります。KQ-mini はそれをそのまま素通しします
 - マウスボタン: KQ-mini はマウスボタンを自身のキーマップ経由で送ります。ボタンを押したままキーを押したり
   離したりしても、ボタンは押されたままです (ドラッグ中に Ctrl / Shift を押してもドロップされない)
+- カーソルの加速: keyball39 本体側で掛けます (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`。ZMK のキーボードと同じ値)。
+  KQ-mini 側では倍率を掛けません
 
 ## Submodules
 
@@ -72,6 +109,7 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
 | リポジトリ | 追跡ブランチ | 用途 |
 | --- | --- | --- |
 | [zmk-keymap-docgen](https://github.com/ryo-aoki-pc/zmk-keymap-docgen) | `main` | キーマップドキュメント生成ツール |
+| [zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) | `main` | カーソルの加速の入力プロセッサ。ZMK の 6 リポジトリが `config/west.yml` でコミットを固定して取り込む |
 
 ### QMK/Vial 関連
 
@@ -333,21 +371,25 @@ ZMK は、トラックボールのセンサーが報告するたびに、マウ�
 
 | キーボード | 間隔 | 決めている設定 |
 | --- | --- | --- |
-| KUKEY42 | 16ms ごと (ドライバは 8ms ごとに報告し、15ms に 1 回までにまとめる) | `KUKEY42_R.overlay` の `trackball_rate_limit` ([zmk-input-processor-report-rate-limit](https://github.com/badjeff/zmk-input-processor-report-rate-limit)) |
-| AroundFortyRB | 15ms 以上 | `AroundForty-RB_R.conf` の `CONFIG_PMW3610_REPORT_INTERVAL_MIN=15` |
+| KUKEY42 / roBa | 16ms ごと (ドライバは 8ms ごとに報告し、15ms に 1 回までにまとめる) | `KUKEY42_R.overlay` / `roBa_R.overlay` の `trackball_rate_limit` ([zmk-input-processor-report-rate-limit](https://github.com/badjeff/zmk-input-processor-report-rate-limit)) |
+| AroundFortyRB | 15ms 以上 (ドライバの報告を 15ms に 1 回までにまとめる) | `AroundForty-RB_R.overlay` の `trackball_rate_limit` (同上) |
 | LisM / Pyuron / torabo-tsuki-lp | 約 15ms ごと | PAW3222 のドライバ (15ms ごとに読み取る。設定は無い) |
-| roBa | **8ms ごと** (まとめていない) | `roBa_R.conf` の `CONFIG_PMW3610_POLLING_RATE_125_SW=y` |
 
 - KUKEY42 は以前、8ms ごとに送っていたため、複数台を同時に接続するとカクついていた
-  ([ryo-aoki-pc/zmk-config-KUKEY42#25](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42/pull/25) で修正)
-- roBa は修正前の KUKEY42 と同じく 8ms ごとに送っているため、同じ症状が出る可能性がある (未確認)
-- まとめるときは、間隔に満たない分の移動量を次のレポートに足すので、移動量は失われない
-- USB 接続中は、KUKEY42 もまとめずに 8ms ごとに送る
+  ([ryo-aoki-pc/zmk-config-KUKEY42#25](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42/pull/25) で修正)。
+  roBa も同じく 8ms ごとに送っていたため、同じ方法でまとめた
+  ([ryo-aoki-pc/zmk-config-roBa#4](https://github.com/ryo-aoki-pc/zmk-config-roBa/pull/4))
+- AroundFortyRB は以前、ドライバの `CONFIG_PMW3610_REPORT_INTERVAL_MIN=15` でまとめていた。ドライバは報告の間隔が
+  15ms 以上空くと、まだ送っていない移動量を捨てるため、ゆっくり動かしたときに動きが抜けていた
+  ([ryo-aoki-pc/zmk-config-AroundFortyRB#36](https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB/pull/36) で `trackball_rate_limit` に変更)
+- まとめるときは、間隔に満たない分の移動量を次のレポートに足す。ただし、前に送ってから 30ms 以上次の動きが
+  無かったときは、足さずに捨てる (ボールを止める直前の 15ms ぶんの動きが抜けることがある)
+- USB 接続中は、KUKEY42 / roBa / AroundFortyRB もまとめずに送る
 
 それでもカクつくとき:
 
 - 使っていないキーボードの電源を切る
-- KUKEY42 は、`KUKEY42_R.overlay` の `<&trackball_rate_limit 15>` を `30` (32ms ごと) に上げる。
+- KUKEY42 / roBa / AroundFortyRB は、右手側の overlay の `<&trackball_rate_limit 15>` を `30` (32ms ごと) に上げる。
   カーソルの動きは粗くなるが、送る量が半分になる
 
 ## Keyball39 のトラックボールが動かない場合

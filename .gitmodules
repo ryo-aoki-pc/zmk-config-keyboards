@@ -34,3 +34,7 @@
 	path = keyball
 	url = https://github.com/ryo-aoki-pc/keyball.git
 	branch = custom
+[submodule "zmk-input-processor-xy-accel"]
+	path = zmk-input-processor-xy-accel
+	url = https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel.git
+	branch = main
