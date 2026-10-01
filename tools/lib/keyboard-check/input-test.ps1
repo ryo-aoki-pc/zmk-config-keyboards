@@ -58,11 +58,14 @@ function Wait-KcStep {
         [int]$TimeoutMs = 30000,
         [scriptblock]$OnTick = $null,
         [switch]$AnyDevice,
-        [switch]$ButtonsOnly
+        [switch]$ButtonsOnly,
+        # $Done / $OnTick を呼ぶ間隔 (入力が多い計測で、毎回すべての記録を調べないように)
+        [int]$CheckIntervalMs = 100
     )
     $wsForm = $Ctx.Form
     $wsEvents = New-Object 'System.Collections.Generic.List[object]'
     $wsStart = $wsForm.NowMs
+    $wsLastCheck = [long]0
     while ($true) {
         Invoke-KcPump
         $wsAction = $wsForm.TakeAction()
@@ -75,16 +78,30 @@ function Wait-KcStep {
             }
         }
         $wsNow = $wsForm.NowMs
-        if ($null -ne $OnTick) {
-            & $OnTick $wsEvents.ToArray() $wsNow
-        }
-        if (-not $ButtonsOnly -and $null -ne $Done -and (& $Done $wsEvents.ToArray() $wsNow)) {
-            return @{ Outcome = 'done'; Events = $wsEvents.ToArray() }
+        if (($wsNow - $wsLastCheck) -ge $CheckIntervalMs) {
+            $wsLastCheck = $wsNow
+            $wsArray = $wsEvents.ToArray()
+            if ($null -ne $OnTick) {
+                & $OnTick $wsArray $wsNow
+            }
+            if (-not $ButtonsOnly -and $null -ne $Done -and (& $Done $wsArray $wsNow)) {
+                return @{ Outcome = 'done'; Events = $wsArray }
+            }
         }
         if ($TimeoutMs -gt 0 -and ($wsNow - $wsStart) -gt $TimeoutMs) {
             return @{ Outcome = 'timeout'; Events = $wsEvents.ToArray() }
         }
     }
+}
+
+# 最初にボールが動いた時刻 (動いていなければ -1)
+function Get-KcFirstMoveTime($Events) {
+    foreach ($e in $Events) {
+        if ($e.Kind -eq 'mouse' -and ($e.Dx -ne 0 -or $e.Dy -ne 0)) {
+            return [long]$e.Time
+        }
+    }
+    return [long]-1
 }
 
 # 入力が止まってから $IdleMs たったか (マウスの移動量が $MinMove 以上のときだけ)
@@ -137,6 +154,18 @@ function Add-KcInputResult($Ctx, [string]$Category, [string]$Item, [string]$Stat
 # ---------------------------------------------------------------------------
 
 function Select-KcKeyboardDevice($Ctx) {
+    # キーの入力をこのウィンドウで受け取る (Alt / Win を押してもメニューが開かない) ため、前面にする
+    if (-not $Ctx.Form.IsForeground) {
+        $Ctx.Form.SetTexts('準備', 'このウィンドウを一度クリックしてください',
+            'キーの入力をこのウィンドウで受け取るためです (コンソールにキーが入力されないようにします)。')
+        $Ctx.Form.Activate()
+        while (-not $Ctx.Form.IsForeground) {
+            Invoke-KcPump
+            if ($Ctx.Form.TakeAction() -eq 'abort') {
+                return 'abort'
+            }
+        }
+    }
     $Ctx.Form.SetTexts('準備: キーボードの特定', 'テストするキーボードのキーを 1 つ押してください',
         "Shift など、押しても何も起きないキーがおすすめです。`nPC 本体のキーボードやマウスには触らないでください。")
     $r = Wait-KcStep -Ctx $Ctx -AnyDevice -TimeoutMs 60000 -Done {
@@ -506,20 +535,19 @@ function Invoke-KcEllipseCalib($Ctx, [string]$Ball, $Strokes) {
         $Ctx.Form.SetStatus('', 0)
         $Ctx.Form.ClearEvents()
         $started = $null
-        $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 90000 -OnTick {
+        $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 90000 -CheckIntervalMs 250 -OnTick {
             param($ev, $now)
-            $mv = @($ev | Where-Object { $_.Kind -eq 'mouse' -and ($_.Dx -ne 0 -or $_.Dy -ne 0) })
-            if ($mv.Count -gt 0) {
-                $t0 = $mv[0].Time
+            $t0 = Get-KcFirstMoveTime $ev
+            if ($t0 -ge 0) {
                 $left = 20 - [math]::Floor(($now - $t0) / 1000.0)
                 $dir = '右回り'
                 if ($now - $t0 -ge 10000) { $dir = '左回り' }
-                $Ctx.Form.SetStatus(('{0} で回してください: 残り {1} 秒 (点 {2})' -f $dir, [math]::Max($left, 0), $mv.Count), 0)
+                $Ctx.Form.SetStatus(('{0} で回してください: 残り {1} 秒 (入力 {2})' -f $dir, [math]::Max($left, 0), @($ev).Count), 0)
             }
         } -Done {
             param($ev, $now)
-            $mv = @($ev | Where-Object { $_.Kind -eq 'mouse' -and ($_.Dx -ne 0 -or $_.Dy -ne 0) })
-            ($mv.Count -gt 0) -and (($now - $mv[0].Time) -ge 20000)
+            $t0 = Get-KcFirstMoveTime $ev
+            ($t0 -ge 0) -and (($now - $t0) -ge 20000)
         }
         if ($r.Outcome -eq 'abort') { return 'abort' }
         if ($r.Outcome -ne 'done') {
@@ -668,11 +696,15 @@ function Invoke-KcInputTest {
     $outcome = 'done'
     $form = New-KcInputForm $Expected
     $ctx.Form = $form
+    $consoleMode = [KcConsoleMode]::DisableQuickEdit()
     try {
         $form.MaskWinKey($true)
-        $outcome = Select-KcKeyboardDevice $ctx
-        if ($outcome -eq 'done') {
-            [void](Add-KcResult -Results $Results -Category $ctx.Category -Item 'キーボード' -Status INFO -Actual $ctx.KeyboardName)
+        if ($doKeys -or $doBall) {
+            # トラックボールの正規化だけのときは、キーを押さないので特定しない
+            $outcome = Select-KcKeyboardDevice $ctx
+            if ($outcome -eq 'done') {
+                [void](Add-KcResult -Results $Results -Category $ctx.Category -Item 'キーボード' -Status INFO -Actual $ctx.KeyboardName)
+            }
         }
         if ($outcome -eq 'done' -and $doKeys -and @($Expected.interactive.taps).Count -gt 0) {
             $outcome = Invoke-KcTapTest $ctx
@@ -720,6 +752,7 @@ function Invoke-KcInputTest {
         $form.MaskWinKey($false)
         $form.Close()
         $form.Dispose()
+        [KcConsoleMode]::Restore($consoleMode)
         try {
             $Host.UI.RawUI.FlushInputBuffer()
         } catch {

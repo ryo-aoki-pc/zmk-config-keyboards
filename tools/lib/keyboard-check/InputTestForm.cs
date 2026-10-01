@@ -444,6 +444,9 @@ public class KcInputTestForm : Form
 
     public bool IsClosed { get { return closed; } }
 
+    // True while this window has the keyboard focus (keys are swallowed and the cursor can be confined).
+    public bool IsForeground { get { return IsHandleCreated && GetForegroundWindow() == Handle; } }
+
     public void SetButtonTexts(string next, string retry, string skip, string abort)
     {
         nextButton.Text = next;
@@ -710,5 +713,46 @@ public class KcInputTestForm : Form
         ReleaseClip();
         RemoveHook();
         base.Dispose(disposing);
+    }
+}
+
+// Turns off the console's QuickEdit mode while the test window is open: a click on the console
+// would otherwise start a selection that blocks the next console write.
+public static class KcConsoleMode
+{
+    [DllImport("kernel32.dll")]
+    static extern IntPtr GetStdHandle(int handle);
+
+    [DllImport("kernel32.dll")]
+    static extern bool GetConsoleMode(IntPtr handle, out uint mode);
+
+    [DllImport("kernel32.dll")]
+    static extern bool SetConsoleMode(IntPtr handle, uint mode);
+
+    const int STD_INPUT_HANDLE = -10;
+    const uint ENABLE_QUICK_EDIT_MODE = 0x0040;
+    const uint ENABLE_EXTENDED_FLAGS = 0x0080;
+
+    // Returns the previous mode, or -1 when there is no console.
+    public static long DisableQuickEdit()
+    {
+        IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+        uint mode;
+        if (h == IntPtr.Zero || h == new IntPtr(-1) || !GetConsoleMode(h, out mode))
+        {
+            return -1;
+        }
+        SetConsoleMode(h, (mode & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS);
+        return mode;
+    }
+
+    public static void Restore(long mode)
+    {
+        if (mode < 0)
+        {
+            return;
+        }
+        IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+        SetConsoleMode(h, (uint)mode);
     }
 }
