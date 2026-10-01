@@ -92,13 +92,17 @@ git submodule update --init --recursive
 
 ### submodule を最新に更新
 
-各 submodule を追跡ブランチの最新コミットに更新します:
+各 submodule を追跡ブランチの最新コミットに更新します。
+検査ツールの期待値 (`tools/expected/*.json`) も submodule から作り直します (Python 3.10 以上):
 
 ```bash
 git submodule update --remote
+python tools/expected/generate.py
 git add .
 git commit -m "Update submodules"
 ```
+
+期待値が submodule の内容と合っていないと、CI (`.github/workflows/keyboard-check.yml`) の `generate.py --check` が失敗します。
 
 ## ファームウェアの書き込み (Windows)
 
@@ -283,6 +287,108 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 1. `settings_reset-seeeduino_xiao_ble-zmk.uf2` を左右両方に書き込む
 2. 左 (`*_left_peripheral*.uf2`) と右 (`*_right_central*.uf2`) のファームウェアをそれぞれ書き込む
 3. 設定リセットでペアリング情報も消えるため、PC の Bluetooth 設定から古いキーボードを削除して再ペアリングする
+
+## キーボードの設定を検査する (`tools/keyboard-check.cmd`)
+
+接続したキーボードの設定 (キーマップ・トラックボール) が、意図した設定 (LisM 基準) になっているかを確かめるスクリプトです。
+次のようなずれを見つけます。キーボードの設定は書き換えません。
+
+- Vial / ZMK Studio で変えた内容が、キーボードに残っている
+- Keyball の CPI やスクロールの倍率が、EEPROM に古い値のまま残っている (ファームを書き直しても戻らない)
+- overlay の XY / スクロールの反転、AML の設定が意図と違う
+
+### 使い方
+
+1. `tools/keyboard-check.cmd` をダブルクリックし、機種と検査の内容を番号で選ぶ。接続中の機種には「検出」と表示される
+2. 読み出し検査のあと、テスト用のウィンドウが開く。ウィンドウの指示に従って、キーを押したりボールを転がしたりする
+3. 最後に PASS / FAIL / WARN / SKIP の一覧が出る。結果は `tools/.cache/keyboard-check/reports/` にも保存される
+
+| 判定 | 意味 |
+| --- | --- |
+| PASS | 意図どおり |
+| FAIL | 意図と違う (下の「判定と対処」を参照) |
+| WARN | 確認が必要 (トラックボールの補正の推奨値など) |
+| SKIP | 検査できなかった (案内に従って準備すると検査できる) |
+
+### 読み出し検査
+
+キーボードから設定を読み出して、期待値 (`tools/expected/*.json`) とすべてのキーを比べます。読み取りのコマンドだけを送ります。
+
+| 機種 | 検査する内容 | 準備 |
+| --- | --- | --- |
+| Keyboard Quantizer Mini + Keyball39 | KQ-mini のキーマップ (全 8 レイヤー)、タップホールド設定 (tapping term など)、タップダンス、キーオーバーライド、コンボ、マクロ | KQ-mini を PC につなぐ。Vial は閉じる |
+| Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12) 以降のファームで読める |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash-zmk.cmd` のファイルの一覧で `s`)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
+
+ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio では読めないので、実動作テストで確かめます。
+
+### 実動作テスト
+
+テスト用のウィンドウで、キーを押したりボールを転がしたりして、PC に届いた入力を期待値と比べます。
+どの機種でも、ファームを変えずに USB / BLE のどちらでもできます (リモートデスクトップ越しではできません)。
+
+| 項目 | 合格の条件 |
+| --- | --- |
+| キーのタップ | BASE レイヤーのキーを 1 つずつタップして、意図したキーが入力される (KQ-mini は、Keyball のキーを KQ-mini が変換した結果で確かめる) |
+| ボールの向き | 右へ転がすと右、手前へ転がすと下へカーソルが動く |
+| AML のクリック | ボールを転がしたあと、`D` を押しながら `F` でクリックになる (文字は入力されない) |
+| Shift + クリック | ボールを転がしたあと、`Z` → `D` → `F` で Shift + クリックになる |
+| スクロールの向き | `D` を押しながら手前へ転がすと下へ、右へ転がすと右へスクロールする (マウスのホイールと同じ向き) |
+| AML のタイムアウト | 10 秒触らないと AML が切れ、`F` で文字が入力される |
+
+- 右手側のボールは左手のキー (`D` / `F` / `Z`)、左手側のボールは右手のキー (`K` / `J` / `/`) で試す
+- テスト中は、Win キーでスタートメニューが開かず、キーボードから送られたクリックはウィンドウの中だけで起きるようにしてある
+
+### トラックボールの正規化 (楕円補正・速さ)
+
+検査の内容で「4. トラックボールの正規化だけ」(または 1 / 3) を選ぶと、次の 2 つを測って、補正の推奨値を出します。
+ファームや overlay は書き換えないので、推奨値を反映して書き込んだあと、もう一度測って確かめます。
+
+**楕円 (X / Y の比率と傾き)**: ボールを円を描くように、右回りで 10 秒、左回りで 10 秒回します。縦横比が 1.10 を超えると WARN になり、推奨値を出します。
+
+| 機種 | 推奨値 |
+| --- | --- |
+| KUKEY42 | `KUKEY42_R.overlay` の `trackball_matrix` の `matrix` / `divisor` の行 (今の行列に補正を掛けた値) |
+| LisM / AroundFortyRB / Pyuron | listener の `input-processors` の最後に足す `<&zip_x_scaler n d>, <&zip_y_scaler n d>`。傾きがあって軸ごとの倍率で直せないときは、KUKEY42 の 2x2 行列の入力プロセッサ (`src/input_processor_xy_matrix.c`) の移植が必要 |
+| Keyball39 / KQ-mini | X と Y を別々に補正する設定が無いので、測った値だけを表示する |
+
+計算は「KUKEY42 真円計測」ページと同じです (移動量の共分散から、楕円を同じ面積の円に戻す行列を求める)。
+ページはブラウザで OS のポインタの加速が入った値を測るため、補正の強さを下げる必要がありました。
+このスクリプトは Raw Input で、そのボールの加速前の値だけを測るので、補正の強さは 100% のまま使えます (`-CalibStrength` で変えられる)。
+直線のテスト (右へ / 手前へ) で 5° 以上ずれていれば、回転も補正に入れます。
+
+**速さ (キーボード間)**: ボールに印を付け、右へちょうど 2 回転を 2 回、手前へちょうど 2 回転を 2 回転がします。
+ボールの直径を入れると、指の移動量あたりの速さ (実効 CPI) で比べます。
+
+- 最初に LisM で測ると、基準として `tools/.cache/keyboard-check/trackball.json` に保存される (`-SpeedReference` でも指定できる)
+- ほかの機種で、基準との差が ±10% を超えると WARN になり、推奨値を出す: ZMK は `<&zip_xy_scaler n d>`、PMW3610 の機種 (KUKEY42 / AroundFortyRB) は CPI の案も、Keyball39 は `KEYBALL_CPI_DEFAULT`
+
+### 判定と対処
+
+| 結果 | 原因と対処 |
+| --- | --- |
+| KQ-mini のキーマップなどが FAIL | Vial で変えた内容が残っている。Vial の「File → Load saved layout」で `vial-qmk-kq-mini/keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/KEYMAP.vil` を読み込む。新しいビルドを `tools/flash-kq-mini.cmd` で書き込んでも戻る (同じビルドの書き直しでは戻らない) |
+| Keyball39 の CPI / スクロールの倍率が FAIL | EEPROM に古い値が残っている。Bootmagic (左手側は `Q`、右手側は `P` を押しながら USB を挿す) で初期化する |
+| ZMK のキーマップが FAIL | ZMK Studio で保存した変更が残っている。Studio の「Restore Stock Settings」か、`tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」 |
+| ZMK の読み出しが SKIP (応答がない) | キーボードの出力が BLE になっている。BT レイヤーのキーを押しながら `U` (`&out OUT_USB`) で USB に切り替える |
+| ボールの向き・スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
+| AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer`、Keyball の `AUTO_MOUSE_*`) が動いていない |
+
+- 一覧の最後の「設定ファイル (参考)」は、submodule の設定ファイルどうしの整合です (キーボードは見ていない)。
+  例: LisM は、左ボールのスクロールの処理が右手側の版 (trackball / non_trackball) で違うため、WARN になります
+- 期待値は、このリポジトリが参照している submodule のコミットから作ります。書き込みスクリプトは custom ブランチの最新を書くため、
+  submodule の参照が古いと、意図どおりでも FAIL になることがあります。そのときは
+  [submodule を最新に更新](#submodule-を最新に更新) してから検査します
+
+### コマンドライン
+
+`-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに検査します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron] [-Mode All|Readout|Interactive] [-Section All|Keys|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
+```
+
+終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です。
 
 ## Keyball39 のトラックボールが動かない場合
 
