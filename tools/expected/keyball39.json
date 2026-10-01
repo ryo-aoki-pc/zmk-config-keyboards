@@ -7,10 +7,10 @@
   "sources": [
     {
       "submodule": "keyball",
-      "commit": "fd2ee4739a3ebf6cdffd653abe58cc910777485a",
+      "commit": "ea12a27b5a419ffdf2840b46ff7039d16d8b7d91",
       "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/info.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["vial_keymap_docgen.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["vial_keymap_docgen.py"]}
   ],
   "device": {"usb_vid": "5957", "usb_pid": "0200", "usage_page": "FF60", "usage": "61"},
   "layers": [

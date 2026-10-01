@@ -10,7 +10,7 @@
       "commit": "812a655fc6571f1e789fd546d98b11c2edc18525",
       "files": ["config/Pyuron.keymap", "config/Pyuron.json", "boards/shields/Pyuron/Pyuron.dtsi", "boards/shields/Pyuron/Pyuron_R.overlay", "boards/shields/Pyuron/Pyuron_L.overlay", "build.yaml"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
   "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "Pyuron", "studio_artifacts": ["Pyuron_right_central_studio"]},
   "layers": [

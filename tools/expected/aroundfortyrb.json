@@ -10,7 +10,7 @@
       "commit": "8e5ab0372343fb642c3daf2425ca1506a5641a01",
       "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "build.yaml"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
   "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "AroundFortyRB", "studio_artifacts": ["AroundForty-RB_right_central_studio"]},
   "layers": [

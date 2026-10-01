@@ -10,7 +10,7 @@
       "commit": "af89cd8feba4759f73a345091f4c5c2ed6129541",
       "files": ["config/roBa.keymap", "config/roBa.json", "boards/shields/roBa/roBa.dtsi", "boards/shields/roBa/roBa_R.overlay", "boards/shields/roBa/roBa_R.conf", "build.yaml"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
   "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "roBa", "studio_artifacts": ["roBa_right_central_studio"]},
   "layers": [

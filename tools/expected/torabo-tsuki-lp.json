@@ -10,7 +10,7 @@
       "commit": "65534fd85a2d17a719cd77a1d4e06184ca53e431",
       "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "build.yaml"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
   "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "torabo-tsuki", "studio_artifacts": ["torabo_tsuki_lp_right_central_studio"]},
   "layers": [

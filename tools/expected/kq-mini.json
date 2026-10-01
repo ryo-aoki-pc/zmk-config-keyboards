@@ -6,8 +6,8 @@
   "kind": "vial",
   "sources": [
     {"submodule": "zmk-config-LisM", "commit": "5a6884745c3a167b034d1d6f2e7317c8960b7de7", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
-    {"submodule": "zmk-keymap-docgen", "commit": "0513624036b3c105a80902f9635f194b559d818b", "files": ["zmk_to_vial.py"]},
-    {"submodule": "keyball", "commit": "fd2ee4739a3ebf6cdffd653abe58cc910777485a", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["zmk_to_vial.py"]},
+    {"submodule": "keyball", "commit": "ea12a27b5a419ffdf2840b46ff7039d16d8b7d91", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
   ],
   "device": {"usb_vid": "FEED", "usb_pid": "999C", "usage_page": "FF60", "usage": "61", "vial_uid": [5, 228, 161, 127, 220, 135, 203, 42]},
   "layers": [
