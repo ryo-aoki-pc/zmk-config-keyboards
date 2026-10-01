@@ -1,2 +1,5 @@
 # flash-keyball / flash-kq-mini がダウンロードしたファームウェアと avrdude
 tools/.cache/
+
+# Python のキャッシュ (tools/expected/generate.py)
+__pycache__/

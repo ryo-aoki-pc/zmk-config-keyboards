@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## このリポジトリについて
 
-各キーボードのファームウェアのリポジトリ (ZMK と QMK/Vial) を git submodule として集約し、Windows 用の書き込み・診断スクリプトを `tools/` に置いたリポジトリ。このリポジトリでは何もビルドせず、ビルド・lint・テストのコマンドも無い。ファームウェアは各 submodule の GitHub Actions がビルドする。`README.md` は利用者向けの日本語の説明書で、書き込みツールの使い方と、各キーボードで共通のキーマップ設定を説明している。
+各キーボードのファームウェアのリポジトリ (ZMK と QMK/Vial) を git submodule として集約し、Windows 用の書き込み・診断スクリプトを `tools/` に置いたリポジトリ。このリポジトリではファームウェアをビルドしない (各 submodule の GitHub Actions がビルドする)。テストがあるのは、設定の検査ツール `tools/keyboard-check` だけ (下の「設定の検査ツール」)。`README.md` は利用者向けの日本語の説明書で、書き込みツールの使い方と、各キーボードで共通のキーマップ設定を説明している。
 
 README、スクリプトの表示メッセージとコメント、コミットメッセージと PR のタイトル・本文など、利用者の目に触れるものは日本語で書く。ただし `*.cmd` は ASCII 文字だけで書くので、コメントと表示メッセージは英語にする。
 
@@ -18,7 +18,7 @@ README、スクリプトの表示メッセージとコメント、コミット�
 - `zmk-input-processor-xy-accel`: ZMK の入力プロセッサのモジュール。トラックボールを転がす速さに応じてカーソルの移動量に倍率を掛ける (カーソルの加速)。ZMK の 6 リポジトリは submodule ではなく、`config/west.yml` でこのリポジトリのコミットを固定して取り込む。変えたときは `main` に入れ、6 リポジトリの `west.yml` の固定コミットを揃えて上げる。
 - `zmk-keymap-docgen`: Python のツール。ZMK の `.keymap` から KEYMAP.html と KEYMAP.xlsx を生成する。`zmk_to_vial.py` は LisM のキーマップを KQ-mini の EEPROM デフォルトに変換する。ZMK の 6 リポジトリに加えて `keyball` と `vial-qmk-kq-mini` も、これを自身の `tools/keymap-docgen` submodule として取り込んでいる。QMK 側の 2 つは `vial_keymap_docgen.py` で KEYMAP.html を生成している。
 
-**ファームウェアやキーマップの変更は、このリポジトリではなく submodule のリポジトリで行う。** そのリポジトリの `custom` ブランチに PR を出して変更し、その後このリポジトリで submodule の参照を更新する。参照を更新するのは、変えたい submodule だけにする。パスを付けずに `git submodule update --remote` を実行すると、すべての submodule が追跡ブランチの最新に進んでしまう。参照更新のコミットメッセージには、各 submodule を `<submodule>: <旧 SHA> → <新 SHA> (ryo-aoki-pc/<repo>#N)` の形で並べる。submodule の参照を更新するコミットは、タイトルの末尾に `(submodule 参照更新)` を付ける。
+**ファームウェアやキーマップの変更は、このリポジトリではなく submodule のリポジトリで行う。** そのリポジトリの `custom` ブランチに PR を出して変更し、その後このリポジトリで submodule の参照を更新する。参照を更新するのは、変えたい submodule だけにする。パスを付けずに `git submodule update --remote` を実行すると、すべての submodule が追跡ブランチの最新に進んでしまう。参照更新のコミットメッセージには、各 submodule を `<submodule>: <旧 SHA> → <新 SHA> (ryo-aoki-pc/<repo>#N)` の形で並べる。submodule の参照を更新するコミットは、タイトルの末尾に `(submodule 参照更新)` を付ける。ZMK の 6 リポジトリ・`keyball`・`zmk-keymap-docgen` の参照を更新したら、`python tools/expected/generate.py` で検査ツールの期待値を作り直して同じコミットに入れる (キーマップやトラックボールの設定が変わったのに作り直していないと、CI の `generate.py --check` が失敗する。元にしたコミットの違いだけなら失敗しない)。
 
 ### LisM 基準
 
@@ -63,6 +63,15 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 - `keyball-check.ps1` は読み取り専用の診断スクリプト。`Add-Type` で読み込む C# のヘルパーを使い、raw HID で VIA の get 系コマンドを送る。VIA の set / 書き込み系のコマンドは決して送らないこと。
 - `lib/firmware-latest.ps1` は dot-source で読み込む。`Get-FirmwareLatest` (複数のアセットを続けて取得するための `-Quiet` がある) と `Show-FirmwareBuildInfo` を提供する。TLS 1.2・`-UseBasicParsing`・進捗バーの抑止をまとめた `Invoke-FirmwareDownload` もここにあり、`flash-keyball.ps1` は avrdude のダウンロードにこれを直接使う。
 - ダウンロードしたファイルは `tools/.cache/` に保存する (git の管理外)。
+
+### 設定の検査ツール (`keyboard-check.ps1`)
+
+接続したキーボードの設定 (キーマップ・トラックボール) が LisM 基準の意図どおりかを検査する。キーボードの設定は書き換えない。
+- 期待値: `tools/expected/generate.py` (Python 3.10 以上、標準ライブラリだけ) が submodule の `.keymap` / overlay / `.conf` / `keymap.c` と `zmk-keymap-docgen` の `zmk_to_vial.py` から `tools/expected/*.json` を生成し、コミットしておく。機種を足すときは `ZMK_BOARDS` と `keyboard-check.ps1` の `$boards`、CI の submodule の一覧を揃える。
+- 読み出し検査: KQ-mini は Vial、Keyball39 は VIA (ryo-aoki-pc/keyball#12 で足した読み取り専用のコマンド `08 00 01`〜`03` を含む)、ZMK は ZMK Studio の RPC。送るのは読み取りのコマンドだけで、`lib/keyboard-check/qmk.ps1` の許可リストで縛っている。Vial の unlock (`FE 06`) や VIA / Studio の set 系は送らないこと。
+- 実動作テストとトラックボールの正規化: `lib/keyboard-check/InputTestForm.cs` (Raw Input) のウィンドウで入力を記録し、`input-eval.ps1` / `trackball-calib.ps1` の純粋関数で判定する。ファームのカーソルの加速は `Remove-KcAccel` で取り除いてから計算する (加速の処理を変えたら、`tests/trackball-calib.Tests.ps1` のファームを真似た計算も合わせる)。
+- テスト: `python tools/expected/generate.py --check`、`python -m unittest discover -s tools/expected`、`tools/tests/run.ps1` (Pester は使わない。Linux の `pwsh` でも Windows 専用のテスト以外は動く)。CI は `.github/workflows/keyboard-check.yml` (Linux と Windows PowerShell 5.1)。
+- `.cs` は ASCII だけで書き、Windows PowerShell 5.1 の `Add-Type` がコンパイルできる C# 5 の構文にする。
 
 ### PowerShell の約束事 (必須)
 
