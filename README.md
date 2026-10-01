@@ -21,7 +21,7 @@
 | 8 | MOUS | MOUSE_MOVE | マウス移動 (AML・最上位) |
 | 9 | SCRL | MOUSE_SCROLL | スクロール／クリック |
 
-- 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron
+- 対象: LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp
 
 ### 共通基盤
 
@@ -36,7 +36,7 @@
 | タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
 | AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K と修飾キーの位置 (A / - / Z / / / Win / Alt)、マウスクリックでタイマー延長 |
 | マウスレイヤーの修飾キー | MOUSE_MOVE / MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。AML に入ってから Shift + クリック・Ctrl + ホイールなどを押せる |
-| スクロール | `zip_scroll_scaler 1 16` (1/16) |
+| スクロール | `zip_scroll_scaler 1 16` (1/16)。例外: torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
 | スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
 
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
@@ -55,7 +55,7 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
 
 ## Submodules
 
-### キーボード設定 (zmk-config)
+### キーボード設定 (zmk-config / zmk-keyboard)
 
 | リポジトリ | 追跡ブランチ |
 | --- | --- |
@@ -63,6 +63,8 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
 | [zmk-config-LisM](https://github.com/ryo-aoki-pc/zmk-config-LisM) | `custom` |
 | [zmk-config-KUKEY42](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42) | `custom` |
 | [zmk-config-AroundFortyRB](https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB) | `custom` |
+| [zmk-config-roBa](https://github.com/ryo-aoki-pc/zmk-config-roBa) | `custom` |
+| [zmk-keyboard-torabo-tsuki-lp](https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp) | `custom` |
 
 ### その他 ZMK 関連
 
@@ -107,7 +109,8 @@ git commit -m "Update submodules"
 
 | キーボード | マイコン / ブートローダ | ファイル | スクリプト |
 | --- | --- | --- | --- |
-| LisM / AroundFortyRB / KUKEY42 / Pyuron | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
+| torabo-tsuki-lp | BLE Micro Pro Boost (nRF52840) / BLE Micro Pro の UF2 (`BLEMICROPRO` ドライブ) | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
 | Keyboard Quantizer Mini | RP2040 / ROM ブートローダ (`RPI-RP2` ドライブ) | `.uf2` | `tools/flash-kq-mini.cmd` (ダブルクリック) |
 | Keyball39 | Pro Micro (ATmega32U4) / caterina | `.hex` | `tools/flash-keyball.cmd` (ダブルクリック) |
 
@@ -153,7 +156,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 
 ### 最新ファームウェアの取得元 (`firmware-latest` リリース)
 
-[keyball](https://github.com/ryo-aoki-pc/keyball)、[vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini)、ZMK の 4 リポジトリの CI は、custom ブランチをビルドするたびに次のことを行います。
+[keyball](https://github.com/ryo-aoki-pc/keyball)、[vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini)、ZMK の 6 リポジトリの CI は、custom ブランチをビルドするたびに次のことを行います。
 
 - 固定タグ `firmware-latest` のプレリリースを作り直す
 - ファームウェアと `BUILD_INFO.txt` (コミット・ビルド日時) を置く
@@ -168,6 +171,8 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 | AroundFortyRB | `https://github.com/ryo-aoki-pc/zmk-config-AroundFortyRB/releases/download/firmware-latest/<artifact-name>.uf2` |
 | KUKEY42 | `https://github.com/ryo-aoki-pc/zmk-config-KUKEY42/releases/download/firmware-latest/<artifact-name>.uf2` |
 | Pyuron | `https://github.com/ryo-aoki-pc/zmk-config-Pyuron/releases/download/firmware-latest/<artifact-name>.uf2` |
+| roBa | `https://github.com/ryo-aoki-pc/zmk-config-roBa/releases/download/firmware-latest/<artifact-name>.uf2` |
+| torabo-tsuki-lp | `https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp/releases/download/firmware-latest/<artifact-name>.uf2` |
 
 ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、全エントリ (左右・Studio 版・設定リセット) が置かれます。
 
@@ -178,7 +183,10 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 
 ### ZMK キーボード (`tools/flash-zmk.cmd` / `tools/flash-uf2.cmd`)
 
-対象: LisM / AroundFortyRB / KUKEY42 / Pyuron (いずれも Seeed XIAO nRF52840 + Adafruit nRF52 UF2 ブートローダ)
+対象:
+
+- LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa (Seeed XIAO nRF52840 + Adafruit nRF52 UF2 ブートローダ)
+- torabo-tsuki-lp (BLE Micro Pro Boost + BLE Micro Pro の UF2 ブートローダ。乾電池と電源スイッチ付き)
 
 #### XIAO をブートローダにする方法
 
@@ -193,6 +201,14 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
   - `tools/flash-zmk.cmd` の設定リセットを含むモード (2 / 5) では、最初の右手側以外はキーで切り替えられない。
     設定リセット用のファームウェアが動いている側にはキーマップが無く、設定リセット後は左右のペアリングも切れているため。
     リセットボタンを使う
+
+#### torabo-tsuki-lp (BLE Micro Pro Boost) をブートローダにする方法
+
+- **電源スイッチを OFF にしてから USB ケーブルでつなぐ**: `BLEMICROPRO` という名前のドライブが現れる。どの状態でも使える
+- **FUNC レイヤーの `&bootloader` キー**: XIAO と同じく右手側は FUNC + `N`、左手側は FUNC + `B`
+  (左手側は右手側の電源が入っていて、左右がつながっているときだけ)
+- 書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直すと起動する。
+  電源スイッチが OFF のままだと、再起動してもブートローダに戻る
 
 #### 最新版を書き込む (`tools/flash-zmk.cmd`)
 
@@ -213,9 +229,13 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 4. 「[1/2] 右手側にセントラルを書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
    (リセットボタンを素早く 2 回、または FUNC レイヤーの `&bootloader` キー。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
    書き込みと成否の判定は `flash-uf2.cmd` と同じ
+   - torabo-tsuki-lp は、表示された側の電源スイッチを OFF にしてから USB ケーブルでつなぐ (もう片側の USB ケーブルは抜く)。
+     書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直したときに起動する
+   - torabo-tsuki-lp の設定リセットは、書き込んだあとに一度起動させないと動かない。スクリプトの案内に従って
+     スイッチ ON で USB ケーブルを差し直し、数秒待ってから USB ケーブルを抜いてスイッチを OFF に戻し、Enter を押す
 5. すべて終わると「完了」と表示される。設定リセットを含んだ場合は、PC の Bluetooth 設定から古い登録を削除して再ペアリングする
 
-- **左右を間違えないこと**: 左右の XIAO はブートローダの情報が同じなので、スクリプトからは見分けられない。表示された側だけをブートローダにする
+- **左右を間違えないこと**: 左右の XIAO (torabo-tsuki-lp は BMP) はブートローダの情報が同じなので、スクリプトからは見分けられない。表示された側だけをブートローダにする
 - **途中で失敗したとき**: そこで止まり、残りのファイルの場所を表示する。もう一度実行するか、表示されたファイルを `tools/flash-uf2.cmd` にドロップする
 - **手元の `.uf2` を書き込むとき**: そのファイルを `tools/flash-zmk.cmd` (または `tools/flash-uf2.cmd`) にドラッグ＆ドロップする
 - **既定値を変えるとき**: `tools/flash-zmk.ps1` 冒頭の `$DEFAULT_STUDIO` / `$DEFAULT_LISM_RIGHT` / `$DEFAULT_LISM_LEFT` を書き換える
@@ -223,7 +243,7 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 コマンドラインから実行する場合 (`-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに書き込む):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
+powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
 ```
 
 #### エクスプローラでのコピー時に「予期しないエラー」が出る場合
@@ -254,7 +274,9 @@ Windows のバージョンや環境によって出たり出なかったりしま
 2. 「ブートローダのドライブを待っています...」と表示されたら、リセットボタンを素早く 2 回押す
    (または FUNC レイヤーの `&bootloader` キーを押す。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
    既にドライブが出ていればすぐに書き込みが始まります
+   - torabo-tsuki-lp (BMP) は、電源スイッチを OFF にしてから USB ケーブルでつなぐ
 3. 「成功」と表示されれば完了
+   - torabo-tsuki-lp (BMP) は、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直すと起動する
 
 コマンドラインから実行する場合 (ドライブは省略すると自動検出):
 
@@ -266,13 +288,15 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 
 - 書き込む前に `.uf2` を検証し、別ボード用のファイルや壊れたダウンロードはここで弾く
   - UF2 形式か
-  - どのボード用か (ファミリ ID で nRF52840 / RP2040 を判定)
-  - 書き込み先が書き込み可能な領域に収まるか (nRF52840 は `0x27000`-`0xF4000`、RP2040 は `0x10000000`-`0x11000000`)
+  - どのボード用か (ファミリ ID で nRF52840 / RP2040 を判定。XIAO と BMP はファミリ ID が同じなので、
+    書き込み先の先頭アドレス (XIAO は `0x27000`、BMP は `0x26000`) で判定)
+  - 書き込み先が書き込み可能な領域に収まるか (XIAO は `0x27000`-`0xF4000`、BMP は `0x26000`-`0xE0000`、RP2040 は `0x10000000`-`0x11000000`)
   - ブロックの欠けが無いか
-- `INFO_UF2.TXT` の内容がそのボードと合うドライブを自動で探し、ブートローダの情報 (Model / Board-ID など) を表示する
+- `INFO_UF2.TXT` の内容 (BMP はボリュームラベル `BLEMICROPRO`) がそのボードと合うドライブを自動で探し、ブートローダの情報 (Model / Board-ID など) を表示する
   - 例: XIAO と KQ-mini の両方がブートローダになっていても、別のボードには書き込まない
 - ファイルサイズを先に確保してからデータだけを書き込み、書き込み完了直後の切断は想定どおりの動作として扱う
-- ドライブが消えたこと (= ブートローダが全ブロックを受け取って再起動したこと) を確認して成功と判定する
+- ドライブが消えたこと (= ブートローダが全ブロックを受け取って再起動したこと) を確認して成功と判定する。
+  BMP は電源スイッチが OFF のまま再起動するとブートローダに戻るので、ドライブが再び現れても成功とする
 
 #### 左右の役割や BLE 設定を変えた後の書き込み順
 
@@ -282,6 +306,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 `tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」を選ぶと、この手順をまとめて行えます。
 
 1. `settings_reset-seeeduino_xiao_ble-zmk.uf2` を左右両方に書き込む
+   (torabo-tsuki-lp は `settings_reset-bmp_boost-zmk.uf2`。書き込んだあと、スイッチ ON で USB ケーブルを差し直して一度起動させる)
 2. 左 (`*_left_peripheral*.uf2`) と右 (`*_right_central*.uf2`) のファームウェアをそれぞれ書き込む
 3. 設定リセットでペアリング情報も消えるため、PC の Bluetooth 設定から古いキーボードを削除して再ペアリングする
 

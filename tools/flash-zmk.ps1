@@ -1,10 +1,11 @@
 ﻿<#
 .SYNOPSIS
-    ZMK キーボード (LisM / AroundFortyRB / KUKEY42 / Pyuron) に最新のファームウェアを書き込みます。
+    ZMK キーボード (LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp) に最新のファームウェアを書き込みます。
 
 .DESCRIPTION
     各キーボードのリポジトリの firmware-latest リリース (custom ブランチの最新ビルド) から必要な .uf2 を
     ダウンロードし、右手側 (セントラル) → 左手側 (ペリフェラル) の順に flash-uf2.ps1 で書き込みます。
+    torabo-tsuki-lp (BLE Micro Pro Boost) は、電源スイッチの操作も案内します。
 
     引数を付けずに実行すると、機種と書き込む内容をメニューで選びます。
     -Keyboard と -Mode を指定すると、メニューを出さずにすぐ書き込みます。
@@ -15,7 +16,7 @@
     書き込む .uf2 ファイル。指定するとメニューやダウンロードをせず、このファイルだけを書き込みます。
 
 .PARAMETER Keyboard
-    機種 (LisM / AroundFortyRB / KUKEY42 / Pyuron)。
+    機種 (LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp)。
 
 .PARAMETER Mode
     書き込む内容。
@@ -51,7 +52,7 @@ param(
     [Parameter(Position = 0)]
     [string]$Path,
 
-    [ValidateSet('LisM', 'AroundFortyRB', 'KUKEY42', 'Pyuron')]
+    [ValidateSet('LisM', 'AroundFortyRB', 'KUKEY42', 'Pyuron', 'roBa', 'torabo-tsuki-lp')]
     [string]$Keyboard,
 
     [ValidateSet('Both', 'ResetBoth', 'Right', 'Left', 'ResetOnly')]
@@ -77,14 +78,34 @@ $ErrorActionPreference = 'Stop'
 # 機種ごとの設定と既定値
 # ---------------------------------------------------------------------------
 # Right / Left は build.yaml の artifact-name。{v} は LisM のトラックボール有無 (trackball / non_trackball)。
-# セントラルの ZMK Studio 対応版は、Right の後ろに _studio が付く。
+# セントラルの ZMK Studio 対応版は、Right の後ろに _studio が付く。Mcu は下の $MCUS のキー。
 $KEYBOARDS = [ordered]@{
-    LisM          = @{ Repo = 'ryo-aoki-pc/zmk-config-LisM'; Right = 'lism_right_central_{v}'; Left = 'lism_left_peripheral_{v}' }
-    AroundFortyRB = @{ Repo = 'ryo-aoki-pc/zmk-config-AroundFortyRB'; Right = 'AroundForty-RB_right_central'; Left = 'AroundForty-RB_left_peripheral' }
-    KUKEY42       = @{ Repo = 'ryo-aoki-pc/zmk-config-KUKEY42'; Right = 'KUKEY42_right_central'; Left = 'KUKEY42_left_peripheral' }
-    Pyuron        = @{ Repo = 'ryo-aoki-pc/zmk-config-Pyuron'; Right = 'Pyuron_right_central'; Left = 'Pyuron_left_peripheral' }
+    LisM              = @{ Repo = 'ryo-aoki-pc/zmk-config-LisM'; Right = 'lism_right_central_{v}'; Left = 'lism_left_peripheral_{v}'; Mcu = 'XIAO' }
+    AroundFortyRB     = @{ Repo = 'ryo-aoki-pc/zmk-config-AroundFortyRB'; Right = 'AroundForty-RB_right_central'; Left = 'AroundForty-RB_left_peripheral'; Mcu = 'XIAO' }
+    KUKEY42           = @{ Repo = 'ryo-aoki-pc/zmk-config-KUKEY42'; Right = 'KUKEY42_right_central'; Left = 'KUKEY42_left_peripheral'; Mcu = 'XIAO' }
+    Pyuron            = @{ Repo = 'ryo-aoki-pc/zmk-config-Pyuron'; Right = 'Pyuron_right_central'; Left = 'Pyuron_left_peripheral'; Mcu = 'XIAO' }
+    roBa              = @{ Repo = 'ryo-aoki-pc/zmk-config-roBa'; Right = 'roBa_right_central'; Left = 'roBa_left_peripheral'; Mcu = 'XIAO' }
+    'torabo-tsuki-lp' = @{ Repo = 'ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp'; Right = 'torabo_tsuki_lp_right_central'; Left = 'torabo_tsuki_lp_left_peripheral'; Mcu = 'BMP' }
 }
-$SETTINGS_RESET = 'settings_reset-seeeduino_xiao_ble-zmk'
+
+# マイコンごとの設定。Target は flash-uf2.ps1 の -Target、SettingsReset は設定リセットの artifact-name。
+# Prepare は 1 回の書き込みの前、AfterReset は設定リセットを書き込んだ後の案内 ({0} は「右手側」など)。
+$MCUS = @{
+    XIAO = @{
+        Target        = 'nRF52840'
+        SettingsReset = 'settings_reset-seeeduino_xiao_ble-zmk'
+        Prepare       = '{0}の XIAO をブートローダにしてください (もう片側には触れないでください)。'
+        AfterReset    = $null
+    }
+    # BLE Micro Pro Boost は電源スイッチを OFF にして USB をつなぐとブートローダが起動する。
+    # 書き込んだファームウェアは、USB を抜いてスイッチを ON にし、USB を差し直したときに動く。
+    BMP  = @{
+        Target        = 'BMP'
+        SettingsReset = 'settings_reset-bmp_boost-zmk'
+        Prepare       = '{0}の電源スイッチを OFF にしてから USB ケーブルでつないでください (もう片側の USB ケーブルは抜いてください)。'
+        AfterReset    = '{0}の USB ケーブルを抜き、電源スイッチを ON にしてから USB ケーブルを差し直してください。設定リセットが動きます。数秒待ったら USB ケーブルを抜き、電源スイッチを OFF に戻してください。'
+    }
+}
 
 # 既定値 (メニューの確認画面で切り替えられる)
 $DEFAULT_STUDIO = $false               # セントラルに ZMK Studio 対応版を書くか
@@ -137,10 +158,11 @@ function Get-FlashPlan($Config, [string]$StepMode, [bool]$UseStudio, [string]$Ri
     $centralName = $Config.Right.Replace('{v}', $Right)
     if ($UseStudio) { $centralName += '_studio' }
     $peripheralName = $Config.Left.Replace('{v}', $Left)
+    $settingsReset = $MCUS[$Config.Mcu].SettingsReset
 
-    $rightReset = [pscustomobject]@{ Side = '右手側'; What = '設定リセット'; Asset = "$SETTINGS_RESET.uf2" }
+    $rightReset = [pscustomobject]@{ Side = '右手側'; What = '設定リセット'; Asset = "$settingsReset.uf2" }
     $rightMain = [pscustomobject]@{ Side = '右手側'; What = 'セントラル'; Asset = "$centralName.uf2" }
-    $leftReset = [pscustomobject]@{ Side = '左手側'; What = '設定リセット'; Asset = "$SETTINGS_RESET.uf2" }
+    $leftReset = [pscustomobject]@{ Side = '左手側'; What = '設定リセット'; Asset = "$settingsReset.uf2" }
     $leftMain = [pscustomobject]@{ Side = '左手側'; What = 'ペリフェラル'; Asset = "$peripheralName.uf2" }
 
     switch ($StepMode) {
@@ -168,7 +190,8 @@ function Switch-Variant([string]$Value) {
 # .uf2 が指定されたら、そのファイルだけを書き込む
 # ---------------------------------------------------------------------------
 if ($Path) {
-    & $FLASH_UF2 -Path $Path -Target nRF52840 -WaitSeconds $WaitSeconds
+    # XIAO 用か BMP 用かは flash-uf2.ps1 が書き込み先アドレスで判定する
+    & $FLASH_UF2 -Path $Path -Target nRF52840, BMP -WaitSeconds $WaitSeconds
     exit $LASTEXITCODE
 }
 
@@ -188,6 +211,7 @@ if (-not $Mode) {
 }
 
 $config = $KEYBOARDS[$Keyboard]
+$mcu = $MCUS[$config.Mcu]
 $hasVariants = $config.Right.Contains('{v}')
 if (-not $hasVariants -and ($LeftVariant -or $RightVariant)) {
     Write-Warning "$Keyboard にはトラックボールの有無による版が無いため、-LeftVariant / -RightVariant は無視します。"
@@ -245,8 +269,8 @@ for ($i = 0; $i -lt $steps.Count; $i++) {
     $s = $steps[$i]
     Write-Host ''
     Write-Host ("[{0}/{1}] {2}に{3}を書き込みます: {4}" -f ($i + 1), $steps.Count, $s.Side, $s.What, $s.Asset) -ForegroundColor Cyan
-    Write-Host "  $($s.Side)の XIAO をブートローダにしてください (もう片側には触れないでください)。"
-    & $FLASH_UF2 -Path $paths[$s.Asset] -Target nRF52840 -WaitSeconds $WaitSeconds
+    Write-Host ('  ' + ($mcu.Prepare -f $s.Side))
+    & $FLASH_UF2 -Path $paths[$s.Asset] -Target $mcu.Target -WaitSeconds $WaitSeconds
     if ($LASTEXITCODE -ne 0) {
         Write-Host ''
         Write-Host "$($i + 1) 番目で中断しました。残りは次のとおりです:" -ForegroundColor Yellow
@@ -255,6 +279,14 @@ for ($i = 0; $i -lt $steps.Count; $i++) {
         }
         Write-Host '  もう一度このスクリプトを実行するか、上のファイルを tools\flash-uf2.cmd にドラッグ＆ドロップして書き込んでください。'
         exit 1
+    }
+    # BMP の設定リセットは、書き込んだあとに一度起動させないと動かない
+    if ($s.What -eq '設定リセット' -and $mcu.AfterReset) {
+        Write-Host ''
+        Write-Host ('  ' + ($mcu.AfterReset -f $s.Side)) -ForegroundColor Yellow
+        if ($i -lt $steps.Count - 1) {
+            $null = Read-Answer '  終わったら Enter'
+        }
     }
 }
 
