@@ -1,6 +1,8 @@
 ﻿# C# ヘルパーのコンパイル (Windows PowerShell 5.1 では C# 5 でコンパイルされる) のテスト
 
+. (Join-Path $script:KcLib 'expected.ps1')
 . (Join-Path $script:KcLib 'rawhid.ps1')
+. (Join-Path $script:KcLib 'input-test.ps1')
 
 Test-Case 'RawHid.cs をコンパイルできる' {
     Import-KcCSharp 'RawHid.cs' 'KcRawHid'
@@ -14,8 +16,6 @@ Test-Case 'RawHid: 開けないパスは例外になる' -WindowsOnly {
 }
 
 Test-Case 'InputTestForm.cs をコンパイルして、ウィンドウを作れる' -WindowsOnly {
-    . (Join-Path $script:KcLib 'expected.ps1')
-    . (Join-Path $script:KcLib 'input-test.ps1')
     Import-KcInputForm
     $form = New-Object KcInputTestForm
     try {
