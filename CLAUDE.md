@@ -10,21 +10,22 @@ README、スクリプトの表示メッセージとコメント、コミット�
 
 ## submodule
 
-クローンしたばかりの状態では submodule はチェックアウトされていない。ソースを読むときは `git submodule update --init [--depth 1] <path>` を実行する。各 submodule は `custom` ブランチを追跡する (`zmk-keymap-docgen` だけは `main`)。
+クローンしたばかりの状態では submodule はチェックアウトされていない。ソースを読むときは `git submodule update --init [--depth 1] <path>` を実行する。各 submodule は `custom` ブランチを追跡する (`zmk-keymap-docgen` と `zmk-input-processor-xy-accel` は `main`)。
 
 - `zmk-config-{LisM,AroundFortyRB,KUKEY42,Pyuron,roBa}` と `zmk-keyboard-torabo-tsuki-lp`: ZMK の設定。6 台とも分割キーボードで、ZMK は `config/west.yml` で v0.3.0 に固定している。右手側がセントラル、左手側がペリフェラル。マイコンは、torabo-tsuki-lp だけが BLE Micro Pro Boost (`bmp_boost`。乾電池 1 本と電源スイッチ付き) で、他の 5 台は Seeed XIAO nRF52840。roBa は KUKEY42 と同じ 43 キー配列で、キーマップも同じ。ローカルビルド用の `Makefile` (`make` / `make single`) と `build.yaml` がある。`build.yaml` は、CI でビルドするエントリの一覧 (matrix) と、各エントリの `artifact-name` を定める。
 - `vial-qmk-kq-mini`: Keyboard Quantizer Mini (RP2040) 用の Vial/QMK。
 - `keyball`: Keyball39 (Pro Micro / ATmega32U4、`keyball39` の `via` キーマップ) 用の QMK。
+- `zmk-input-processor-xy-accel`: ZMK の入力プロセッサのモジュール。トラックボールを転がす速さに応じてカーソルの移動量に倍率を掛ける (カーソルの加速)。ZMK の 6 リポジトリは submodule ではなく、`config/west.yml` でこのリポジトリのコミットを固定して取り込む。変えたときは `main` に入れ、6 リポジトリの `west.yml` の固定コミットを揃えて上げる。
 - `zmk-keymap-docgen`: Python のツール。ZMK の `.keymap` から KEYMAP.html と KEYMAP.xlsx を生成する。`zmk_to_vial.py` は LisM のキーマップを KQ-mini の EEPROM デフォルトに変換する。ZMK の 6 リポジトリに加えて `keyball` と `vial-qmk-kq-mini` も、これを自身の `tools/keymap-docgen` submodule として取り込んでいる。QMK 側の 2 つは `vial_keymap_docgen.py` で KEYMAP.html を生成している。
 
 **ファームウェアやキーマップの変更は、このリポジトリではなく submodule のリポジトリで行う。** そのリポジトリの `custom` ブランチに PR を出して変更し、その後このリポジトリで submodule の参照を更新する。参照を更新するのは、変えたい submodule だけにする。パスを付けずに `git submodule update --remote` を実行すると、すべての submodule が追跡ブランチの最新に進んでしまう。参照更新のコミットメッセージには、各 submodule を `<submodule>: <旧 SHA> → <新 SHA> (ryo-aoki-pc/<repo>#N)` の形で並べる。submodule の参照を更新するコミットは、タイトルの末尾に `(submodule 参照更新)` を付ける。
 
 ### LisM 基準
 
-`zmk-config-LisM` が、レイヤー構成 (BASE … SCRL の 10 レイヤー)、タップホールド設定、AML (オートマウスレイヤー)、スクロール速度、スリープの基準になっている。ZMK の 6 リポジトリはすべてこれに揃えている (例外は README の「共通基盤」の表に書く。例: torabo-tsuki-lp のスクロール速度)。動作の変更は、たいてい ZMK の 6 リポジトリすべてに入れる必要があり、`keyball` と `vial-qmk-kq-mini` にも入れることが多い。そうした変更では README の「共通基盤」の表も更新する。
+`zmk-config-LisM` が、レイヤー構成 (BASE … SCRL の 10 レイヤー)、タップホールド設定、AML (オートマウスレイヤー)、スクロール速度、カーソルの加速 (`trackball_accel` の値)、スリープの基準になっている。ZMK の 6 リポジトリはすべてこれに揃えている (例外は README の「共通基盤」の表に書く。例: torabo-tsuki-lp のスクロール速度)。動作の変更は、たいてい ZMK の 6 リポジトリすべてに入れる必要があり、`keyball` と `vial-qmk-kq-mini` にも入れることが多い。そうした変更では README の「共通基盤」の表も更新する。
 
 KQ-mini と Keyball39 は組み合わせて使い、役割を分担している:
-- Keyball39 は LisM BASE 配列の素の HID コードだけを送る。マウスレイヤーと AML も Keyball39 側で実装している。
+- Keyball39 は LisM BASE 配列の素の HID コードだけを送る。マウスレイヤーと AML、カーソルの加速も Keyball39 側で実装している。
 - レイヤー、mod-tap / layer-tap、タップホールドのタイミングは KQ-mini が担当する。これらは `lism.keymap` + `lism.vialmap.json` から生成した EEPROM デフォルトで決まる。
 
 どちらかを変える前に、README の「Keyboard Quantizer Mini + Keyball39 の役割分担」を読むこと。
