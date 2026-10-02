@@ -137,7 +137,7 @@ require-prior-idle・発動のしきい値は keyball39 本体側で LisM の `t
 | リポジトリ | 追跡ブランチ | 用途 |
 | --- | --- | --- |
 | [vial-qmk-kq-mini](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini) | `custom` | KQ Mini 用 Vial (QMK) ファームウェア。LisM 基準のキーマップ (zmk_to_vial.py で変換) とタップホールド設定 (tapping term 150 / balanced / quick-tap 0) を EEPROM デフォルトとして同梱 |
-| [keyball](https://github.com/ryo-aoki-pc/keyball) | `custom` | Keyball 用 QMK ファームウェア。KQ Mini 併用前提の LisM 基準ベース配列 (keyball39 via)。AML の発動条件・タイムアウト・スクロール速度も LisM のトラックボール設定に合わせる |
+| [keyball](https://github.com/ryo-aoki-pc/keyball) | `custom` | Keyball 用 QMK ファームウェア (qmk_firmware 0.34.6 でビルド。移植したのは keyball39 だけ)。KQ Mini 併用前提の LisM 基準ベース配列 (keyball39 via)。AML の発動条件・タイムアウト・スクロール速度も LisM のトラックボール設定に合わせる |
 
 ## 使い方
 
@@ -210,6 +210,9 @@ Keyball は KQ-mini 経由では書き込めません (KQ-mini はキー入力�
 - **Bootmagic**
   - EEPROM も初期化されるため、CPI などの Keyball の設定は既定値に戻る
   - 右手側の `P` が使えるのは、[ryo-aoki-pc/keyball#10](https://github.com/ryo-aoki-pc/keyball/pull/10) 以降のファームウェアから
+- **QMK 0.34.6 のファームウェアを初めて書き込んだとき** ([ryo-aoki-pc/keyball#17](https://github.com/ryo-aoki-pc/keyball/pull/17) で QMK を 0.22.14 から上げた)
+  - 初回の起動で EEPROM が 1 回だけ初期化され、CPI などの Keyball の設定は既定値に戻る (QMK の EEPROM の形式の番号が変わったため)
+  - 左右の通信の形式も QMK のバージョンで変わるので、左右とも書き込む
 - **書き込みに失敗したとき**: caterina ブートローダは約 8 秒で終了する。失敗したらもう一度リセットスイッチを押す (1 台につき 3 回まで再試行する)
 - **手元の `.hex` を書き込むとき**: そのファイルを `tools/flash-keyball.cmd` にドラッグ＆ドロップする
 

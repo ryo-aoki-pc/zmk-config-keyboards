@@ -134,6 +134,34 @@ class TestTables(unittest.TestCase):
         obj = {'a': [1, 2, [3, 4]], 'b': {'x': 'あ', 'y': None}, 'c': [{'k': 1}, {'k': 2}]}
         self.assertEqual(json.loads(g.dumps(obj)), obj)
 
+    def test_qmk_names_old_and_new(self):
+        # Keyball39 の keymap.c は QMK 0.22 (KC_BTN1 / RGB_TOG) と 0.34 (MS_BTN1 / UG_TOGG) のどちらの名前でも引ける
+        from types import SimpleNamespace
+        t = g.qmk_name_table(SimpleNamespace(ZMK_KEYCODES={}, V6_BASIC_NAMES={}), 'KBC_RST = QK_KB_0,')
+        for i in range(1, 9):
+            self.assertEqual(t[f'KC_BTN{i}'], 0xD0 + i)
+            self.assertEqual(t[f'KC_MS_BTN{i}'], 0xD0 + i)
+            self.assertEqual(t[f'MS_BTN{i}'], 0xD0 + i)
+            self.assertEqual(t[f'QK_MOUSE_BUTTON_{i}'], 0xD0 + i)
+        for old, new in [('RGB_TOG', 'UG_TOGG'), ('RGB_MOD', 'UG_NEXT'), ('RGB_RMOD', 'UG_PREV'),
+                         ('RGB_HUI', 'UG_HUEU'), ('RGB_HUD', 'UG_HUED'), ('RGB_SAI', 'UG_SATU'),
+                         ('RGB_SAD', 'UG_SATD'), ('RGB_VAI', 'UG_VALU'), ('RGB_VAD', 'UG_VALD')]:
+            self.assertEqual(t[new], t[old], new)
+        self.assertEqual(t['UG_TOGG'], 0x7820)
+        self.assertEqual(t['KBC_RST'], 0x7E00)
+
+    def test_keyball_layout_file(self):
+        # QMK 0.34 の keyboard.json を優先し、無ければ QMK 0.22 の info.json を使う
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            kb39 = Path(d, 'qmk_firmware/keyboards/keyball/keyball39')
+            kb39.mkdir(parents=True)
+            src = g.Sources({'keyball': Path(d)})
+            (kb39 / 'info.json').write_text('{}', encoding='utf-8')
+            self.assertEqual(g.keyball_paths(src)['info'].name, 'info.json')
+            (kb39 / 'keyboard.json').write_text('{}', encoding='utf-8')
+            self.assertEqual(g.keyball_paths(src)['info'].name, 'keyboard.json')
+
 
 @unittest.skipUnless(have_submodules(), 'submodule がありません (git submodule update --init)')
 class TestGenerate(unittest.TestCase):
