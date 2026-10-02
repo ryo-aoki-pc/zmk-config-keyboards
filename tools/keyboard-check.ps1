@@ -21,6 +21,11 @@
 
     結果は PASS / FAIL / WARN / SKIP で表示し、tools/.cache/keyboard-check/reports/ にも保存します。
 
+    レイヤーの動きを見る (-Mode Trace。ZMK のみ。合否は出さない)
+      - 右手側にログ版のファーム (*_logging.uf2) を書き込んで USB でつなぐと、自由に押したキーごとに、有効なレイヤー・
+        &trans のフォールスルー・決まったレイヤーとバインディング・ホールドタップの判定・タップダンスの回数・
+        モッドモーフの分岐・送ったキーを、キーボードの図と時系列で表示する。ログは tools/.cache/keyboard-check/trace/ に保存できる
+
 .PARAMETER Keyboard
     機種 (KqMini / Keyball39 / LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp)。省略するとメニューで選びます。
     KqMini は、Keyboard Quantizer Mini に Keyball39 をつないだ状態です。
@@ -37,7 +42,7 @@
     LisM のトラックボールの位置 (right / left / both)。省略すると尋ねます。
 
 .PARAMETER Port
-    ZMK Studio の COM ポート (例: COM5)。省略すると自動で探します。
+    ZMK Studio (-Mode Trace ではログ版ファーム) の COM ポート (例: COM5)。省略すると自動で探します。
 
 .PARAMETER Report
     結果を保存するファイル。省略すると tools/.cache/keyboard-check/reports/ に保存します。
@@ -59,6 +64,12 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard KUKEY42 -Mode Interactive -Section Calibrate
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard LisM -Mode Interactive -Section Behaviors
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard LisM -Mode Trace
 #>
 [CmdletBinding()]
 param(
@@ -105,6 +116,8 @@ $lib = Join-Path $PSScriptRoot 'lib\keyboard-check'
 . (Join-Path $lib 'trackball-calib.ps1')
 . (Join-Path $lib 'input-test.ps1')
 . (Join-Path $lib 'behavior-test.ps1')
+. (Join-Path $lib 'zmk-log.ps1')
+. (Join-Path $lib 'layer-trace.ps1')
 
 if (-not $ExpectedDir) {
     $ExpectedDir = Join-Path $PSScriptRoot 'expected'
@@ -240,6 +253,33 @@ if ($Mode -ne 'Readout' -and $Mode -ne 'Trace') {
     } else {
         $sections = @($Section)
     }
+}
+
+# レイヤーの動きを見る (ログ版ファーム)。合否は出さない
+if ($Mode -eq 'Trace') {
+    if ($expected.kind -ne 'zmk') {
+        Write-Host ''
+        Write-Host ('「レイヤーの動きを見る」は ZMK のキーボードだけです ({0} は対象外)。' -f $board.Label) -ForegroundColor Yellow
+        Write-Host 'KQ-mini のレイヤーやタップダンスは、「5. レイヤー・タップダンス・モッドモーフ・コンボだけ」で確かめてください。'
+        exit 0
+    }
+    if (-not $isWindowsHost) {
+        Write-Host 'Windows でのみ動きます。' -ForegroundColor Yellow
+        exit 0
+    }
+    Write-Host ''
+    Write-Host ('{0} のログ版ファームのログから、押したキーのレイヤーの遷移と解決を表示します。' -f $expected.name)
+    Write-Host 'ウィンドウを閉じるか「終了」を押すと終わります。'
+    try {
+        $saved = Invoke-KcLayerTrace -Expected $expected -Common $common -CacheDir $cacheDir -Port $Port
+        if ($saved) {
+            Write-Host ('保存しました: {0}' -f $saved)
+        }
+    } catch {
+        Write-Host ('失敗: {0}' -f $_.Exception.Message) -ForegroundColor Red
+        exit 1
+    }
+    exit 0
 }
 
 $results = New-KcResultList

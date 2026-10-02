@@ -517,11 +517,11 @@ function Add-KcBehaviorResults($Ctx, [string]$Category) {
         }
         $t = $Ctx.Tally[$kind]
         if ($t.Fail.Count -gt 0) {
-            Add-KcInputResult $Ctx $Category $item 'FAIL' ('{0} / {1} 件が違う' -f $t.Fail.Count, $t.Total) $hint (@($t.Fail) + @($t.Skip))
+            Add-KcInputResult $Ctx $Category $item 'FAIL' ('{0} / {1} 件が違う' -f $t.Fail.Count, $t.Total) $hint ($t.Fail.ToArray() + $t.Skip.ToArray())
         } elseif ($t.Pass -eq 0) {
-            Add-KcInputResult $Ctx $Category $item 'SKIP' 'すべてスキップ' '' @($t.Skip)
+            Add-KcInputResult $Ctx $Category $item 'SKIP' 'すべてスキップ' '' $t.Skip.ToArray()
         } elseif ($t.Skip.Count -gt 0) {
-            Add-KcInputResult $Ctx $Category $item 'WARN' ('{0} / {1} 件が一致 ({2} 件スキップ)' -f $t.Pass, $t.Total, $t.Skip.Count) '' @($t.Skip)
+            Add-KcInputResult $Ctx $Category $item 'WARN' ('{0} / {1} 件が一致 ({2} 件スキップ)' -f $t.Pass, $t.Total, $t.Skip.Count) '' $t.Skip.ToArray()
         } else {
             Add-KcInputResult $Ctx $Category $item 'PASS' ('{0} / {1} 件が一致' -f $t.Pass, $t.Total)
         }

@@ -43,7 +43,11 @@ function Format-KcStroke($Stroke, $ScanTable) {
 }
 
 function Format-KcStrokeList($Strokes, $ScanTable) {
-    $parts = @(@($Strokes) | ForEach-Object { Format-KcStroke $_ $ScanTable })
+    # foreach で回す (New-Object で作った List を @() で包むと、PowerShell 7 で例外になるため)
+    $parts = @()
+    foreach ($s in $Strokes) {
+        $parts += (Format-KcStroke $s $ScanTable)
+    }
     if ($parts.Count -eq 0) {
         return '(入力なし)'
     }

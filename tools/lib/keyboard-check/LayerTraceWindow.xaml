@@ -1,0 +1,112 @@
+<!--
+  Content of the window of tools/keyboard-check.ps1 -Mode Trace (KcLayerTraceForm in InputTestForm.cs):
+  shows how the layers change and how each pressed key is resolved, read from the log of the ZMK logging
+  firmware. Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
+  Theme keys (Theme.xaml) are referenced with DynamicResource. ASCII only: texts are set from PowerShell.
+-->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{DynamicResource KcBg}">
+  <Grid.RowDefinitions>
+    <RowDefinition Height="Auto"/>
+    <RowDefinition Height="*"/>
+    <RowDefinition Height="Auto"/>
+  </Grid.RowDefinitions>
+
+  <!-- header: title, keyboard and port -->
+  <Border Grid.Row="0" Style="{DynamicResource KcHeader}">
+    <Grid Margin="28,14,28,14">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" VerticalAlignment="Center">
+        <TextBlock Text="KEYBOARD-CHECK" Style="{DynamicResource KcAppCaption}"/>
+        <TextBlock x:Name="TitleText" Style="{DynamicResource KcHeaderTitle}" Margin="0,4,0,0"/>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+        <Border Style="{DynamicResource KcChip}" Margin="12,0,0,0">
+          <TextBlock x:Name="KeyboardText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource KcText}"/>
+        </Border>
+        <Border Style="{DynamicResource KcChip}" Margin="12,0,0,0">
+          <StackPanel Orientation="Horizontal">
+            <Ellipse x:Name="PortMark" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
+                     Fill="{DynamicResource KcTextFaint}"/>
+            <TextBlock x:Name="PortText" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource KcText}"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </Border>
+
+  <Grid Grid.Row="1" Margin="28,14,28,14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="2*" MinHeight="160"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*" MinHeight="90"/>
+    </Grid.RowDefinitions>
+
+    <!-- all layers: active ones are lit, the one the last key resolved on is emphasized -->
+    <StackPanel Grid.Row="0" Orientation="Horizontal">
+      <TextBlock x:Name="LayersCaption" Style="{DynamicResource KcSectionCaption}"/>
+      <WrapPanel x:Name="LayerChips" VerticalAlignment="Center"/>
+    </StackPanel>
+    <TextBlock x:Name="HintText" Grid.Row="1" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0"
+               Foreground="{DynamicResource KcTextMuted}"/>
+
+    <Grid Grid.Row="2" Margin="0,12,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="3*"/>
+        <ColumnDefinition Width="2*" MinWidth="280"/>
+      </Grid.ColumnDefinitions>
+      <!-- keyboard picture with the legends of the top active layer and the keys held now -->
+      <Border Grid.Column="0" Style="{DynamicResource KcCard}" Padding="18,16,18,14">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <TextBlock x:Name="PictureCaption" Grid.Row="0" Style="{DynamicResource KcSectionCaption}" Margin="0,0,0,8"/>
+          <Viewbox Grid.Row="1" Stretch="Uniform" TextOptions.TextFormattingMode="Ideal">
+            <Canvas x:Name="KeyboardCanvas"/>
+          </Viewbox>
+        </Grid>
+      </Border>
+      <!-- how the selected (or last) key was resolved: layers from the top, steps of the behavior, output -->
+      <Border Grid.Column="1" Style="{DynamicResource KcCard}" Margin="14,0,0,0" Padding="18,14,18,14">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel>
+            <TextBlock x:Name="ResolveTitle" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
+                       Foreground="{DynamicResource KcText}"/>
+            <StackPanel x:Name="CascadePanel" Margin="0,10,0,0"/>
+            <StackPanel x:Name="StepsPanel" Margin="0,8,0,0"/>
+            <TextBlock x:Name="OutputCaption" Style="{DynamicResource KcSectionCaption}" Margin="0,10,0,4"/>
+            <WrapPanel x:Name="OutputCaps"/>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <TextBlock x:Name="TimelineCaption" Grid.Row="3" Style="{DynamicResource KcSectionCaption}" Margin="0,12,0,6"/>
+    <Border Grid.Row="4" Style="{DynamicResource KcCard}" Padding="2">
+      <ListBox x:Name="Timeline" Background="Transparent" BorderThickness="0" FontSize="13"
+               FontFamily="{DynamicResource KcMonoFont}" Foreground="{DynamicResource KcText}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+    </Border>
+  </Grid>
+
+  <!-- status on the left, buttons on the right -->
+  <Border Grid.Row="2" Style="{DynamicResource KcFooter}">
+    <DockPanel LastChildFill="True">
+      <Button x:Name="StopButton" DockPanel.Dock="Right" Style="{DynamicResource KcPrimaryButton}"/>
+      <Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{DynamicResource KcSecondaryButton}"/>
+      <Button x:Name="ClearButton" DockPanel.Dock="Right" Style="{DynamicResource KcSecondaryButton}"/>
+      <Button x:Name="PauseButton" DockPanel.Dock="Right" Style="{DynamicResource KcSecondaryButton}"/>
+      <TextBlock x:Name="StatusText" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                 TextTrimming="CharacterEllipsis" Foreground="{DynamicResource KcTextMuted}"/>
+    </DockPanel>
+  </Border>
+</Grid>
