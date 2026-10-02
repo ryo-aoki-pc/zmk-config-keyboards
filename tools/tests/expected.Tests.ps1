@@ -73,6 +73,42 @@ Test-Case '結果の集計と終了コード' {
     Assert-Equal 3 $lines.Count
 }
 
+Test-Case '結果の行 (レポートの書式) は変わらない' {
+    $r = New-KcResultList
+    [void](Add-KcResult -Results $r -Category 'LisM: キーマップ' -Item 'レイヤー 3' -Status FAIL -Expected 'A' -Actual 'B' `
+            -Details @(1..22 | ForEach-Object { "位置 $_" }) -Hint "1 行目`n2 行目")
+    [void](Add-KcResult -Results $r -Category 'LisM: 実動作' -Item 'キーのタップ' -Status PASS -Actual '43 / 43 キーが一致' -Expected '43 / 43 キーが一致')
+    [void](Add-KcResult -Results $r -Category 'LisM: 実動作' -Item 'しきい値' -Status SKIP -Expected '10 以上')
+    [void](Add-KcResult -Results $r -Category 'LisM: 実動作' -Item 'キーボード' -Status INFO)
+    $expected = @('[FAIL] LisM: キーマップ: レイヤー 3 (期待: A / 実際: B)') + @(1..20 | ForEach-Object { "    - 位置 $_" }) +
+        @('    - ほか 2 件 (-Report で全件を書き出せます)', '    → 1 行目', '    → 2 行目')
+    Assert-Equal ($expected -join "`n") ((Format-KcResultLines $r[0]) -join "`n")
+    Assert-Equal '[PASS] LisM: 実動作: キーのタップ (43 / 43 キーが一致)' ((Format-KcResultLines $r[1]) -join "`n")
+    Assert-Equal '[SKIP] LisM: 実動作: しきい値 (10 以上)' ((Format-KcResultLines $r[2]) -join "`n")
+    Assert-Equal '[INFO] LisM: 実動作: キーボード' ((Format-KcResultLines $r[3]) -join "`n")
+}
+
+Test-Case 'コンソールの結果表示 (判定のバッジ・Category の見出し)' {
+    $r = New-KcResultList
+    [void](Add-KcResult -Results $r -Category 'A' -Item 'x' -Status PASS -Actual '1')
+    Assert-Equal 'PASS' (Get-KcVerdict $r).Status
+    [void](Add-KcResult -Results $r -Category 'A' -Item 'y' -Status WARN -Hint "h1`nh2")
+    Assert-Equal 'WARN' (Get-KcVerdict $r).Status
+    [void](Add-KcResult -Results $r -Category 'B' -Item 'z' -Status FAIL -Expected 'e' -Actual 'a' -Details @(1..25 | ForEach-Object { "d$_" }))
+    [void](Add-KcResult -Results $r -Category 'B' -Item 'w' -Status SKIP)
+    [void](Add-KcResult -Results $r -Category 'C' -Item 'v' -Status INFO -Reference)
+    $v = Get-KcVerdict $r
+    Assert-Equal 'FAIL' $v.Status
+    Assert-Equal '意図と違う設定があります。' $v.Text
+    $empty = New-KcResultList
+    [void](Add-KcResult -Results $empty -Category 'A' -Item 'x' -Status SKIP)
+    Assert-Equal 'WARN' (Get-KcVerdict $empty).Status
+    # コンソールが無い (子プロセスなど) ときも動く
+    Write-KcSummary $r 'タイトル' 6>$null
+    Write-KcSummary (New-KcResultList) 'からっぽ' 6>$null
+    Assert-True ((Get-KcRuleText).Length -ge 30) '区切りの線'
+}
+
 Test-Case 'レポートを UTF-8 (BOM 付き) で書き出す' {
     $r = New-KcResultList
     [void](Add-KcResult -Results $r -Category 'キーマップ' -Item 'レイヤー 0' -Status FAIL -Details @(1..30 | ForEach-Object { "差分 $_" }))

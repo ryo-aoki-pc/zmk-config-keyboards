@@ -13,10 +13,33 @@ $script:KcStatePass = 2
 $script:KcStateFail = 3
 $script:KcStateSkip = 4
 
+# ウィンドウ (WPF) の C# をコンパイルして読み込む。見た目は Theme.xaml と *Window.xaml にある。
+# input-monitor.ps1 もここを通る
 function Import-KcInputForm {
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    Import-KcCSharp 'InputTestForm.cs' 'KcInputTestForm' @('System.Windows.Forms', 'System.Drawing')
+    $wpf = @('PresentationFramework', 'PresentationCore', 'WindowsBase', 'System.Xaml')
+    foreach ($name in $wpf) {
+        Add-Type -AssemblyName $name
+    }
+    Import-KcCSharp 'InputTestForm.cs' 'KcInputTestForm' $wpf
+    [KcUi]::XamlDir = $script:KcLibDir
+    # 高 DPI の画面でぼやけないように、ウィンドウを作る前に DPI 対応にする
+    [KcUi]::EnsureDpiAware()
+}
+
+# ボタンの文字・凡例・機種名・キーボードの図を入れる
+function Initialize-KcInputForm($Form, $Expected) {
+    $Form.SetButtonTexts('次へ', 'やり直し', 'スキップ', '中止')
+    $Form.SetButtons($false, $false, $true)
+    $Form.SetKeyLegendTexts('いまのキー', '合格', '違うキー', 'スキップ')
+    $Form.SetSubtitle([string]$Expected.name)
+    $keys = @($Expected.physical.keys | Where-Object { [bool](Get-KcProp $_ 'present' $true) })
+    $Form.SetKeys(
+        [int[]]@($keys | ForEach-Object { [int]$_.pos }),
+        [double[]]@($keys | ForEach-Object { [double]$_.x }),
+        [double[]]@($keys | ForEach-Object { [double]$_.y }),
+        [double[]]@($keys | ForEach-Object { [double]$_.w }),
+        [double[]]@($keys | ForEach-Object { [double]$_.h }),
+        [string[]]@($keys | ForEach-Object { [string]$_.legend }))
 }
 
 function New-KcInputForm($Expected) {
@@ -24,27 +47,22 @@ function New-KcInputForm($Expected) {
     if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Threading.ApartmentState]::STA) {
         throw 'テスト用のウィンドウは STA で動かす必要があります。powershell.exe (Windows PowerShell) で実行してください'
     }
-    [System.Windows.Forms.Application]::EnableVisualStyles()
     $form = New-Object KcInputTestForm
-    $form.SetButtonTexts('次へ', 'やり直し', 'スキップ', '中止')
-    $form.SetButtons($false, $false, $true)
-    $keys = @($Expected.physical.keys | Where-Object { [bool](Get-KcProp $_ 'present' $true) })
-    $form.SetKeys(
-        [int[]]@($keys | ForEach-Object { [int]$_.pos }),
-        [double[]]@($keys | ForEach-Object { [double]$_.x }),
-        [double[]]@($keys | ForEach-Object { [double]$_.y }),
-        [double[]]@($keys | ForEach-Object { [double]$_.w }),
-        [double[]]@($keys | ForEach-Object { [double]$_.h }),
-        [string[]]@($keys | ForEach-Object { [string]$_.legend }))
-    $form.Show()
+    try {
+        Initialize-KcInputForm $form $Expected
+        $form.Show()
+    } catch {
+        $form.Dispose()
+        throw
+    }
     $form.Activate()
-    [System.Windows.Forms.Application]::DoEvents()
+    [KcUi]::DoEvents()
     return $form
 }
 
 # メッセージを処理して少し待つ (ウィンドウとキーボードのフックを動かし続ける)
 function Invoke-KcPump {
-    [System.Windows.Forms.Application]::DoEvents()
+    [KcUi]::DoEvents()
     Start-Sleep -Milliseconds 15
 }
 
@@ -242,6 +260,7 @@ function Invoke-KcTapTest($Ctx) {
             $detail += "`nWin キーでスタートメニューが開かないようにしてあります。開いてしまったら Esc で閉じてください。"
         }
         $Ctx.Form.SetTexts(('キーのタップ ({0} / {1})' -f ($i + 1), $taps.Count), ('「{0}」をタップしてください' -f $tap.legend), $detail)
+        $Ctx.Form.SetProgress($i, $taps.Count)
         $Ctx.Form.SetStatus('', 0)
         $attempt = 0
         $result = $null
@@ -475,6 +494,7 @@ function Invoke-KcTimeoutTest($Ctx, $Keys) {
             if ($a -eq 'abort') { return 'abort' }
             if ($a -eq 'skip') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
             $touched = @($Ctx.Form.TakeEvents() | Where-Object { $Ctx.Devices -contains $_.Device })
+            $Ctx.Form.SetProgress([int][math]::Max(0, $waitMs - ($end - $Ctx.Form.NowMs)), $waitMs)
             if ($touched.Count -gt 0) {
                 $end = $Ctx.Form.NowMs + $waitMs
                 $Ctx.Form.SetStatus('触ったので、カウントダウンをやり直します', 3)
@@ -569,6 +589,7 @@ function Invoke-KcEllipseCalib($Ctx, [string]$Ball) {
                 $dir = '右回り'
                 if ($now - $t0 -ge 10000) { $dir = '左回り' }
                 $Ctx.Form.SetStatus(('{0} で回してください: 残り {1} 秒 (入力 {2})' -f $dir, [math]::Max($left, 0), @($ev).Count), 0)
+                $Ctx.Form.SetProgress([int][math]::Min($now - $t0, 20000), 20000)
             }
         } -Done {
             param($ev, $now)
@@ -636,6 +657,7 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
             $Ctx.Form.SetTexts(('トラックボールの正規化: 速さ ({0}のボール、{1} / {2})' -f $bn, $n, $plan.Count),
                 ('ボールの印を真上に合わせてから、{0}ちょうど {1} 回転させてください' -f $p.Text, $revs),
                 "回し終わったら手を離してください (2.5 秒止まると次へ進みます)。`nボールに印が無いときは、テープやペンで小さな印を付けてください。持ち替えても大丈夫です。")
+            $Ctx.Form.SetProgress($n - 1, $plan.Count)
             $Ctx.Form.SetStatus('', 0)
             $Ctx.Form.ClearEvents()
             $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 90000 -Done {
