@@ -1,4 +1,4 @@
-﻿# C# ヘルパーのコンパイル (Windows PowerShell 5.1 では C# 5 でコンパイルされる) のテスト
+﻿# C# ヘルパーのコンパイル (Windows PowerShell 5.1 では C# 5 でコンパイルされる) と、ウィンドウ (WPF) の描画のテスト
 
 . (Join-Path $script:KcLib 'expected.ps1')
 . (Join-Path $script:KcLib 'rawhid.ps1')
@@ -23,6 +23,10 @@ Test-Case 'InputTestForm.cs をコンパイルして、ウィンドウを作れ�
         $form.SetKeys([int[]]@(0, 1), [double[]]@(0, 1), [double[]]@(0, 0), [double[]]@(1, 1), [double[]]@(1, 1), [string[]]@('Q', 'W'))
         $form.SetKeyState(1, 2)
         $form.SetTexts('t', 'i', 'd')
+        $form.SetSubtitle('LisM')
+        $form.SetProgress(1, 2)
+        $form.SetKeyLegendTexts('いまのキー', '合格', '違うキー', 'スキップ')
+        $form.SetStatus('s', 3)
         Assert-Equal '' $form.TakeAction()
         Assert-Equal 0 @($form.TakeEvents()).Count
     } finally {
@@ -90,5 +94,122 @@ Test-Case 'InputTestForm.cs: モニター用のウィンドウ (KcInputMonitorFo
     $list = @([KcInputMonitorForm]::ListDevices())
     foreach ($d in $list) {
         Assert-True ($d.Type -eq 0 -or $d.Type -eq 1) 'キーボードとマウスだけ'
+    }
+}
+
+# ウィンドウの中身を PNG にする (描画で例外が出ないことを確かめる)。$env:KC_SCREENSHOT_DIR があれば
+# そこに残す (CI は artifact に上げる)
+function Save-UiSnapshot($Form, [string]$Name) {
+    $dir = $env:KC_SCREENSHOT_DIR
+    $keep = [bool]$dir
+    if (-not $keep) {
+        $dir = [System.IO.Path]::GetTempPath()
+    }
+    if (-not (Test-Path -LiteralPath $dir)) {
+        [void](New-Item -ItemType Directory -Force -Path $dir)
+    }
+    $path = Join-Path $dir ($Name + '.png')
+    $Form.SaveSnapshot($path)
+    Assert-True ((Get-Item -LiteralPath $path).Length -gt 1000) ('{0} の PNG' -f $Name)
+    if (-not $keep) {
+        Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue
+    }
+}
+
+# 画面外に、前面にせずに表示する
+function Show-UiOffscreen($Window) {
+    $Window.Topmost = $false
+    $Window.ShowActivated = $false
+    $Window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual
+    $Window.Left = -20000
+    $Window.Top = -20000
+    $Window.Show()
+    [KcUi]::DoEvents()
+}
+
+# 要素の左端と右端 (ウィンドウの中身の座標)
+function Get-UiSpan($Element, $Root) {
+    $p = $Element.TranslatePoint((New-Object System.Windows.Point 0, 0), $Root)
+    return [pscustomobject]@{ Left = $p.X; Right = $p.X + $Element.ActualWidth }
+}
+
+Test-Case 'テスト用のウィンドウを描画できる (各状態、最小の大きさ)' -WindowsOnly {
+    Import-KcInputForm
+    $expected = Get-KcExpected 'lism' $script:ExpectedDir
+    $form = New-Object KcInputTestForm
+    try {
+        Initialize-KcInputForm $form $expected
+        $w = $form.Window
+        Show-UiOffscreen $w
+        $root = $w.Content
+        $form.SetTexts('準備: キーボードの特定', 'テストするキーボードのキーを 1 つ押してください',
+            "Shift など、押しても何も起きないキーがおすすめです。`nPC 本体のキーボードやマウスには触らないでください。")
+        Save-UiSnapshot $form 'keyboard-check-1-start'
+
+        $pos = @($expected.physical.keys | ForEach-Object { [int]$_.pos })
+        $form.SetKeyState($pos[0], 2)
+        $form.SetKeyState($pos[1], 3)
+        $form.SetKeyState($pos[2], 4)
+        $form.SetKeyState($pos[3], 1)
+        $form.SetTexts('キーのタップ (4 / 43)', '「R」をタップしてください', 'キーを押してすぐ離してください。')
+        $form.SetProgress(3, 43)
+        $form.SetStatus('違うキー: e', 2)
+        Save-UiSnapshot $form 'keyboard-check-2-tap'
+
+        $w.Width = $w.MinWidth
+        $w.Height = $w.MinHeight
+        $form.SetTexts('AML (自動マウスレイヤー): クリック',
+            'カーソルが 1 cm ほど動くまでボールを転がしてから、「D」を押したまま、右のボールを手前 (自分の方) へゆっくり大きく転がしてください',
+            "ボールを転がすと AML になり、「F」でクリック、「D」はスクロールのキーになります (文字は入力されません)。`nクリックはこのウィンドウの中だけで起きます。")
+        $form.SetStatus("縦横比 1.15 (傾き 3.2°) → 補正後の予想 1.01`nやり直すときは「やり直し」、よければ「次へ」を押してください。", 3)
+        $form.SetButtons($true, $true, $false)
+        $form.SetLog('入力 123 件')
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'keyboard-check-3-min'
+        Assert-True ($root.FindName('KeyboardCard').ActualHeight -ge 120) ('キーボード図の高さ: {0}' -f $root.FindName('KeyboardCard').ActualHeight)
+        $footerTop = $root.FindName('Footer').TranslatePoint((New-Object System.Windows.Point 0, 0), $root).Y
+        foreach ($name in @('StatusBanner', 'LogText')) {
+            $e = $root.FindName($name)
+            $bottom = $e.TranslatePoint((New-Object System.Windows.Point 0, 0), $root).Y + $e.ActualHeight
+            Assert-True ($bottom -le $footerTop + 0.5) ('{0} がボタンの帯に重ならない ({1} > {2})' -f $name, $bottom, $footerTop)
+        }
+        $spans = @(@('AbortButton', 'RetryButton', 'NextButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
+        for ($i = 1; $i -lt $spans.Count; $i++) {
+            Assert-True ($spans[$i - 1].Right -le $spans[$i].Left) 'ボタンが重ならない'
+        }
+        Assert-True ($spans[$spans.Count - 1].Right -le $root.ActualWidth) 'ボタンがウィンドウに収まる'
+
+        $form.SetStatus('残り 3 秒', 0)
+        $form.SetProgress(7000, 10000)
+        $form.SetStatus('OK: q', 1)
+        $form.ClearKeyStates()
+        Save-UiSnapshot $form 'keyboard-check-4-ok'
+    } finally {
+        $form.Dispose()
+    }
+    Assert-True $form.IsClosed '閉じた'
+    Assert-Equal 'abort' $form.TakeAction() '閉じたら中止'
+}
+
+Test-Case '記録用のウィンドウを描画できる' -WindowsOnly {
+    Import-KcInputForm
+    $form = New-Object KcInputMonitorForm('input-monitor', '停止', 'マーク', 'クリア',
+        ("別のアプリ (メモ帳など) にキーを入力したり、ボールを転がしたりしてください。`r`n" + '停止: 記録を終えて分析する / マーク: ログに区切りを入れる / クリア: ここまでの記録を捨てる'))
+    try {
+        Show-UiOffscreen $form.Window
+        $form.AppendLog(("接続中のキーボード・マウス:`r`n  #1 キーボード  LisM (BLE)`r`n  #2 マウス      LisM (BLE)`r`n"))
+        foreach ($n in 1..80) {
+            $form.AppendLog(('{0,9:F3}  #1  キー   A  押す' -f ($n * 0.137)))
+        }
+        $form.SetStatus('経過 12.3 秒   イベント 456 件   #1 120  #2 336', 0)
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'input-monitor'
+        Assert-True (-not $form.IsClosed)
+        $form.RequestClose()
+        [KcUi]::DoEvents()
+        Assert-True $form.IsClosed '閉じた'
+        Assert-Equal 'stop' $form.TakeAction() '閉じたら停止'
+    } finally {
+        $form.Dispose()
     }
 }

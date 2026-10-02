@@ -5,7 +5,7 @@
 .DESCRIPTION
     - tools/**/*.ps1 が UTF-8 (BOM 付き) で、構文エラーが無いこと
     - Windows PowerShell 5.1 で使えない構文 (??、?.、三項演算子、&& など) を使っていないこと
-    - .cmd / .cs が ASCII だけで書かれていること
+    - .cmd / .cs / .xaml が ASCII だけで書かれていること
     - tools/tests/*.Tests.ps1 の各テスト (偽のデバイスを使った読み出し検査、判定の計算など)
 
     Windows 専用のテスト (C# のコンパイル、フォームの生成) は Windows 以外では飛ばします。
@@ -107,7 +107,7 @@ $script:CurrentFile = 'hygiene'
 Write-Host '[hygiene]'
 
 $psFiles = @(Get-ChildItem -Path $script:ToolsDir -Recurse -Include '*.ps1' -File | Where-Object { $_.FullName -notmatch '[\\/]\.cache[\\/]' })
-$cmdFiles = @(Get-ChildItem -Path $script:ToolsDir -Recurse -Include '*.cmd', '*.cs' -File | Where-Object { $_.FullName -notmatch '[\\/]\.cache[\\/]' })
+$cmdFiles = @(Get-ChildItem -Path $script:ToolsDir -Recurse -Include '*.cmd', '*.cs', '*.xaml' -File | Where-Object { $_.FullName -notmatch '[\\/]\.cache[\\/]' })
 
 Test-Case '.ps1 は UTF-8 (BOM 付き)' {
     $bad = @()
@@ -120,7 +120,7 @@ Test-Case '.ps1 は UTF-8 (BOM 付き)' {
     Assert-Equal '' ($bad -join ', ') 'BOM が無いファイル:'
 }
 
-Test-Case '.cmd / .cs は ASCII だけ' {
+Test-Case '.cmd / .cs / .xaml は ASCII だけ' {
     $bad = @()
     foreach ($f in $cmdFiles) {
         $bytes = [System.IO.File]::ReadAllBytes($f.FullName)

@@ -3,7 +3,8 @@
 #   expected   : 期待値 (tools/expected/*.json) が submodule の内容と合っているか。
 #                submodule の参照を更新したら python tools/expected/generate.py を実行してコミットする
 #   powershell : Windows PowerShell 5.1 でスクリプトの構文・C# のコンパイル・テストが通るか
-#                (実機は使わない。偽のデバイスで読み出し検査や判定の計算を確かめる)
+#                (実機は使わない。偽のデバイスで読み出し検査や判定の計算を確かめる)。
+#                テスト用・記録用のウィンドウを画面外に描いた PNG を artifact (window-screenshots) に上げる
 
 name: Keyboard check
 
@@ -60,6 +61,7 @@ jobs:
   powershell:
     name: Windows PowerShell 5.1
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,7 +70,17 @@ jobs:
 
       - name: Unit tests (Windows PowerShell 5.1)
         shell: powershell
+        env:
+          KC_SCREENSHOT_DIR: ${{ runner.temp }}\kc-screenshots
         run: |
           $PSVersionTable.PSVersion.ToString()
           powershell -NoProfile -ExecutionPolicy Bypass -File tools\tests\run.ps1
           exit $LASTEXITCODE
+
+      - name: Upload window screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: window-screenshots
+          path: ${{ runner.temp }}\kc-screenshots
+          if-no-files-found: ignore
