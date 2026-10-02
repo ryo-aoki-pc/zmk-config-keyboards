@@ -271,6 +271,23 @@ function Test-KcAfterTimeout($Events, [int]$Usage, $ScanTable) {
     return [pscustomobject]@{ Status = 'FAIL'; Actual = $t; Message = '期待と違うキーが入力されました' }
 }
 
+# AML 中に修飾キーの位置 (Ctrl / Shift) をタップ: AML が切れて、BASE と同じ文字が出る
+function Test-KcAmlRelease($Events, [int]$Usage, $ScanTable) {
+    $all = ConvertTo-KcKeyActions $Events $ScanTable
+    $keys = @($all | Where-Object { $_.Down })
+    if ($keys.Count -eq 0) {
+        return [pscustomobject]@{ Status = 'NONE'; Actual = '(入力なし)' }
+    }
+    $t = (@($keys | ForEach-Object { Get-KcKeyLabel $_ $ScanTable }) -join ' + ')
+    if (@($keys | Where-Object { $_.Usage -eq $Usage }).Count -gt 0) {
+        return [pscustomobject]@{ Status = 'PASS'; Actual = $t }
+    }
+    if (@($keys | Where-Object { $_.Usage -lt 0xE0 -or $_.Usage -gt 0xE7 }).Count -eq 0) {
+        return [pscustomobject]@{ Status = 'FAIL'; Actual = $t; Message = '修飾キーだけが入力されました (AML が切れていない。長押しになった場合は短く押してやり直す)' }
+    }
+    return [pscustomobject]@{ Status = 'FAIL'; Actual = $t; Message = '期待と違うキーが入力されました' }
+}
+
 # ボールの位置 (left / right) → テストで押すキー (ボールと反対の手)
 function Get-KcHandKeys($Trackball, [string]$Ball) {
     $hand = 'left'

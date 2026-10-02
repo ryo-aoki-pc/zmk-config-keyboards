@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-AroundFortyRB",
-      "commit": "8e5ab0372343fb642c3daf2425ca1506a5641a01",
+      "commit": "0aec88236e59c90f1c82cb695324f9812f9894f3",
       "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -440,7 +440,7 @@
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Key Press", "p1": 458976, "p2": 0, "src": "&kp LCTRL"},
+          {"b": "Transparent", "p1": 0, "p2": 0, "src": "&trans"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "Momentary Layer", "p1": 9, "p2": 0, "src": "&mo 9"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
@@ -449,8 +449,8 @@
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "Momentary Layer", "p1": 9, "p2": 0, "src": "&mo 9"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Key Press", "p1": 458980, "p2": 0, "src": "&kp RCTRL"},
-          {"b": "Key Press", "p1": 458977, "p2": 0, "src": "&kp LEFT_SHIFT"},
+          {"b": "Transparent", "p1": 0, "p2": 0, "src": "&trans"},
+          {"b": "Transparent", "p1": 0, "p2": 0, "src": "&trans"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
@@ -460,10 +460,10 @@
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Key Press", "p1": 458981, "p2": 0, "src": "&kp RIGHT_SHIFT"},
+          {"b": "Transparent", "p1": 0, "p2": 0, "src": "&trans"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Key Press", "p1": 458979, "p2": 0, "src": "&kp LEFT_WIN"},
-          {"b": "Key Press", "p1": 458978, "p2": 0, "src": "&kp LEFT_ALT"},
+          {"b": "Transparent", "p1": 0, "p2": 0, "src": "&trans"},
+          {"b": "Transparent", "p1": 0, "p2": 0, "src": "&trans"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
@@ -576,12 +576,16 @@
           "scroll": {"pos": 12, "legend": "D"},
           "click": {"pos": 13, "legend": "F", "button": 1},
           "shift": {"pos": 20, "legend": "Z", "usage": 225},
+          "release_ctrl": {"pos": 10, "legend": "A", "mod": "Ctrl", "usage": 4},
+          "release_shift": {"pos": 20, "legend": "Z", "mod": "Shift", "usage": 29},
           "after_timeout": {"pos": 13, "legend": "F", "usage": 9}
         },
         "right": {
           "scroll": {"pos": 17, "legend": "K"},
           "click": {"pos": 16, "legend": "J", "button": 1},
           "shift": {"pos": 30, "legend": "/", "usage": 229},
+          "release_ctrl": {"pos": 19, "legend": "-", "mod": "Ctrl", "usage": 45},
+          "release_shift": {"pos": 30, "legend": "/", "mod": "Shift", "usage": 56},
           "after_timeout": {"pos": 16, "legend": "J", "usage": 13}
         }
       },
@@ -609,7 +613,7 @@
     }
   },
   "consistency": [
-    {"level": "ok", "message": "AML の除外位置 (10 12 17 19 20 30 32 33) が MOUSE_MOVE の割り当てと一致"},
+    {"level": "ok", "message": "AML の除外位置 (12 17) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/32 (README の共通基盤: 1/32、CPI 800 のため)"},

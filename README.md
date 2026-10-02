@@ -34,8 +34,8 @@
 | アーティファクト | 全エントリに `artifact-name` を付与し、Studio 版 / 非 Studio 版の両方を生成 |
 | ローカルビルド | `Makefile` + `scripts/` + `.devcontainer/` (`make` / `make single` など) |
 | タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
-| AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置 D / K と修飾キーの位置 (A / - / Z / / / Win / Alt)、マウスクリックでタイマー延長 |
-| マウスレイヤーの修飾キー | MOUSE_MOVE / MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。AML に入ってから Shift + クリック・Ctrl + ホイールなどを押せる |
+| AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置は D / K (`&mo SCRL`) だけ、マウスクリックでタイマー延長。修飾キーの位置 (A / - / Z / / / Win / Alt) を押しても AML が切れる。MOUSE_MOVE ではそこを `&trans` にしてあり、BASE と同じキーになる (A / - / Z / / はタップで文字、長押しで Ctrl / Shift)。マウスを使った直後に `a` や `z` を入力できる |
+| マウスレイヤーの修飾キー | MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。修飾キーとクリック・ホイールを組み合わせるときは、`D` / `K` を押してから修飾キーを押す (例: `D` → `Z` → `F` で Shift + クリック、`D` → `A` → ボールで Ctrl + ホイール)。修飾キーを先に押すと AML が切れ、`D` が文字になる。修飾キーを押したままボールを転がすと、200ms 後に AML に戻る |
 | トラックボールの細かさ | センサーの値を引き伸ばさず、1 カウントでカーソルが 1 動く (2 倍などにすると 2 ずつ飛ぶ)。AroundFortyRB / roBa は CPI 800、KUKEY42 は CPI 2000 + 楕円の補正 (`trackball_matrix` の divisor 2000)。LisM / Pyuron / torabo-tsuki-lp (PAW3222) は CPI を設定せず等倍 |
 | カーソルの加速 | 転がす速さに応じて移動量に倍率を掛ける ([zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) の `trackball_accel`)。速さ 0 で 0.5 倍 → 1000 カウント/秒で等倍 → 4000 カウント/秒以上で 1.3 倍 (`min-factor 500` / `speed-threshold 1000` / `max-factor 1300` / `speed-max 4000`)。カーソル移動だけに掛け、スクロールには掛けない。Keyball39 も同じ値 (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`)。調整は [カーソルの加速の調整](#カーソルの加速の調整) |
 | スクロール | `zip_scroll_scaler 1 16` (1/16)。例外: AroundFortyRB / roBa は CPI 800 なので `zip_scroll_scaler 1 32` (CPI 400 のときの 1/16 と同じ速さ)、KUKEY42 はドライバの `CONFIG_PMW3610_SCROLL_TICK=32`、torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
@@ -83,9 +83,9 @@ keyball39 (via) は LisM BASE 配列の素の HID コードだけを送り、レ
 Quantizer に無いマウスレイヤー (MOUSE_MOVE / MOUSE_SCROLL) と AML の除外キー・タイムアウト・
 require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&zip_temp_layer` 設定を再現しています。
 
-- マウスレイヤーの修飾キー: keyball39 は AML / スクロールレイヤーで、KQ-mini が mod-tap にする位置
-  (A / - / Z / /) とベースの Win / Alt の位置から素の修飾キー (`KC_LCTL` / `KC_RCTL` / `KC_LSFT` /
-  `KC_RSFT` / `KC_LGUI` / `KC_LALT`) を送ります。KQ-mini はそれをそのまま素通しします
+- マウスレイヤーの修飾キー:
+  - AML レイヤーでは、KQ-mini が mod-tap にする位置 (A / - / Z / /) とベースの Win / Alt の位置は `KC_TRNS` です。押すと AML が切れ、ベースと同じ素のキーを送ります。A / - / Z / / は KQ-mini の mod-tap になります (タップで文字、長押しで Ctrl / Shift)
+  - スクロールレイヤーでは、同じ位置から素の修飾キー (`KC_LCTL` / `KC_RCTL` / `KC_LSFT` / `KC_RSFT` / `KC_LGUI` / `KC_LALT`) を送ります。KQ-mini はそれをそのまま素通しします
 - マウスボタン: KQ-mini はマウスボタンを自身のキーマップ経由で送ります。ボタンを押したままキーを押したり
   離したりしても、ボタンは押されたままです (ドラッグ中に Ctrl / Shift を押してもドロップされない)
 - カーソルの加速: keyball39 本体側で掛けます (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`。ZMK のキーボードと同じ値)。
@@ -409,11 +409,13 @@ ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio で
 | キーのタップ | BASE レイヤーのキーを 1 つずつタップして、意図したキーが入力される (KQ-mini は、Keyball のキーを KQ-mini が変換した結果で確かめる) |
 | ボールの向き | 右へ転がすと右、手前へ転がすと下へカーソルが動く |
 | AML のクリック | ボールを転がしたあと、`D` を押しながら `F` でクリックになる (文字は入力されない) |
-| Shift + クリック | ボールを転がしたあと、`Z` → `D` → `F` で Shift + クリックになる |
+| Shift + クリック | ボールを転がしたあと、`D` → `Z` → `F` で Shift + クリックになる |
+| AML の Ctrl / Shift での解除 | ボールを転がしたあと `A` (長押しで Ctrl) をタップすると、AML が切れて `a` が入力される。`Z` (長押しで Shift) も同じ |
 | スクロールの向き | `D` を押しながら手前へ転がすと下へ、右へ転がすと右へスクロールする (マウスのホイールと同じ向き) |
 | AML のタイムアウト | 10 秒触らないと AML が切れ、`F` で文字が入力される |
 
-- 右手側のボールは左手のキー (`D` / `F` / `Z`)、左手側のボールは右手のキー (`K` / `J` / `/`) で試す
+- 右手側のボールは左手のキー (`D` / `F` / `Z` / `A`)、左手側のボールは右手のキー (`K` / `J` / `/` / `-`) で試す
+- Win / Alt でも AML が切れるが、AML 中でも BASE でも同じキーが出るため、実動作テストでは確かめない (設定ファイルの整合と、Keyball のキーマップの読み出しで確かめる)
 - テスト中は、Win キーでスタートメニューが開かず、キーボードから送られたクリックはウィンドウの中だけで起きるようにしてある
 
 ### トラックボールの正規化 (楕円補正・速さ)
@@ -460,6 +462,7 @@ ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio で
 | ZMK の読み出しが SKIP (応答がない) | キーボードの出力が BLE になっている。BT レイヤーのキーを押しながら `U` (`&out OUT_USB`) で USB に切り替える |
 | ボールの向き・スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
 | AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer`、Keyball の `AUTO_MOUSE_*`) が動いていない |
+| AML の Ctrl / Shift での解除が FAIL (修飾キーだけが入力された) | Ctrl / Shift で AML を解除しない古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む。長押しになった場合 (Ctrl / Shift になる) は、短く押してやり直す |
 
 - 一覧の最後の「設定ファイル (参考)」は、submodule の設定ファイルどうしの整合です (キーボードは見ていない)。
   例: LisM は、左ボールのスクロールの処理が右手側の版 (trackball / non_trackball) で違うため、WARN になります

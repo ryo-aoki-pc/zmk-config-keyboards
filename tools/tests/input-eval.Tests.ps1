@@ -106,8 +106,19 @@ Test-Case 'AML のクリック、Shift + クリック、タイムアウト' {
     Assert-Equal 'FAIL' (Test-KcAfterTimeout $click 0x09 $scan).Status
 }
 
+Test-Case 'AML の Ctrl / Shift での解除' {
+    Assert-Equal 'PASS' (Test-KcAmlRelease (New-TapEvents @(0x1D)) 0x1D $scan).Status
+    $modOnly = Test-KcAmlRelease (New-TapEvents @(0xE1)) 0x1D $scan
+    Assert-Equal 'FAIL' $modOnly.Status
+    Assert-True ($modOnly.Message -like '*修飾キーだけ*')
+    Assert-Equal 'FAIL' (Test-KcAmlRelease (New-TapEvents @(0x09)) 0x1D $scan).Status
+    Assert-Equal 'NONE' (Test-KcAmlRelease @() 0x1D $scan).Status
+}
+
 Test-Case 'ボールと反対の手のキーを使う' {
     $tb = $lism.interactive.trackball
     Assert-Equal 'D' (Get-KcHandKeys $tb 'right').scroll.legend
     Assert-Equal 'K' (Get-KcHandKeys $tb 'left').scroll.legend
+    Assert-Equal 'A' (Get-KcHandKeys $tb 'right').release_ctrl.legend
+    Assert-Equal '/' (Get-KcHandKeys $tb 'left').release_shift.legend
 }

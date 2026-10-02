@@ -683,7 +683,8 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
         im = re.search(r'require-prior-idle-ms\s*=\s*<\s*(\d+)\s*>', zm.group(1))
         idle = int(im.group(1)) if im else None
     mouse_move = km.layers[mous]
-    assigned = [i for i, b in enumerate(mouse_move) if b.split()[0] != '&none']
+    # &trans は BASE と同じキー (押すと AML が切れる) なので、割り当てに数えない
+    assigned = [i for i, b in enumerate(mouse_move) if b.split()[0] not in ('&none', '&trans')]
     if sorted(assigned) == sorted(excluded):
         out.append({'level': 'ok', 'message': f'AML の除外位置 ({" ".join(map(str, excluded))}) が MOUSE_MOVE の割り当てと一致'})
     else:
@@ -828,30 +829,42 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None) 
     # トラックボールのテストで押すキー (手ごと)
     def is_mo(layer_idx):
         return lambda p: p[0] == '&mo' and int(p[1]) == layer_idx
+    def is_mod(usages):
+        return lambda p: p[0] == '&kp' and zmk_keycode(zv, p[1]) & 0xFFFF in usages
     scroll_pos = find_positions(km.layers[mous], is_mo(scrl))
     click_pos = find_positions(km.layers[scrl], lambda p: p[0] == '&mkp' and ZMK_MOUSE_BUTTONS.get(p[1]) == 1)
-    shift_pos = find_positions(km.layers[mous], lambda p: p[0] == '&kp' and
-                               zmk_keycode(zv, p[1]) & 0xFFFF in (0xE1, 0xE5))
+    # 修飾キーは MOUSE_SCROLL にだけある (MOUSE_MOVE では &trans。押すと AML が切れる)
+    shift_pos = find_positions(km.layers[scrl], is_mod((0xE1, 0xE5)))
+    ctrl_pos = find_positions(km.layers[scrl], is_mod((0xE0, 0xE4)))
     hand_keys = {}
     for hand in ('left', 'right'):
         def pick(cands):
             c = [p for p in cands if keys[p]['hand'] == hand]
             return c[0] if c else None
-        s, c, sh = pick(scroll_pos), pick(click_pos), pick(shift_pos)
-        if s is None or c is None or sh is None:
+        s, c, sh, ct = pick(scroll_pos), pick(click_pos), pick(shift_pos), pick(ctrl_pos)
+        if s is None or c is None or sh is None or ct is None:
             continue
         after = km.tap(base_layer[c])
         if 'usage' not in after:
             raise GenError(f'{board["name"]}: クリックキーの位置 {c} が BASE でキーを出しません')
+
+        def release(pos: int, mod: str) -> dict:
+            # AML 中に押すと AML が切れ、BASE と同じくタップで文字が出る
+            t = km.tap(base_layer[pos])
+            if 'usage' not in t:
+                raise GenError(f'{board["name"]}: {mod} の位置 {pos} が BASE でキーを出しません')
+            return {'pos': pos, 'legend': keys[pos]['legend'], 'mod': mod, 'usage': t['usage']}
         hand_keys[hand] = {
             'scroll': {'pos': s, 'legend': keys[s]['legend']},
             'click': {'pos': c, 'legend': keys[c]['legend'], 'button': 1},
             'shift': {'pos': sh, 'legend': keys[sh]['legend'],
-                      'usage': zmk_keycode(zv, km.layers[mous][sh].split()[1]) & 0xFFFF},
+                      'usage': zmk_keycode(zv, km.layers[scrl][sh].split()[1]) & 0xFFFF},
+            'release_ctrl': release(ct, 'Ctrl'),
+            'release_shift': release(sh, 'Shift'),
             'after_timeout': {'pos': c, 'legend': keys[c]['legend'], 'usage': after['usage']},
         }
     if set(hand_keys) != {'left', 'right'}:
-        raise GenError(f'{board["name"]}: 左右両方にスクロール / クリック / Shift のキーが必要です')
+        raise GenError(f'{board["name"]}: 左右両方にスクロール / クリック / Shift / Ctrl のキーが必要です')
 
     # USB 出力への切り替え (Studio は USB 出力中でないと応答しない)
     bt_key = find_positions(base_layer, is_mo(bt))
@@ -1079,15 +1092,20 @@ class Keyball:
             ks = [k for k in self.keys if k['hand'] == hand and k['present']]
             scroll = [k for k in ks if self.cell(aml, k['pos']) == (0x5220 | scrl)]
             click = [k for k in ks if self.cell(scrl, k['pos']) == 0xD1]
-            shift = [k for k in ks if self.cell(aml, k['pos']) in (0xE1, 0xE5)]
-            if not (scroll and click and shift):
-                raise GenError(f'Keyball39: {hand} にスクロール / クリック / Shift のキーがありません')
+            # 修飾キーはスクロールレイヤーにだけある (AML レイヤーでは KC_TRNS。押すと AML が切れる)
+            shift = [k for k in ks if self.cell(scrl, k['pos']) in (0xE1, 0xE5)]
+            ctrl = [k for k in ks if self.cell(scrl, k['pos']) in (0xE0, 0xE4)]
+            if not (scroll and click and shift and ctrl):
+                raise GenError(f'Keyball39: {hand} にスクロール / クリック / Shift / Ctrl のキーがありません')
             c = click[0]['pos']
             after = tap_of_pos(c)
+            sh, ct = shift[0]['pos'], ctrl[0]['pos']
             out[hand] = {
                 'scroll': {'pos': scroll[0]['pos']},
                 'click': {'pos': c, 'button': 1},
-                'shift': {'pos': shift[0]['pos'], 'usage': self.cell(aml, shift[0]['pos'])},
+                'shift': {'pos': sh, 'usage': self.cell(scrl, sh)},
+                'release_ctrl': {'pos': ct, 'mod': 'Ctrl', 'usage': tap_of_pos(ct)},
+                'release_shift': {'pos': sh, 'mod': 'Shift', 'usage': tap_of_pos(sh)},
                 'after_timeout': {'pos': c, 'usage': after},
             }
         return out
