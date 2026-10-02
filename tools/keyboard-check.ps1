@@ -12,7 +12,7 @@
         つなぐと、キーマップ
 
     実動作テスト (テスト用のウィンドウで、キーを押す・ボールを転がす)
-      - BASE レイヤーのキーのタップ、ボールの向き、AML のクリック、Shift + クリック、AML の Ctrl / Shift での解除、
+      - BASE レイヤーのキーのタップ、AML のクリック、Shift + クリック、AML の Ctrl / Shift での解除、
         スクロールの向き、AML のタイムアウト
       - トラックボールの正規化: X/Y の比率と傾き (楕円補正)、キーボード間の速さ (LisM 基準)。推奨値を出す
 
@@ -26,7 +26,7 @@
     All (読み出し検査と実動作テスト) / Readout (読み出し検査だけ) / Interactive (実動作テストだけ)。
 
 .PARAMETER Section
-    実動作テストの範囲。All / Keys (キーのタップ) / Trackball (向き・AML・スクロール) / Calibrate (トラックボールの正規化)。
+    実動作テストの範囲。All / Keys (キーのタップ) / Trackball (AML・スクロール) / Calibrate (トラックボールの正規化)。
 
 .PARAMETER Ball
     LisM のトラックボールの位置 (right / left / both)。省略すると尋ねます。

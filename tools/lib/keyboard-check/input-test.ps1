@@ -1,5 +1,5 @@
-﻿# 実動作テスト (GUI)。テスト用のウィンドウ (InputTestForm.cs) で、キーのタップ・ボールの向き・AML・
-# スクロール・トラックボールの正規化 (楕円・速さ) を順に行う。Windows のみ。
+﻿# 実動作テスト (GUI)。テスト用のウィンドウ (InputTestForm.cs) で、キーのタップ・AML・スクロール・
+# トラックボールの正規化 (楕円・速さ) を順に行う。Windows のみ。
 # keyboard-check.ps1 から dot-source して使う。expected.ps1 / results.ps1 / rawhid.ps1 / input-eval.ps1 /
 # trackball-calib.ps1 が先に読み込まれている前提。
 #
@@ -326,57 +326,10 @@ function Invoke-KcRetryStep($Ctx, [scriptblock]$Body) {
     }
 }
 
-function Invoke-KcDirectionTest($Ctx, [string]$Ball, $Strokes) {
+function Invoke-KcAmlClickTest($Ctx, [string]$Ball, $Keys) {
     $bn = $script:KcBallNames[$Ball]
-    $cat = $Ctx.Category
-    $dirs = @(
-        @{ Expect = '+x'; Text = '右へ'; Item = '右へ転がす' },
-        @{ Expect = '+y'; Text = '手前 (自分の方) へ'; Item = '手前へ転がす' }
-    )
-    foreach ($d in $dirs) {
-        $results = @()
-        for ($k = 1; $k -le 2; $k++) {
-            $res = Invoke-KcRetryStep $Ctx {
-                $Ctx.Form.SetTexts(('ボールの向き ({0}のボール、{1} 回目)' -f $bn, $k), ('{0}のボールを{1}まっすぐ転がしてください' -f $bn, $d.Text),
-                    '2〜3 cm ほど転がして、手を離すと次へ進みます。')
-                $Ctx.Form.ClearEvents()
-                $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 30000 -Done {
-                    param($ev, $now)
-                    Test-KcMotionSettled $ev $now 150 500
-                }
-                if ($r.Outcome -eq 'abort') { return 'abort' }
-                if ($r.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)'; Motion = $null } }
-                $m = Measure-KcMotion $r.Events
-                $t = Test-KcDirection $m $d.Expect
-                $t | Add-Member -NotePropertyName Motion -NotePropertyValue $m
-                Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
-                Wait-KcPause $Ctx 700
-                return $t
-            }
-            if ($res -is [string]) { return $res }
-            $results += $res
-            if ($res.Status -eq 'PASS' -and $null -ne $res.Motion) {
-                $Strokes.Add(@{ Expect = $d.Expect; Dx = $res.Motion.Dx; Dy = $res.Motion.Dy })
-            }
-        }
-        $bad = @($results | Where-Object { $_.Status -eq 'FAIL' })
-        $ok = @($results | Where-Object { $_.Status -eq 'PASS' })
-        $details = @($results | ForEach-Object { $_.Actual })
-        if ($bad.Count -gt 0) {
-            Add-KcInputResult $Ctx $cat ('ボールの向き: {0} ({1}のボール)' -f $d.Item, $bn) 'FAIL' ([string](Get-KcProp $bad[0] 'Message' '')) `
-                'overlay の zip_xy_transform (X_INVERT / Y_INVERT / XY_SWAP) を確かめてください' $details
-        } elseif ($ok.Count -gt 0) {
-            Add-KcInputResult $Ctx $cat ('ボールの向き: {0} ({1}のボール)' -f $d.Item, $bn) 'PASS' ($details -join ' / ')
-        } else {
-            Add-KcInputResult $Ctx $cat ('ボールの向き: {0} ({1}のボール)' -f $d.Item, $bn) 'SKIP' '(スキップ)'
-        }
-    }
-    return 'done'
-}
-
-function Invoke-KcAmlClickTest($Ctx, $Keys) {
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts('AML (自動マウスレイヤー): クリック', ('ボールを少し転がしてから、「{0}」を押したまま「{1}」を押してください' -f $Keys.scroll.legend, $Keys.click.legend),
+        $Ctx.Form.SetTexts(('AML (自動マウスレイヤー): クリック ({0}のボール)' -f $bn), ('{0}のボールを少し転がしてから、「{1}」を押したまま「{2}」を押してください' -f $bn, $Keys.scroll.legend, $Keys.click.legend),
             ("ボールを転がすと AML になり、「{0}」でクリック、「{1}」はスクロールのキーになります (文字は入力されません)。`nクリックはこのウィンドウの中だけで起きます。" -f $Keys.click.legend, $Keys.scroll.legend))
         $Ctx.Form.ClearEvents()
         $Ctx.Form.Confine($true)
@@ -395,13 +348,15 @@ function Invoke-KcAmlClickTest($Ctx, $Keys) {
         return $t
     }
     if ($res -is [string]) { return $res }
-    Add-KcInputResult $Ctx $Ctx.Category 'AML のクリック' $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    Add-KcInputResult $Ctx $Ctx.Category ('AML のクリック ({0}のボール)' -f $bn) $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
     return 'done'
 }
 
-function Invoke-KcShiftClickTest($Ctx, $Keys) {
+function Invoke-KcShiftClickTest($Ctx, [string]$Ball, $Keys) {
+    $bn = $script:KcBallNames[$Ball]
+    $item = 'AML: Shift + クリック ({0}のボール)' -f $bn
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts('AML: Shift + クリック', ('ボールを少し転がしてから、「{0}」→「{1}」→「{2}」の順に押してください' -f $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend),
+        $Ctx.Form.SetTexts($item, ('{0}のボールを少し転がしてから、「{1}」→「{2}」→「{3}」の順に押してください' -f $bn, $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend),
             ("「{0}」と「{1}」は押したまま、「{2}」でクリックします。Shift を押したままクリックできれば合格です。`n「{1}」を先に押すと AML が切れるので、「{0}」から押します。" -f $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend))
         $Ctx.Form.ClearEvents()
         $Ctx.Form.Confine($true)
@@ -423,15 +378,16 @@ function Invoke-KcShiftClickTest($Ctx, $Keys) {
         return $t
     }
     if ($res -is [string]) { return $res }
-    Add-KcInputResult $Ctx $Ctx.Category 'AML: Shift + クリック' $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
     return 'done'
 }
 
 # AML 中に Ctrl / Shift の位置をタップすると、AML が切れて文字が入力される
-function Invoke-KcAmlReleaseTest($Ctx, $Key) {
-    $item = 'AML: {0} で解除' -f $Key.mod
+function Invoke-KcAmlReleaseTest($Ctx, [string]$Ball, $Key) {
+    $bn = $script:KcBallNames[$Ball]
+    $item = 'AML: {0} で解除 ({1}のボール)' -f $Key.mod, $bn
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts($item, ('ボールを少し転がしてから、「{0}」をタップしてください' -f $Key.legend),
+        $Ctx.Form.SetTexts($item, ('{0}のボールを少し転がしてから、「{1}」をタップしてください' -f $bn, $Key.legend),
             ("「{0}」は長押しで {1} になるキーです。AML 中に押すと AML が切れ、文字が入力されれば合格です。`n長押しにならないよう、短く押してください。" -f $Key.legend, $Key.mod))
         $Ctx.Form.ClearEvents()
         $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 40000 -Done {
@@ -548,7 +504,7 @@ function Get-KcBallFirmware($Expected, [string]$Ball) {
     return $fw[0]
 }
 
-function Invoke-KcEllipseCalib($Ctx, [string]$Ball, $Strokes) {
+function Invoke-KcEllipseCalib($Ctx, [string]$Ball) {
     $bn = $script:KcBallNames[$Ball]
     $cat = $Ctx.CalibCategory
     $fw = Get-KcBallFirmware $Ctx.Expected $Ball
@@ -578,7 +534,7 @@ function Invoke-KcEllipseCalib($Ctx, [string]$Ball, $Strokes) {
             return 'done'
         }
         $m = Measure-KcMotion $r.Events
-        $rec = New-KcEllipseRecommendation -Samples $m.Samples -Strokes $Strokes.ToArray() -Firmware $fw -Thresholds $Ctx.Common.thresholds -Strength $Ctx.Options.Strength
+        $rec = New-KcEllipseRecommendation -Samples $m.Samples -Firmware $fw -Thresholds $Ctx.Common.thresholds -Strength $Ctx.Options.Strength
         if ($rec.Status -eq 'SKIP') {
             Show-KcStepResult $Ctx 'WARN' $rec.Message
         } else {
@@ -605,7 +561,7 @@ function Invoke-KcEllipseCalib($Ctx, [string]$Ball, $Strokes) {
             ('縦横比 {0:F2} 以下' -f [double]$Ctx.Common.thresholds.ellipse_ratio_pass)
         $Ctx.CalibEntries.Add([pscustomobject]@{
                 time = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss'); keyboard = $Ctx.Expected.id; name = $Ctx.Expected.name; ball = $Ball; kind = 'ellipse'
-                ratio = [math]::Round($rec.Fit.Ratio, 4); tilt = [math]::Round($rec.Tilt, 2); rotation = [math]::Round($rec.Rotation, 2); points = $rec.Fit.N
+                ratio = [math]::Round($rec.Fit.Ratio, 4); tilt = [math]::Round($rec.Tilt, 2); points = $rec.Fit.N
                 matrix = @([math]::Round($rec.Matrix[0][0], 5), [math]::Round($rec.Matrix[0][1], 5), [math]::Round($rec.Matrix[1][0], 5), [math]::Round($rec.Matrix[1][1], 5))
                 device = $Ctx.MouseName
             })
@@ -762,22 +718,18 @@ function Invoke-KcInputTest {
             if ($outcome -ne 'done') { break }
             $keys = Get-KcHandKeys $tb $ball
             $lastKeys = $keys
-            $strokes = New-Object 'System.Collections.Generic.List[object]'
-            if ($doBall -or $doCalib) {
-                $outcome = Invoke-KcDirectionTest $ctx $ball $strokes
-            }
-            if ($outcome -eq 'done' -and $doCalib) {
-                $outcome = Invoke-KcEllipseCalib $ctx $ball $strokes
+            if ($doCalib) {
+                $outcome = Invoke-KcEllipseCalib $ctx $ball
             }
             if ($outcome -eq 'done' -and $doBall) {
-                $outcome = Invoke-KcAmlClickTest $ctx $keys
+                $outcome = Invoke-KcAmlClickTest $ctx $ball $keys
             }
             if ($outcome -eq 'done' -and $doBall) {
-                $outcome = Invoke-KcShiftClickTest $ctx $keys
+                $outcome = Invoke-KcShiftClickTest $ctx $ball $keys
             }
             foreach ($rk in @($keys.release_ctrl, $keys.release_shift)) {
                 if ($outcome -eq 'done' -and $doBall) {
-                    $outcome = Invoke-KcAmlReleaseTest $ctx $rk
+                    $outcome = Invoke-KcAmlReleaseTest $ctx $ball $rk
                 }
             }
             if ($outcome -eq 'done' -and $doBall) {

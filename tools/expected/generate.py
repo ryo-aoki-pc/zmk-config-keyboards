@@ -205,7 +205,6 @@ QMK_MOUSE_NAMES = {
 # 判定のしきい値 (ツール側はここから読む)
 THRESHOLDS = {
     'ellipse_ratio_pass': 1.10,       # 楕円の縦横比 (長軸 ÷ 短軸) がこれ以下なら PASS
-    'rotation_min_deg': 5.0,          # 直線テストのずれがこれ以上なら、補正行列に回転も入れる
     'calib_min_points': 250,          # 楕円計測に必要な点の数 (calib_bin_ms ごとにまとめた数)
     'calib_bin_ms': 40,               # 楕円計測の移動量をこの間隔ごとにまとめる (1 カウント単位の誤差を減らす)
     'accel_window_ms': 40,            # カーソルの加速を取り除くとき、速さを測る区間
@@ -220,8 +219,6 @@ THRESHOLDS = {
 
 # 期待する向き (ユーザーの決定: スクロールはホイールと同じ向き)
 EXPECT_DIRECTIONS = {
-    'move_right': '+x',       # 右へ転がす → X が正
-    'move_toward': '+y',      # 手前へ転がす → Y が正 (画面の下)
     'scroll_toward': 'wheel-',  # 手前へ転がす → 下へスクロール (WHEEL が負)
     'scroll_right': 'hwheel+',  # 右へ転がす → 右へスクロール (HWHEEL が正)
 }

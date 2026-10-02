@@ -56,20 +56,6 @@ Test-Case 'すべて離して一定時間たったら判定する' {
     Assert-True (Test-KcKeysSettled $events $scan 400 300) '判定できる'
 }
 
-Test-Case '向き: 正しい / 逆 / X と Y の入れ替わり' {
-    $right = Measure-KcMotion @((New-KcMouseEvent 0 30 2), (New-KcMouseEvent 8 40 -1), (New-KcMouseEvent 16 35 3))
-    $r = Test-KcDirection $right '+x'
-    Assert-Equal 'PASS' $r.Status
-    Assert-True ([math]::Abs($r.Angle) -lt 5)
-    $inv = Test-KcDirection (Measure-KcMotion @((New-KcMouseEvent 0 -100 0))) '+x'
-    Assert-Equal 'FAIL' $inv.Status
-    Assert-Equal '向きが逆です' $inv.Message
-    $swap = Test-KcDirection (Measure-KcMotion @((New-KcMouseEvent 0 0 100))) '+x'
-    Assert-Equal 'X と Y が入れ替わっています' $swap.Message
-    Assert-Equal 'PASS' (Test-KcDirection (Measure-KcMotion @((New-KcMouseEvent 0 5 100))) '+y').Status
-    Assert-Equal 'NONE' (Test-KcDirection (Measure-KcMotion @((New-KcMouseEvent 0 5 5))) '+y').Status
-}
-
 Test-Case 'スクロール: ホイールと同じ向きが PASS' {
     $down = Measure-KcMotion @((New-KcMouseEvent 0 0 0 0 -120), (New-KcMouseEvent 30 0 0 0 -120), (New-KcMouseEvent 60 0 0 0 -120))
     Assert-Equal 'PASS' (Test-KcScroll $down 'wheel-').Status

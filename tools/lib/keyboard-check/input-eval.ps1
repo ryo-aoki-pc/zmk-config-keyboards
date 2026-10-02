@@ -138,31 +138,6 @@ function Measure-KcMotion($Events) {
     }
 }
 
-# 向きの判定。$Expect: '+x' (右) / '+y' (手前 = 画面の下)
-function Test-KcDirection($Motion, [string]$Expect, [int]$MinCounts = 40) {
-    $mag = [math]::Sqrt([double]$Motion.Dx * $Motion.Dx + [double]$Motion.Dy * $Motion.Dy)
-    if ($mag -lt $MinCounts) {
-        return [pscustomobject]@{ Status = 'NONE'; Angle = 0.0; Actual = ('移動量が少なすぎます ({0:F0})' -f $mag) }
-    }
-    $expAngle = 0.0
-    if ($Expect -eq '+y') { $expAngle = 90.0 }
-    if ($Expect -eq '-x') { $expAngle = 180.0 }
-    if ($Expect -eq '-y') { $expAngle = -90.0 }
-    $angle = [math]::Atan2([double]$Motion.Dy, [double]$Motion.Dx) * 180.0 / [math]::PI
-    $dev = $angle - $expAngle
-    while ($dev -gt 180) { $dev -= 360 }
-    while ($dev -le -180) { $dev += 360 }
-    $actual = 'X {0:+#;-#;0} / Y {1:+#;-#;0} ({2:+0;-0;0}°ずれ)' -f $Motion.Dx, $Motion.Dy, $dev
-    if ([math]::Abs($dev) -le 45) {
-        return [pscustomobject]@{ Status = 'PASS'; Angle = $dev; Actual = $actual }
-    }
-    $msg = '向きが逆です'
-    if ([math]::Abs([math]::Abs($dev) - 90) -lt 45) {
-        $msg = 'X と Y が入れ替わっています'
-    }
-    return [pscustomobject]@{ Status = 'FAIL'; Angle = $dev; Actual = $actual; Message = $msg }
-}
-
 # スクロールの判定。$Expect: 'wheel-' (手前へ転がす → 下へスクロール) / 'hwheel+' (右へ → 右へ)
 function Test-KcScroll($Motion, [string]$Expect, [int]$MinEvents = 2, [int]$CursorWarn = 150) {
     $vertical = $Expect.StartsWith('wheel')

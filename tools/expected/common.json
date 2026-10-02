@@ -319,7 +319,6 @@
   ],
   "thresholds": {
     "ellipse_ratio_pass": 1.1,
-    "rotation_min_deg": 5.0,
     "calib_min_points": 250,
     "calib_bin_ms": 40,
     "accel_window_ms": 40,
@@ -331,5 +330,5 @@
     "tap_settle_ms": 300,
     "aml_timeout_margin_ms": 2000
   },
-  "expect": {"move_right": "+x", "move_toward": "+y", "scroll_toward": "wheel-", "scroll_right": "hwheel+"}
+  "expect": {"scroll_toward": "wheel-", "scroll_right": "hwheel+"}
 }

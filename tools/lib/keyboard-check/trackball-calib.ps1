@@ -63,15 +63,6 @@ function Invoke-KcMatrix($M, $P) {
     return , [double[]]@(($M[0][0] * [double]$P[0] + $M[0][1] * [double]$P[1]), ($M[1][0] * [double]$P[0] + $M[1][1] * [double]$P[1]))
 }
 
-# 回転行列 (角度は度。画面の座標で時計回りが正)
-function Get-KcRotationMatrix([double]$Deg) {
-    $r = $Deg * [math]::PI / 180.0
-    return , @(
-        [double[]]@([math]::Cos($r), - [math]::Sin($r)),
-        [double[]]@([math]::Sin($r), [math]::Cos($r))
-    )
-}
-
 # 速さで半分に分けて当てはめる (補正後の大きさで分ける)。加速が無ければ両方の縦横比は同じになる
 function Split-KcBySpeed($Samples, $Fit) {
     $moving = @($Samples | Where-Object { [double]$_[0] -ne 0 -or [double]$_[1] -ne 0 })
@@ -91,31 +82,6 @@ function Split-KcBySpeed($Samples, $Fit) {
     $slow = @($sorted[0..($mid - 1)] | ForEach-Object { , $_.P })
     $fast = @($sorted[$mid..($sorted.Count - 1)] | ForEach-Object { , $_.P })
     return , @((Get-KcEllipseFit $slow), (Get-KcEllipseFit $fast))
-}
-
-# 直線テスト (右 / 手前) のずれ角の平均 (度)。$Strokes: @{ Expect = '+x' / '+y'; Dx; Dy }
-function Get-KcStrokeRotation($Strokes, $Matrix) {
-    $sum = 0.0
-    $n = 0
-    foreach ($s in @($Strokes)) {
-        $v = Invoke-KcMatrix $Matrix @($s.Dx, $s.Dy)
-        if ($v[0] -eq 0 -and $v[1] -eq 0) {
-            continue
-        }
-        $exp = 0.0
-        if ($s.Expect -eq '+y') {
-            $exp = 90.0
-        }
-        $d = [math]::Atan2($v[1], $v[0]) * 180.0 / [math]::PI - $exp
-        while ($d -gt 180) { $d -= 360 }
-        while ($d -le -180) { $d += 360 }
-        $sum += $d
-        $n++
-    }
-    if ($n -eq 0) {
-        return 0.0
-    }
-    return ($sum / $n)
 }
 
 # 0 から遠ざかる方向に丸める (JavaScript の Math.round と同じ。.NET の既定は偶数丸め)
@@ -292,7 +258,6 @@ function Get-KcInsertNote($Firmware) {
 function New-KcEllipseRecommendation {
     param(
         [Parameter(Mandatory = $true)] $Samples,
-        $Strokes = @(),
         [Parameter(Mandatory = $true)] $Firmware,
         [Parameter(Mandatory = $true)] $Thresholds,
         [double]$Strength = 1.0
@@ -325,24 +290,15 @@ function New-KcEllipseRecommendation {
             $notes += ('遅い動き (縦横比 {0:F2}) と速い動き ({1:F2}) で縦横比が違います。なるべく一定の速さで回してください (直らないときは、キーボードのカーソルの加速の設定が期待値と違う可能性があります)' -f $rs, $rf)
         }
     }
-    $w = Get-KcCorrectionMatrix $fit $Strength
-    $rot = 0.0
-    if (@($Strokes).Count -gt 0) {
-        $rot = Get-KcStrokeRotation $Strokes $w
-    }
-    $m = $w
-    if ([math]::Abs($rot) -ge [double]$Thresholds.rotation_min_deg) {
-        $m = Join-KcMatrix (Get-KcRotationMatrix (- $rot)) $w
-        $notes += ('直線テストで {0:+0.0;-0.0}° ずれていたので、回転も補正に入れました' -f $rot)
-    }
+    $m = Get-KcCorrectionMatrix $fit $Strength
     $corrected = @(foreach ($p in $Samples) { , (Invoke-KcMatrix $m $p) })
     $after = Get-KcEllipseFit $corrected
     $tilt = Get-KcTiltDeg $fit
     $summary = '縦横比 {0:F2}、長軸の傾き {1:+0;-0;0}°、点 {2}' -f $fit.Ratio, $tilt, $fit.N
-    $comment = '// 計測: tools/keyboard-check (Raw Input、{5}補正の強さ {0}%) / 縦横比 {1:F2} / 傾き {2:+0;-0;0}° / 回転 {3:+0.0;-0.0}° / 点 {4}' -f [int]($Strength * 100), $fit.Ratio, $tilt, $rot, $fit.N, $method
+    $comment = '// 計測: tools/keyboard-check (Raw Input、{4}補正の強さ {0}%) / 縦横比 {1:F2} / 傾き {2:+0;-0;0}° / 点 {3}' -f [int]($Strength * 100), $fit.Ratio, $tilt, $fit.N, $method
 
     $status = 'PASS'
-    if ($fit.Ratio -gt [double]$Thresholds.ellipse_ratio_pass -or [math]::Abs($rot) -ge [double]$Thresholds.rotation_min_deg) {
+    if ($fit.Ratio -gt [double]$Thresholds.ellipse_ratio_pass) {
         $status = 'WARN'
     }
     $lines = @()
@@ -387,7 +343,7 @@ function New-KcEllipseRecommendation {
         $afterText = '{0:F2}' -f $after.Ratio
     }
     return [pscustomobject]@{
-        Status = $status; Summary = $summary; Fit = $fit; Matrix = $m; Rotation = $rot; Tilt = $tilt
+        Status = $status; Summary = $summary; Fit = $fit; Matrix = $m; Tilt = $tilt
         PredictedRatio = $afterText; Lines = $lines; Notes = $notes; Message = ''
     }
 }
