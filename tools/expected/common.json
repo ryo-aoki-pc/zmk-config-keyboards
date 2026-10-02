@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "generator": "tools/expected/generate.py",
   "id": "common",
   "name": "共通テーブル",
@@ -328,6 +328,7 @@
     "speed_repeat_tolerance": 0.1,
     "scaler_max_denominator": 16,
     "tap_settle_ms": 300,
+    "behavior_settle_ms": 700,
     "aml_timeout_margin_ms": 2000
   },
   "expect": {"scroll_toward": "wheel-", "scroll_right": "hwheel+"}

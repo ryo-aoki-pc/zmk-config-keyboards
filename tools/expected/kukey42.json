@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "generator": "tools/expected/generate.py",
   "id": "kukey42",
   "name": "KUKEY42",
@@ -12,7 +12,7 @@
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "KUKEY42", "studio_artifacts": ["KUKEY42_right_central_studio"]},
+  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "KUKEY42", "studio_artifacts": ["KUKEY42_right_central_studio"], "logging_artifacts": []},
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},
@@ -622,6 +622,1411 @@
       "layer_key": {"pos": 27, "legend": "BT"},
       "usb": {"pos": 6, "legend": "U"},
       "ble": {"pos": 26, "legend": "B"}
+    },
+    "behaviors": {
+      "layers": [
+        {
+          "index": 0,
+          "name": "BASE",
+          "legends": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "A\nCtrl", "S", "D", "F", "G", "", "", "H", "J", "K", "L", "-\nRCtrl", "Z\nShift", "X", "C", "V", "B", "BT", "BT", "N", "M", ",", ".", "/\nRShift", "FUNC", "Win", "Alt", "Space\nVIM_BASE", "Space\nVIM_BASE", "SYM", "VIM_BASE", "Enter\nSYM", "FUNC"],
+          "danger": [],
+          "devs": ["key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "mod_tap", "key_press", "key_press", "key_press", "key_press", "none", "none", "key_press", "key_press", "key_press", "key_press", "mod_tap", "mod_tap", "key_press", "key_press", "key_press", "key_press", "momentary_layer", "momentary_layer", "key_press", "key_press", "key_press", "key_press", "mod_tap", "momentary_layer", "key_press", "key_press", "layer_tap", "layer_tap", "momentary_layer", "momentary_layer", "layer_tap", "momentary_layer"]
+        },
+        {
+          "index": 1,
+          "name": "SYM",
+          "legends": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "Tab\nCtrl", "`", "[", "]", "Del", "", "", "BS", ";", "'", "\\", "▽", "Esc\nShift", "", "", "", "", "", "", "", "=", "▽", "▽", "▽", "", "▽", "▽", "Space\nVIM_SYM", "Space\nVIM_SYM", "", "VIM_SYM", "", ""],
+          "danger": [],
+          "devs": ["key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "mod_tap", "key_press", "key_press", "key_press", "key_press", "none", "none", "key_press", "key_press", "key_press", "key_press", "transparent", "mod_tap", "none", "none", "none", "none", "none", "none", "none", "key_press", "transparent", "transparent", "transparent", "none", "transparent", "transparent", "layer_tap", "layer_tap", "none", "momentary_layer", "none", "none"]
+        },
+        {
+          "index": 2,
+          "name": "VIM_BASE",
+          "legends": ["", "C+→\nCtrl:C+BS", "C+→", "Ctrl:C+Y", "", "×2:yy\nShift:shift_y", "C+Z\nCtrl:PgUp", "", "o\nShift:shift_o", "C+V", "Ctrl", "", "×2:dd\nCtrl:PgDn", "", "×2:C+Home\nShift:C+End", "", "", "←", "↓\nShift:join", "↑", "→", "RCtrl", "Shift", "Del", "", "→VIM_VISUAL\nShift:v_line", "C+←", "", "", "F3\nShift:S+F3", "", "", "", "RShift", "", "▽", "▽", "", "", "VIM_SYM", "", "Enter\nVIM_SYM", ""],
+          "danger": [],
+          "devs": ["none", "MM_VIM_W", "key_press", "MM_VIM_CTRL_R", "none", "MM_VIM_Y", "MM_VIM_U", "none", "MM_VIM_O", "key_press", "key_press", "none", "MM_VIM_D", "none", "MM_VIM_G", "none", "none", "key_press", "MM_VIM_J", "key_press", "key_press", "key_press", "key_press", "key_press", "none", "MM_VIM_V", "key_press", "none", "none", "MM_VIM_N", "none", "none", "none", "key_press", "none", "transparent", "transparent", "none", "none", "momentary_layer", "none", "layer_tap", "none"]
+        },
+        {
+          "index": 3,
+          "name": "VIM_SYM",
+          "legends": ["", "", "", "Shift:End", "", "Shift:Home", "", "", "", "Home", "Ctrl", "", "", "", "", "", "", "←", "", "", "", "RCtrl", "Shift", "", "", "", "", "", "", "", "", "", "", "RShift", "", "▽", "▽", "", "", "", "", "", ""],
+          "danger": [],
+          "devs": ["none", "none", "none", "MM_VIM_SHIFT_4", "none", "MM_VIM_SHIFT_6", "none", "none", "none", "key_press", "key_press", "none", "none", "none", "none", "none", "none", "key_press", "none", "none", "none", "key_press", "key_press", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "key_press", "none", "transparent", "transparent", "none", "none", "none", "none", "none", "none"]
+        },
+        {
+          "index": 4,
+          "name": "VIM_VISUAL",
+          "legends": ["", "C+S+→", "C+S+→", "", "", "visual_y", "", "", "", "visual_p", "Ctrl", "", "visual_cut", "", "×2:C+S+Home\nShift:C+S+End", "", "", "S+←", "S+↓", "S+↑", "S+→", "RCtrl", "Shift", "visual_cut", "", "visual_exit", "C+S+←", "", "", "F3", "", "", "", "RShift", "", "", "", "", "", "VIM_VIS_SYM", "", "VIM_VIS_SYM", ""],
+          "danger": [],
+          "devs": ["none", "key_press", "key_press", "none", "none", "MACRO_VIM_VISUAL_Y", "none", "none", "none", "MACRO_VIM_VISUAL_P", "key_press", "none", "MACRO_VIM_VISUAL_CUT", "none", "MM_VIM_VISUAL_G", "none", "none", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "MACRO_VIM_VISUAL_CUT", "none", "MACRO_VIM_VISUAL_EXIT", "key_press", "none", "none", "key_press", "none", "none", "none", "key_press", "none", "none", "none", "none", "none", "momentary_layer", "none", "momentary_layer", "none"]
+        },
+        {
+          "index": 5,
+          "name": "VIM_VIS_SYM",
+          "legends": ["", "", "", "Shift:S+End", "", "Shift:S+Home", "", "", "", "S+Home", "Ctrl", "", "", "", "", "", "", "S+←", "", "", "", "RCtrl", "Shift", "", "", "", "", "", "", "", "", "", "", "RShift", "", "", "", "", "", "", "", "", ""],
+          "danger": [],
+          "devs": ["none", "none", "none", "MM_VIM_VISUAL_SHIFT_4", "none", "MM_VIM_VISUAL_SHIFT_6", "none", "none", "none", "key_press", "key_press", "none", "none", "none", "none", "none", "none", "key_press", "none", "none", "none", "key_press", "key_press", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "key_press", "none", "none", "none", "none", "none", "none", "none", "none", "none"]
+        },
+        {
+          "index": 6,
+          "name": "FUNC",
+          "legends": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "", "RESET", "", "", "", "", "", "", "", "", "RESET", "", "", "", "", "", "BOOT", "", "", "BOOT", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+          "danger": [11, 20, 26, 29],
+          "devs": ["key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "none", "sysreset", "none", "none", "none", "none", "none", "none", "none", "none", "sysreset", "none", "none", "none", "none", "none", "bootload", "none", "none", "bootload", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none"]
+        },
+        {
+          "index": 7,
+          "name": "BT",
+          "legends": ["SEL 0", "SEL 1", "SEL 2", "SEL 3", "SEL 4", "", "USB", "", "", "", "CLR_ALL", "", "", "", "", "", "", "", "", "", "", "", "", "", "CLR", "", "BLE", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+          "danger": [0, 1, 2, 3, 4, 6, 10, 24, 26],
+          "devs": ["bluetooth", "bluetooth", "bluetooth", "bluetooth", "bluetooth", "none", "outputs", "none", "none", "none", "bluetooth", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "bluetooth", "none", "outputs", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none"]
+        },
+        {
+          "index": 8,
+          "name": "MOUS",
+          "legends": ["", "", "", "", "", "", "", "", "", "", "▽", "", "SCRL", "", "", "", "", "", "", "SCRL", "", "▽", "▽", "", "", "", "", "", "", "", "", "", "", "▽", "", "▽", "▽", "", "", "", "", "", ""],
+          "danger": [],
+          "devs": ["none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "transparent", "none", "momentary_layer", "none", "none", "none", "none", "none", "none", "momentary_layer", "none", "transparent", "transparent", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "transparent", "none", "transparent", "transparent", "none", "none", "none", "none", "none", "none"]
+        },
+        {
+          "index": 9,
+          "name": "SCRL",
+          "legends": ["", "", "", "", "", "", "", "", "", "", "Ctrl", "MB2", "", "MB1", "", "", "", "", "MB1", "", "MB2", "RCtrl", "Shift", "MB5", "", "MB4", "", "", "", "", "MB4", "", "MB5", "RShift", "", "Win", "Alt", "", "", "", "", "", ""],
+          "danger": [],
+          "devs": ["none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "key_press", "mouse_key_press", "none", "mouse_key_press", "none", "none", "none", "none", "mouse_key_press", "none", "mouse_key_press", "key_press", "key_press", "mouse_key_press", "none", "mouse_key_press", "none", "none", "none", "none", "mouse_key_press", "none", "mouse_key_press", "key_press", "none", "key_press", "key_press", "none", "none", "none", "none", "none", "none"]
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "layer-1",
+          "kind": "layer",
+          "title": "SYM レイヤー",
+          "layer": 1,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「SYM」を押したまま、「Q」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "SYM", "layer": 0},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "1", "layer": 1, "role": "key"}
+              ],
+              "path": [0, 1],
+              "layer": 1,
+              "expect": [
+                {"usage": 30, "mods": 0}
+              ],
+              "expect_text": "1",
+              "note": "SYM レイヤーの「1」(&kp N1)",
+              "src": "&kp N1"
+            },
+            {
+              "role": "test",
+              "text": "「SYM」を押したまま、「Y」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "SYM", "layer": 0},
+                {"op": "tap", "pos": 5, "key": "Y", "label": "6", "layer": 1, "role": "key"}
+              ],
+              "path": [0, 1],
+              "layer": 1,
+              "expect": [
+                {"usage": 35, "mods": 0}
+              ],
+              "expect_text": "6",
+              "note": "SYM レイヤーの「6」(&kp N6)",
+              "src": "&kp N6"
+            },
+            {
+              "role": "test",
+              "text": "「Enter」を押したまま、「Q」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 41, "role": "layer", "key": "Enter", "label": "SYM", "layer": 0, "lt": true},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "1", "layer": 1, "role": "key"}
+              ],
+              "path": [0, 1],
+              "layer": 1,
+              "expect": [
+                {"usage": 30, "mods": 0}
+              ],
+              "expect_text": "1",
+              "note": "SYM レイヤーの「1」(&kp N1)",
+              "src": "&kp N1"
+            }
+          ]
+        },
+        {
+          "id": "layer-2",
+          "kind": "layer",
+          "title": "VIM_BASE レイヤー",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「H」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 17, "key": "H", "label": "←", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 80, "mods": 0}
+              ],
+              "expect_text": "←",
+              "note": "VIM_BASE レイヤーの「←」(&kp LEFT)",
+              "src": "&kp LEFT"
+            },
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「X」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 23, "key": "X", "label": "Del", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 76, "mods": 0}
+              ],
+              "expect_text": "Del",
+              "note": "VIM_BASE レイヤーの「Del」(&kp DELETE)",
+              "src": "&kp DELETE"
+            },
+            {
+              "role": "test",
+              "text": "「Space (左 1)」を押したまま、「H」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 37, "role": "layer", "key": "Space (左 1)", "label": "VIM_BASE", "layer": 0, "lt": true},
+                {"op": "tap", "pos": 17, "key": "H", "label": "←", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 80, "mods": 0}
+              ],
+              "expect_text": "←",
+              "note": "VIM_BASE レイヤーの「←」(&kp LEFT)",
+              "src": "&kp LEFT"
+            },
+            {
+              "role": "test",
+              "text": "「Space (左 2)」を押したまま、「H」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 38, "role": "layer", "key": "Space (左 2)", "label": "VIM_BASE", "layer": 0, "lt": true},
+                {"op": "tap", "pos": 17, "key": "H", "label": "←", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 80, "mods": 0}
+              ],
+              "expect_text": "←",
+              "note": "VIM_BASE レイヤーの「←」(&kp LEFT)",
+              "src": "&kp LEFT"
+            }
+          ]
+        },
+        {
+          "id": "layer-3",
+          "kind": "layer",
+          "title": "VIM_SYM レイヤー",
+          "layer": 3,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「SYM」を押したまま、「P」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "VIM_SYM", "layer": 2},
+                {"op": "tap", "pos": 9, "key": "P", "label": "Home", "layer": 3, "role": "key"}
+              ],
+              "path": [0, 2, 3],
+              "layer": 3,
+              "expect": [
+                {"usage": 74, "mods": 0}
+              ],
+              "expect_text": "Home",
+              "note": "VIM_SYM レイヤーの「Home」(&kp HOME)",
+              "src": "&kp HOME"
+            },
+            {
+              "role": "test",
+              "text": "「SYM」と「VIM_BASE」を押したまま、「P」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "SYM", "layer": 0},
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_SYM", "layer": 1},
+                {"op": "tap", "pos": 9, "key": "P", "label": "Home", "layer": 3, "role": "key"}
+              ],
+              "path": [0, 1, 3],
+              "layer": 3,
+              "expect": [
+                {"usage": 74, "mods": 0}
+              ],
+              "expect_text": "Home",
+              "note": "VIM_SYM レイヤーの「Home」(&kp HOME)",
+              "src": "&kp HOME"
+            },
+            {
+              "role": "test",
+              "text": "「SYM」と「Space (左 1)」を押したまま、「P」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "SYM", "layer": 0},
+                {"op": "hold", "pos": 37, "role": "layer", "key": "Space (左 1)", "label": "VIM_SYM", "layer": 1, "lt": true},
+                {"op": "tap", "pos": 9, "key": "P", "label": "Home", "layer": 3, "role": "key"}
+              ],
+              "path": [0, 1, 3],
+              "layer": 3,
+              "expect": [
+                {"usage": 74, "mods": 0}
+              ],
+              "expect_text": "Home",
+              "note": "VIM_SYM レイヤーの「Home」(&kp HOME)",
+              "src": "&kp HOME"
+            },
+            {
+              "role": "test",
+              "text": "「SYM」と「Space (左 2)」を押したまま、「P」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "SYM", "layer": 0},
+                {"op": "hold", "pos": 38, "role": "layer", "key": "Space (左 2)", "label": "VIM_SYM", "layer": 1, "lt": true},
+                {"op": "tap", "pos": 9, "key": "P", "label": "Home", "layer": 3, "role": "key"}
+              ],
+              "path": [0, 1, 3],
+              "layer": 3,
+              "expect": [
+                {"usage": 74, "mods": 0}
+              ],
+              "expect_text": "Home",
+              "note": "VIM_SYM レイヤーの「Home」(&kp HOME)",
+              "src": "&kp HOME"
+            },
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「Enter」を押したまま、「P」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 41, "role": "layer", "key": "Enter", "label": "VIM_SYM", "layer": 2, "lt": true},
+                {"op": "tap", "pos": 9, "key": "P", "label": "Home", "layer": 3, "role": "key"}
+              ],
+              "path": [0, 2, 3],
+              "layer": 3,
+              "expect": [
+                {"usage": 74, "mods": 0}
+              ],
+              "expect_text": "Home",
+              "note": "VIM_SYM レイヤーの「Home」(&kp HOME)",
+              "src": "&kp HOME"
+            }
+          ]
+        },
+        {
+          "id": "layer-6",
+          "kind": "layer",
+          "title": "FUNC レイヤー",
+          "layer": 6,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「FUNC (左)」を押したまま、「R」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 34, "role": "layer", "key": "FUNC (左)", "label": "FUNC", "layer": 0},
+                {"op": "tap", "pos": 3, "key": "R", "label": "F4", "layer": 6, "role": "key"}
+              ],
+              "path": [0, 6],
+              "layer": 6,
+              "expect": [
+                {"usage": 61, "mods": 0}
+              ],
+              "expect_text": "F4",
+              "note": "FUNC レイヤーの「F4」(&kp F4)",
+              "src": "&kp F4"
+            },
+            {
+              "role": "test",
+              "text": "「FUNC (左)」を押したまま、「Y」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 34, "role": "layer", "key": "FUNC (左)", "label": "FUNC", "layer": 0},
+                {"op": "tap", "pos": 5, "key": "Y", "label": "F6", "layer": 6, "role": "key"}
+              ],
+              "path": [0, 6],
+              "layer": 6,
+              "expect": [
+                {"usage": 63, "mods": 0}
+              ],
+              "expect_text": "F6",
+              "note": "FUNC レイヤーの「F6」(&kp F6)",
+              "src": "&kp F6"
+            },
+            {
+              "role": "test",
+              "text": "「FUNC (右)」を押したまま、「R」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 42, "role": "layer", "key": "FUNC (右)", "label": "FUNC", "layer": 0},
+                {"op": "tap", "pos": 3, "key": "R", "label": "F4", "layer": 6, "role": "key"}
+              ],
+              "path": [0, 6],
+              "layer": 6,
+              "expect": [
+                {"usage": 61, "mods": 0}
+              ],
+              "expect_text": "F4",
+              "note": "FUNC レイヤーの「F4」(&kp F4)",
+              "src": "&kp F4"
+            }
+          ]
+        },
+        {
+          "id": "hold-tap",
+          "kind": "hold_tap",
+          "title": "長押し (mod-tap)",
+          "layer": 0,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「A (Ctrl)」を押したまま、「M」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 10, "role": "mod", "key": "A", "label": "Ctrl", "layer": 0},
+                {"op": "tap", "pos": 30, "key": "M", "label": "M", "layer": 0, "role": "key"}
+              ],
+              "path": [0],
+              "layer": 0,
+              "expect": [
+                {"usage": 16, "mods": 1}
+              ],
+              "expect_text": "Ctrl+M",
+              "note": "「A」を長押しすると Ctrl になる (&mt LEFT_CONTROL A)",
+              "src": "&mt LEFT_CONTROL A"
+            },
+            {
+              "role": "test",
+              "text": "「- (RCtrl)」を押したまま、「C」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 21, "role": "mod", "key": "-", "label": "RCtrl", "layer": 0},
+                {"op": "tap", "pos": 24, "key": "C", "label": "C", "layer": 0, "role": "key"}
+              ],
+              "path": [0],
+              "layer": 0,
+              "expect": [
+                {"usage": 6, "mods": 16}
+              ],
+              "expect_text": "Ctrl+C",
+              "note": "「-」を長押しすると RCtrl になる (&mt RCTRL MINUS)",
+              "src": "&mt RCTRL MINUS"
+            },
+            {
+              "role": "test",
+              "text": "「Z (Shift)」を押したまま、「N」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 0},
+                {"op": "tap", "pos": 29, "key": "N", "label": "N", "layer": 0, "role": "key"}
+              ],
+              "path": [0],
+              "layer": 0,
+              "expect": [
+                {"usage": 17, "mods": 2}
+              ],
+              "expect_text": "Shift+N",
+              "note": "「Z」を長押しすると Shift になる (&mt LEFT_SHIFT Z)",
+              "src": "&mt LEFT_SHIFT Z"
+            },
+            {
+              "role": "test",
+              "text": "「/ (RShift)」を押したまま、「B」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 33, "role": "mod", "key": "/", "label": "RShift", "layer": 0},
+                {"op": "tap", "pos": 26, "key": "B", "label": "B", "layer": 0, "role": "key"}
+              ],
+              "path": [0],
+              "layer": 0,
+              "expect": [
+                {"usage": 5, "mods": 32}
+              ],
+              "expect_text": "Shift+B",
+              "note": "「/」を長押しすると RShift になる (&mt RIGHT_SHIFT SLASH)",
+              "src": "&mt RIGHT_SHIFT SLASH"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_w",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_w",
+          "behavior": "mm_vim_w",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「W」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 1, "key": "W", "label": "C+→", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 79, "mods": 1}
+              ],
+              "expect_text": "Ctrl+→",
+              "note": "mm_vim_w: 修飾なし → &kp LC(RIGHT)",
+              "src": "&mm_vim_w"
+            },
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「A (Ctrl)」を押したまま、「W」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 10, "role": "mod", "key": "A", "label": "Ctrl", "layer": 2},
+                {"op": "tap", "pos": 1, "key": "W", "label": "C+→", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 42, "mods": 1}
+              ],
+              "expect_text": "Ctrl+BS",
+              "note": "mm_vim_w: Ctrl あり → &kp LC(BACKSPACE)",
+              "src": "&mm_vim_w"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_ctrl_r",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_ctrl_r",
+          "behavior": "mm_vim_ctrl_r",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「A (Ctrl)」を押したまま、「R」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 10, "role": "mod", "key": "A", "label": "Ctrl", "layer": 2},
+                {"op": "tap", "pos": 3, "key": "R", "label": "Ctrl:C+Y", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 28, "mods": 1}
+              ],
+              "expect_text": "Ctrl+Y",
+              "note": "mm_vim_ctrl_r: Ctrl あり → &kp LC(Y)",
+              "src": "&mm_vim_ctrl_r"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_y",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_y",
+          "behavior": "mm_vim_y",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「Z (Shift)」を押したまま、「Y」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 2},
+                {"op": "tap", "pos": 5, "key": "Y", "label": "×2:yy", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 77, "mods": 2},
+                {"usage": 6, "mods": 1, "opt": 2}
+              ],
+              "expect_text": "Shift+End、Ctrl+C",
+              "note": "mm_vim_y: Shift あり → &macro_vim_shift_y",
+              "src": "&mm_vim_y"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_u",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_u",
+          "behavior": "mm_vim_u",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「U」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 6, "key": "U", "label": "C+Z", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 29, "mods": 1}
+              ],
+              "expect_text": "Ctrl+Z",
+              "note": "mm_vim_u: 修飾なし → &kp LC(Z)",
+              "src": "&mm_vim_u"
+            },
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「A (Ctrl)」を押したまま、「U」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 10, "role": "mod", "key": "A", "label": "Ctrl", "layer": 2},
+                {"op": "tap", "pos": 6, "key": "U", "label": "C+Z", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 75, "mods": 0}
+              ],
+              "expect_text": "PgUp",
+              "note": "mm_vim_u: Ctrl あり → &kp PAGE_UP",
+              "src": "&mm_vim_u"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_o",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_o",
+          "behavior": "mm_vim_o",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「O」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 8, "key": "O", "label": "o", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 77, "mods": 0},
+                {"usage": 40, "mods": 0}
+              ],
+              "expect_text": "End、Enter",
+              "note": "mm_vim_o: 修飾なし → &macro_vim_o",
+              "src": "&mm_vim_o"
+            },
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「Z (Shift)」を押したまま、「O」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 2},
+                {"op": "tap", "pos": 8, "key": "O", "label": "o", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 74, "mods": 0},
+                {"usage": 40, "mods": 0, "opt": 2},
+                {"usage": 82, "mods": 0, "opt": 2}
+              ],
+              "expect_text": "Home、Enter、↑",
+              "note": "mm_vim_o: Shift あり → &macro_vim_shift_o",
+              "src": "&mm_vim_o"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_d",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_d",
+          "behavior": "mm_vim_d",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「A (Ctrl)」を押したまま、「D」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 10, "role": "mod", "key": "A", "label": "Ctrl", "layer": 2},
+                {"op": "tap", "pos": 12, "key": "D", "label": "×2:dd", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 78, "mods": 0}
+              ],
+              "expect_text": "PgDn",
+              "note": "mm_vim_d: Ctrl あり → &kp PAGE_DOWN",
+              "src": "&mm_vim_d"
+            },
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「Z (Shift)」を押したまま、「D」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 2},
+                {"op": "tap", "pos": 12, "key": "D", "label": "×2:dd", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 77, "mods": 2},
+                {"usage": 27, "mods": 1, "opt": 2}
+              ],
+              "expect_text": "Shift+End、Ctrl+X",
+              "note": "mm_vim_d: Shift あり → &macro_vim_shift_d",
+              "src": "&mm_vim_d"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_g",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_g",
+          "behavior": "mm_vim_g",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「Z (Shift)」を押したまま、「G」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 2},
+                {"op": "tap", "pos": 14, "key": "G", "label": "×2:C+Home", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 77, "mods": 1}
+              ],
+              "expect_text": "Ctrl+End",
+              "note": "mm_vim_g: Shift あり → &kp LC(END)",
+              "src": "&mm_vim_g"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_j",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_j",
+          "behavior": "mm_vim_j",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「J」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 18, "key": "J", "label": "↓", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 81, "mods": 0}
+              ],
+              "expect_text": "↓",
+              "note": "mm_vim_j: 修飾なし → &kp DOWN",
+              "src": "&mm_vim_j"
+            },
+            {
+              "role": "test",
+              "text": "「VIM_BASE」と「Z (Shift)」を押したまま、「J」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 2},
+                {"op": "tap", "pos": 18, "key": "J", "label": "↓", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 77, "mods": 0},
+                {"usage": 76, "mods": 0, "opt": 2},
+                {"usage": 44, "mods": 0, "opt": 2}
+              ],
+              "expect_text": "End、Del、Space",
+              "note": "mm_vim_j: Shift あり → &macro_vim_join",
+              "src": "&mm_vim_j"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_n",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_n",
+          "behavior": "mm_vim_n",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「N」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 29, "key": "N", "label": "F3", "layer": 2, "role": "key"}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 60, "mods": 0}
+              ],
+              "expect_text": "F3",
+              "note": "mm_vim_n: 修飾なし → &kp F3",
+              "src": "&mm_vim_n"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_shift_4",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_shift_4",
+          "behavior": "mm_vim_shift_4",
+          "layer": 3,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「SYM」と「VIM_BASE」と「Z (Shift)」を押したまま、「R」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "SYM", "layer": 0},
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_SYM", "layer": 1},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 3},
+                {"op": "tap", "pos": 3, "key": "R", "label": "Shift:End", "layer": 3, "role": "key"}
+              ],
+              "path": [0, 1, 3],
+              "layer": 3,
+              "expect": [
+                {"usage": 77, "mods": 0}
+              ],
+              "expect_text": "End",
+              "note": "mm_vim_shift_4: Shift あり → &kp END",
+              "src": "&mm_vim_shift_4"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_shift_6",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_shift_6",
+          "behavior": "mm_vim_shift_6",
+          "layer": 3,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「SYM」と「VIM_BASE」と「Z (Shift)」を押したまま、「Y」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "SYM", "layer": 0},
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_SYM", "layer": 1},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 3},
+                {"op": "tap", "pos": 5, "key": "Y", "label": "Shift:Home", "layer": 3, "role": "key"}
+              ],
+              "path": [0, 1, 3],
+              "layer": 3,
+              "expect": [
+                {"usage": 74, "mods": 0}
+              ],
+              "expect_text": "Home",
+              "note": "mm_vim_shift_6: Shift あり → &kp HOME",
+              "src": "&mm_vim_shift_6"
+            }
+          ]
+        },
+        {
+          "id": "morph-mm_vim_visual_g",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_visual_g",
+          "behavior": "mm_vim_visual_g",
+          "layer": 4,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「V」をタップ、全部離して、「Z (Shift)」を押したまま、「G」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 4},
+                {"op": "tap", "pos": 14, "key": "G", "label": "×2:C+S+Home", "layer": 4, "role": "key"}
+              ],
+              "path": [0, 2, 4],
+              "layer": 4,
+              "expect": [
+                {"usage": 77, "mods": 3}
+              ],
+              "expect_text": "Ctrl+Shift+End",
+              "note": "mm_vim_visual_g: Shift あり → &kp LS(LC(END))",
+              "src": "&mm_vim_visual_g"
+            },
+            {
+              "role": "cleanup",
+              "text": "「V」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 79, "mods": 0},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "→、Q",
+              "note": "BASE に戻す (戻ったことを確かめる)"
+            }
+          ],
+          "to_layer": 4,
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        },
+        {
+          "id": "morph-mm_vim_visual_shift_4",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_visual_shift_4",
+          "behavior": "mm_vim_visual_shift_4",
+          "layer": 5,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「V」をタップ、全部離して、「SYM」と「Z (Shift)」を押したまま、「R」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "VIM_VIS_SYM", "layer": 4},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 5},
+                {"op": "tap", "pos": 3, "key": "R", "label": "Shift:S+End", "layer": 5, "role": "key"}
+              ],
+              "path": [0, 2, 4, 5],
+              "layer": 5,
+              "expect": [
+                {"usage": 77, "mods": 2}
+              ],
+              "expect_text": "Shift+End",
+              "note": "mm_vim_visual_shift_4: Shift あり → &kp LS(END)",
+              "src": "&mm_vim_visual_shift_4"
+            },
+            {
+              "role": "cleanup",
+              "text": "「V」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 79, "mods": 0},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "→、Q",
+              "note": "BASE に戻す (戻ったことを確かめる)"
+            }
+          ],
+          "to_layer": 4,
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        },
+        {
+          "id": "morph-mm_vim_visual_shift_6",
+          "kind": "mod_morph",
+          "title": "モッドモーフ mm_vim_visual_shift_6",
+          "behavior": "mm_vim_visual_shift_6",
+          "layer": 5,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「V」をタップ、全部離して、「SYM」と「Z (Shift)」を押したまま、「Y」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "VIM_VIS_SYM", "layer": 4},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 5},
+                {"op": "tap", "pos": 5, "key": "Y", "label": "Shift:S+Home", "layer": 5, "role": "key"}
+              ],
+              "path": [0, 2, 4, 5],
+              "layer": 5,
+              "expect": [
+                {"usage": 74, "mods": 2}
+              ],
+              "expect_text": "Shift+Home",
+              "note": "mm_vim_visual_shift_6: Shift あり → &kp LS(HOME)",
+              "src": "&mm_vim_visual_shift_6"
+            },
+            {
+              "role": "cleanup",
+              "text": "「V」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 79, "mods": 0},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "→、Q",
+              "note": "BASE に戻す (戻ったことを確かめる)"
+            }
+          ],
+          "to_layer": 4,
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        },
+        {
+          "id": "td-td_vim_y",
+          "kind": "tap_dance",
+          "title": "タップダンス td_vim_y",
+          "behavior": "td_vim_y",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「Y」を素早く 2 回タップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 5, "key": "Y", "label": "×2:yy", "layer": 2, "role": "key", "count": 2}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 74, "mods": 0},
+                {"usage": 77, "mods": 2},
+                {"usage": 6, "mods": 1}
+              ],
+              "expect_text": "Home、Shift+End、Ctrl+C",
+              "note": "td_vim_y: 2 回 → &macro_vim_yy",
+              "src": "&mm_vim_y",
+              "td_ms": 200
+            }
+          ]
+        },
+        {
+          "id": "td-td_vim_d",
+          "kind": "tap_dance",
+          "title": "タップダンス td_vim_d",
+          "behavior": "td_vim_d",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「D」を素早く 2 回タップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 12, "key": "D", "label": "×2:dd", "layer": 2, "role": "key", "count": 2}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 74, "mods": 0},
+                {"usage": 77, "mods": 2},
+                {"usage": 27, "mods": 1}
+              ],
+              "expect_text": "Home、Shift+End、Ctrl+X",
+              "note": "td_vim_d: 2 回 → &macro_vim_dd",
+              "src": "&mm_vim_d",
+              "td_ms": 200
+            }
+          ]
+        },
+        {
+          "id": "td-td_vim_g",
+          "kind": "tap_dance",
+          "title": "タップダンス td_vim_g",
+          "behavior": "td_vim_g",
+          "layer": 2,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「G」を素早く 2 回タップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 14, "key": "G", "label": "×2:C+Home", "layer": 2, "role": "key", "count": 2}
+              ],
+              "path": [0, 2],
+              "layer": 2,
+              "expect": [
+                {"usage": 74, "mods": 1}
+              ],
+              "expect_text": "Ctrl+Home",
+              "note": "td_vim_g: 2 回 → &kp LC(HOME)",
+              "src": "&mm_vim_g",
+              "td_ms": 200
+            }
+          ]
+        },
+        {
+          "id": "td-td_vim_visual_g",
+          "kind": "tap_dance",
+          "title": "タップダンス td_vim_visual_g",
+          "behavior": "td_vim_visual_g",
+          "layer": 4,
+          "steps": [
+            {
+              "role": "test",
+              "text": "「VIM_BASE」を押したまま、「V」をタップ、全部離して、「G」を素早く 2 回タップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "tap", "pos": 14, "key": "G", "label": "×2:C+S+Home", "layer": 4, "role": "key", "count": 2}
+              ],
+              "path": [0, 2, 4],
+              "layer": 4,
+              "expect": [
+                {"usage": 74, "mods": 3}
+              ],
+              "expect_text": "Ctrl+Shift+Home",
+              "note": "td_vim_visual_g: 2 回 → &kp LS(LC(HOME))",
+              "src": "&mm_vim_visual_g",
+              "td_ms": 200
+            },
+            {
+              "role": "cleanup",
+              "text": "「V」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 79, "mods": 0},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "→、Q",
+              "note": "BASE に戻す (戻ったことを確かめる)"
+            }
+          ],
+          "to_layer": 4,
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        },
+        {
+          "id": "to-4-1",
+          "kind": "to_layer",
+          "title": "VIM_VISUAL への切り替え (1)",
+          "layer": 4,
+          "to_layer": 4,
+          "steps": [
+            {
+              "role": "enter",
+              "text": "「VIM_BASE」を押したまま、「V」をタップ、全部離して、「N」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "tap", "pos": 29, "key": "N", "label": "F3", "layer": 4, "role": "key"}
+              ],
+              "path": [0, 2, 4],
+              "layer": 4,
+              "expect": [
+                {"usage": 60, "mods": 0}
+              ],
+              "expect_text": "F3",
+              "note": "&mm_vim_v で VIM_VISUAL に切り替わり、離した後も「N」が VIM_VISUAL の「F3」になる",
+              "src": "&mm_vim_v"
+            },
+            {
+              "role": "test",
+              "text": "「SYM」を押したまま、「P」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 39, "role": "layer", "key": "SYM", "label": "VIM_VIS_SYM", "layer": 4},
+                {"op": "tap", "pos": 9, "key": "P", "label": "S+Home", "layer": 5, "role": "key"}
+              ],
+              "path": [0, 2, 4, 5],
+              "layer": 5,
+              "expect": [
+                {"usage": 74, "mods": 2}
+              ],
+              "expect_text": "Shift+Home",
+              "note": "VIM_VISUAL から VIM_VIS_SYM レイヤー"
+            },
+            {
+              "role": "test",
+              "text": "「Enter」を押したまま、「P」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 41, "role": "layer", "key": "Enter", "label": "VIM_VIS_SYM", "layer": 4},
+                {"op": "tap", "pos": 9, "key": "P", "label": "S+Home", "layer": 5, "role": "key"}
+              ],
+              "path": [0, 2, 4, 5],
+              "layer": 5,
+              "expect": [
+                {"usage": 74, "mods": 2}
+              ],
+              "expect_text": "Shift+Home",
+              "note": "VIM_VISUAL から VIM_VIS_SYM レイヤー"
+            },
+            {
+              "role": "exit",
+              "text": "「V」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 79, "mods": 0},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "→、Q",
+              "note": "&macro_vim_visual_exit で BASE に戻り、「Q」が BASE の文字になる",
+              "src": "&macro_vim_visual_exit"
+            }
+          ],
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        },
+        {
+          "id": "to-4-2",
+          "kind": "to_layer",
+          "title": "VIM_VISUAL への切り替え (2)",
+          "layer": 4,
+          "to_layer": 4,
+          "steps": [
+            {
+              "role": "enter",
+              "text": "「VIM_BASE」と「Z (Shift)」を押したまま、「V」をタップ、全部離して、「N」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 2},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "tap", "pos": 29, "key": "N", "label": "F3", "layer": 4, "role": "key"}
+              ],
+              "path": [0, 2, 4],
+              "layer": 4,
+              "expect": [
+                {"usage": 74, "mods": 0},
+                {"usage": 81, "mods": 2},
+                {"usage": 60, "mods": 0}
+              ],
+              "expect_text": "Home、Shift+↓、F3",
+              "note": "&mm_vim_v (Shift) で VIM_VISUAL に切り替わり、離した後も「N」が VIM_VISUAL の「F3」になる",
+              "src": "&mm_vim_v"
+            },
+            {
+              "role": "exit",
+              "text": "「P」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 9, "key": "P", "label": "visual_p", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 25, "mods": 1},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "Ctrl+V、Q",
+              "note": "&macro_vim_visual_p で BASE に戻り、「Q」が BASE の文字になる",
+              "src": "&macro_vim_visual_p"
+            }
+          ],
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        },
+        {
+          "id": "to-4-3",
+          "kind": "to_layer",
+          "title": "VIM_VISUAL への切り替え (3)",
+          "layer": 4,
+          "to_layer": 4,
+          "steps": [
+            {
+              "role": "enter",
+              "text": "「VIM_BASE」を押したまま、「V」をタップ、全部離して、「N」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "tap", "pos": 29, "key": "N", "label": "F3", "layer": 4, "role": "key"}
+              ],
+              "path": [0, 2, 4],
+              "layer": 4,
+              "expect": [
+                {"usage": 60, "mods": 0}
+              ],
+              "expect_text": "F3",
+              "note": "&mm_vim_v で VIM_VISUAL に切り替わり、離した後も「N」が VIM_VISUAL の「F3」になる",
+              "src": "&mm_vim_v"
+            },
+            {
+              "role": "exit",
+              "text": "「D」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 12, "key": "D", "label": "visual_cut", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 27, "mods": 1},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "Ctrl+X、Q",
+              "note": "&macro_vim_visual_cut で BASE に戻り、「Q」が BASE の文字になる",
+              "src": "&macro_vim_visual_cut"
+            }
+          ],
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        },
+        {
+          "id": "to-4-4",
+          "kind": "to_layer",
+          "title": "VIM_VISUAL への切り替え (4)",
+          "layer": 4,
+          "to_layer": 4,
+          "steps": [
+            {
+              "role": "enter",
+              "text": "「VIM_BASE」と「Z (Shift)」を押したまま、「V」をタップ、全部離して、「N」をタップ",
+              "actions": [
+                {"op": "hold", "pos": 40, "role": "layer", "key": "VIM_BASE", "label": "VIM_BASE", "layer": 0},
+                {"op": "hold", "pos": 22, "role": "mod", "key": "Z", "label": "Shift", "layer": 2},
+                {"op": "tap", "pos": 25, "key": "V", "label": "→VIM_VISUAL", "layer": 2, "role": "key"},
+                {"op": "release"},
+                {"op": "tap", "pos": 29, "key": "N", "label": "F3", "layer": 4, "role": "key"}
+              ],
+              "path": [0, 2, 4],
+              "layer": 4,
+              "expect": [
+                {"usage": 74, "mods": 0},
+                {"usage": 81, "mods": 2},
+                {"usage": 60, "mods": 0}
+              ],
+              "expect_text": "Home、Shift+↓、F3",
+              "note": "&mm_vim_v (Shift) で VIM_VISUAL に切り替わり、離した後も「N」が VIM_VISUAL の「F3」になる",
+              "src": "&mm_vim_v"
+            },
+            {
+              "role": "exit",
+              "text": "「Y」をタップ、「Q」をタップ",
+              "actions": [
+                {"op": "tap", "pos": 5, "key": "Y", "label": "visual_y", "layer": 4, "role": "exit"},
+                {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+              ],
+              "path": [4, 0],
+              "layer": 0,
+              "expect": [
+                {"usage": 6, "mods": 1},
+                {"usage": 79, "mods": 0},
+                {"usage": 20, "mods": 0}
+              ],
+              "expect_text": "Ctrl+C、→、Q",
+              "note": "&macro_vim_visual_y で BASE に戻り、「Q」が BASE の文字になる",
+              "src": "&macro_vim_visual_y"
+            }
+          ],
+          "recover": {
+            "actions": [
+              {"op": "tap", "pos": 25, "key": "V", "label": "visual_exit", "layer": 4, "role": "exit"},
+              {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
+            ],
+            "text": "「V」をタップ、「Q」をタップ",
+            "check": {"usage": 20, "mods": 0}
+          }
+        }
+      ],
+      "combos": 0,
+      "not_tested": [
+        {"what": "BT レイヤー", "reason": "Bluetooth の接続先や出力が変わるキーだけなので押さない"},
+        {"what": "MOUS レイヤー", "reason": "AML (ボールを転がすと入るレイヤー) は、AML のテストで確かめる"},
+        {"what": "SCRL レイヤー", "reason": "AML の中のスクロールのレイヤーは、AML のテストで確かめる"}
+      ],
+      "devices": {
+        "key_press": {"name": "kp", "kind": "kp"},
+        "mod_tap": {"name": "mt", "kind": "mt"},
+        "layer_tap": {"name": "lt", "kind": "lt"},
+        "momentary_layer": {"name": "mo", "kind": "mo"},
+        "to_layer": {"name": "to", "kind": "to"},
+        "toggle_layer": {"name": "tog", "kind": "tog"},
+        "sticky_layer": {"name": "sl", "kind": "sl"},
+        "sticky_key": {"name": "sk", "kind": "sk"},
+        "key_toggle": {"name": "kt", "kind": "kt"},
+        "transparent": {"name": "trans", "kind": "trans"},
+        "none": {"name": "none", "kind": "none"},
+        "bluetooth": {"name": "bt", "kind": "bt"},
+        "outputs": {"name": "out", "kind": "out"},
+        "sysreset": {"name": "sys_reset", "kind": "sys_reset"},
+        "bootload": {"name": "bootloader", "kind": "bootloader"},
+        "mouse_key_press": {"name": "mkp", "kind": "mkp"},
+        "caps_word": {"name": "caps_word", "kind": "caps_word"},
+        "key_repeat": {"name": "key_repeat", "kind": "key_repeat"},
+        "grave_escape": {"name": "gresc", "kind": "gresc"},
+        "studio_unlock": {"name": "studio_unlock", "kind": "studio_unlock"},
+        "MACRO_VIM_DD": {"name": "macro_vim_dd", "kind": "macro", "bindings": ["&kp HOME", "&macro_wait_time 100", "&kp LS(END)", "&macro_wait_time 100", "&kp LC(X)"]},
+        "MACRO_VIM_YY": {"name": "macro_vim_yy", "kind": "macro", "bindings": ["&kp HOME", "&macro_wait_time 100", "&kp LS(END)", "&macro_wait_time 100", "&kp LC(C)"]},
+        "MACRO_VIM_SHIFT_D": {"name": "macro_vim_shift_d", "kind": "macro", "bindings": ["&kp LS(END)", "&macro_wait_time 100", "&kp LC(X)"]},
+        "MACRO_VIM_SHIFT_Y": {"name": "macro_vim_shift_y", "kind": "macro", "bindings": ["&kp LS(END)", "&macro_wait_time 100", "&kp LC(C)"]},
+        "MACRO_VIM_O": {"name": "macro_vim_o", "kind": "macro", "bindings": ["&kp END", "&macro_wait_time 100", "&kp ENTER"]},
+        "MACRO_VIM_SHIFT_O": {"name": "macro_vim_shift_o", "kind": "macro", "bindings": ["&kp HOME", "&macro_wait_time 100", "&kp ENTER", "&macro_wait_time 100", "&kp UP_ARROW"]},
+        "MACRO_VIM_JOIN": {"name": "macro_vim_join", "kind": "macro", "bindings": ["&kp END", "&macro_wait_time 100", "&kp DELETE", "&macro_wait_time 100", "&kp SPACE"]},
+        "MACRO_VIM_VISUAL_Y": {
+          "name": "macro_vim_visual_y",
+          "kind": "macro",
+          "bindings": ["&macro_release", "&kp LSHIFT", "&kp RSHIFT", "&macro_tap", "&kp LC(C)", "&macro_wait_time 50", "&kp RIGHT", "&macro_wait_time 50", "&to 0"]
+        },
+        "MACRO_VIM_VISUAL_CUT": {"name": "macro_vim_visual_cut", "kind": "macro", "bindings": ["&macro_release", "&kp LSHIFT", "&kp RSHIFT", "&macro_tap", "&kp LC(X)", "&macro_wait_time 50", "&to 0"]},
+        "MACRO_VIM_VISUAL_P": {"name": "macro_vim_visual_p", "kind": "macro", "bindings": ["&macro_release", "&kp LSHIFT", "&kp RSHIFT", "&macro_tap", "&kp LC(V)", "&macro_wait_time 50", "&to 0"]},
+        "MACRO_VIM_V_LINE": {"name": "macro_vim_v_line", "kind": "macro", "bindings": ["&kp HOME", "&macro_wait_time 50", "&kp LS(DOWN)", "&macro_wait_time 50", "&to 4"]},
+        "MACRO_VIM_VISUAL_EXIT": {"name": "macro_vim_visual_exit", "kind": "macro", "bindings": ["&macro_release", "&kp LSHIFT", "&kp RSHIFT", "&macro_tap", "&kp RIGHT", "&macro_wait_time 50", "&to 0"]},
+        "TD_VIM_D": {"name": "td_vim_d", "kind": "tap_dance", "bindings": ["&none", "&macro_vim_dd"], "tapping_term": 200},
+        "MM_VIM_SHIFT_D": {"name": "mm_vim_shift_d", "kind": "mod_morph", "bindings": ["&td_vim_d", "&macro_vim_shift_d"], "mods": 34},
+        "TD_VIM_Y": {"name": "td_vim_y", "kind": "tap_dance", "bindings": ["&none", "&macro_vim_yy"], "tapping_term": 200},
+        "MM_VIM_Y": {"name": "mm_vim_y", "kind": "mod_morph", "bindings": ["&td_vim_y", "&macro_vim_shift_y"], "mods": 34},
+        "MM_VIM_U": {"name": "mm_vim_u", "kind": "mod_morph", "bindings": ["&kp LC(Z)", "&kp PAGE_UP"], "mods": 17},
+        "MM_VIM_O": {"name": "mm_vim_o", "kind": "mod_morph", "bindings": ["&macro_vim_o", "&macro_vim_shift_o"], "mods": 34},
+        "MM_VIM_D": {"name": "mm_vim_d", "kind": "mod_morph", "bindings": ["&mm_vim_shift_d", "&kp PAGE_DOWN"], "mods": 17},
+        "MM_VIM_SHIFT_4": {"name": "mm_vim_shift_4", "kind": "mod_morph", "bindings": ["&none", "&kp END"], "mods": 34},
+        "MM_VIM_CTRL_R": {"name": "mm_vim_ctrl_r", "kind": "mod_morph", "bindings": ["&none", "&kp LC(Y)"], "mods": 17},
+        "TD_VIM_G": {"name": "td_vim_g", "kind": "tap_dance", "bindings": ["&none", "&kp LC(HOME)"], "tapping_term": 200},
+        "MM_VIM_G": {"name": "mm_vim_g", "kind": "mod_morph", "bindings": ["&td_vim_g", "&kp LC(END)"], "mods": 34},
+        "MM_VIM_J": {"name": "mm_vim_j", "kind": "mod_morph", "bindings": ["&kp DOWN", "&macro_vim_join"], "mods": 34},
+        "MM_VIM_SHIFT_6": {"name": "mm_vim_shift_6", "kind": "mod_morph", "bindings": ["&none", "&kp HOME"], "mods": 34},
+        "MM_VIM_V": {"name": "mm_vim_v", "kind": "mod_morph", "bindings": ["&to 4", "&macro_vim_v_line"], "mods": 34},
+        "TD_VIM_VISUAL_G": {"name": "td_vim_visual_g", "kind": "tap_dance", "bindings": ["&none", "&kp LS(LC(HOME))"], "tapping_term": 200},
+        "MM_VIM_VISUAL_G": {"name": "mm_vim_visual_g", "kind": "mod_morph", "bindings": ["&td_vim_visual_g", "&kp LS(LC(END))"], "mods": 34},
+        "MM_VIM_VISUAL_SHIFT_4": {"name": "mm_vim_visual_shift_4", "kind": "mod_morph", "bindings": ["&none", "&kp LS(END)"], "mods": 34},
+        "MM_VIM_VISUAL_SHIFT_6": {"name": "mm_vim_visual_shift_6", "kind": "mod_morph", "bindings": ["&none", "&kp LS(HOME)"], "mods": 34},
+        "MM_VIM_N": {"name": "mm_vim_n", "kind": "mod_morph", "bindings": ["&kp F3", "&kp LS(F3)"], "mods": 34},
+        "MM_VIM_W": {"name": "mm_vim_w", "kind": "mod_morph", "bindings": ["&kp LC(RIGHT)", "&kp LC(BACKSPACE)"], "mods": 17}
+      }
     }
   },
   "consistency": [
