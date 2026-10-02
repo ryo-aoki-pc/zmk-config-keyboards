@@ -62,9 +62,9 @@
   <SolidColorBrush x:Key="KcKeyFailFill" Color="#7F1D1D"/>
   <SolidColorBrush x:Key="KcKeyFailEdge" Color="#F87171"/>
   <SolidColorBrush x:Key="KcKeyFailInk" Color="#FEE2E2"/>
-  <SolidColorBrush x:Key="KcKeySkipFill" Color="#172033"/>
-  <SolidColorBrush x:Key="KcKeySkipEdge" Color="#2A3850"/>
-  <SolidColorBrush x:Key="KcKeySkipInk" Color="#55657D"/>
+  <SolidColorBrush x:Key="KcKeySkipFill" Color="#18233A"/>
+  <SolidColorBrush x:Key="KcKeySkipEdge" Color="#475569"/>
+  <SolidColorBrush x:Key="KcKeySkipInk" Color="#64748B"/>
   <Color x:Key="KcKeyGlowColor">#3B82F6</Color>
 
   <!-- the corner between the two scroll bars of a ScrollViewer uses this system brush -->
