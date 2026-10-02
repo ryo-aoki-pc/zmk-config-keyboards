@@ -246,6 +246,11 @@ function Read-KcViaRgb($Query, [int]$Protocol) {
 
 function ConvertFrom-KcKeyballStatus([byte[]]$R) {
     $flags = [int]$R[5]
+    # AML のしきい値は形式 2 から [29] で返す (形式 1 のファームには無い)
+    $amlThreshold = $null
+    if ([int]$R[3] -ge 2) {
+        $amlThreshold = [int]$R[29]
+    }
     return [pscustomobject]@{
         Format           = [int]$R[3]
         Model            = [int]$R[4]
@@ -272,6 +277,7 @@ function ConvertFrom-KcKeyballStatus([byte[]]$R) {
         EeconfigUser     = [long](ConvertFrom-KcBigEndian $R 23 4)
         CpiDefault       = [int]$R[27]
         ScrollDivDefault = [int]$R[28]
+        AmlThreshold     = $amlThreshold
     }
 }
 
@@ -834,5 +840,20 @@ function Add-KcKeyballStatusResults($Results, [string]$Category, $Status, $Exp) 
         } else {
             [void](Add-KcResult -Results $Results -Category $Category -Item $c[0] -Status FAIL -Expected $c[1] -Actual $c[3] -Hint $c[5])
         }
+    }
+
+    # AML の発動に要るボールの動きの量 (config.h の KEYBALL_AML_THRESHOLD)
+    $item = 'AML のしきい値 (わずかな動きでは発動しない)'
+    $expThreshold = Get-KcProp $Exp 'aml_threshold' $null
+    if ($null -eq $Status.AmlThreshold) {
+        [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status SKIP -Actual 'このファームでは読めません' `
+                -Hint 'しきい値の無い古いファームです。tools/flash-keyball.cmd で最新のファームを書き込んでください')
+    } elseif ($null -eq $expThreshold) {
+        [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status INFO -Actual ([string]$Status.AmlThreshold))
+    } elseif ([int]$expThreshold -eq $Status.AmlThreshold) {
+        [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status PASS -Actual ([string]$Status.AmlThreshold))
+    } else {
+        [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status FAIL -Expected ([string]$expThreshold) -Actual ([string]$Status.AmlThreshold) `
+                -Hint 'ファームの config.h の KEYBALL_AML_THRESHOLD が期待値 (LisM 基準) と違います。tools/flash-keyball.cmd で最新のファームを書き込んでください')
     }
 }

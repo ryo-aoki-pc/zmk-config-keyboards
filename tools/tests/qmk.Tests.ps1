@@ -122,6 +122,8 @@ Test-Case 'Keyball39: 期待値どおりなら全部 PASS' {
     Assert-Equal 'PASS' (Get-StatusOf $r 'キーマップ').Status
     Assert-Equal 'PASS' (Get-StatusOf $r 'CPI').Status
     Assert-Equal 'PASS' (Get-StatusOf $r 'AML のタイムアウト').Status
+    Assert-Equal 'PASS' (Get-StatusOf $r 'AML のしきい値 (わずかな動きでは発動しない)').Status
+    Assert-Equal '10' (Get-StatusOf $r 'AML のしきい値 (わずかな動きでは発動しない)').Actual
     Assert-Equal 'Right' (Get-StatusOf $r 'Ball availability').Actual
     Assert-Equal 'PASS' (Get-StatusOf $r 'マクロ').Status
     Assert-Equal 'PASS' (Get-StatusOf $r 'カーソルの加速').Status
@@ -136,6 +138,22 @@ Test-Case 'Keyball39: カーソルの加速が期待値と違うと FAIL' {
     Invoke-KcKeyballReadout -Query $dev.Query -Expected $kbExp -Common $common -Results $r
     Assert-Equal 'カーソルの加速' (Get-FailItems $r)
     Assert-True ((Get-StatusOf $r 'カーソルの加速').Actual -like '*max-factor 1000*') (Get-StatusOf $r 'カーソルの加速').Actual
+}
+
+Test-Case 'Keyball39: AML のしきい値が違うと FAIL、しきい値の無い形式 1 のファームでは SKIP' {
+    $dev = New-FakeKeyball $kbExp
+    $dev.KeyballStatus[26] = 5
+    $r = New-KcResultList
+    Invoke-KcKeyballReadout -Query $dev.Query -Expected $kbExp -Common $common -Results $r
+    Assert-Equal 'AML のしきい値 (わずかな動きでは発動しない)' (Get-FailItems $r)
+    Assert-True ((Get-StatusOf $r 'AML のしきい値 (わずかな動きでは発動しない)').Hint -like '*KEYBALL_AML_THRESHOLD*') 'config.h の案内'
+    $dev = New-FakeKeyball $kbExp
+    $dev.KeyballStatus[0] = 1
+    $dev.KeyballStatus[26] = 0
+    $r = New-KcResultList
+    Invoke-KcKeyballReadout -Query $dev.Query -Expected $kbExp -Common $common -Results $r
+    Assert-Equal '' (Get-FailItems $r)
+    Assert-Equal 'SKIP' (Get-StatusOf $r 'AML のしきい値 (わずかな動きでは発動しない)').Status
 }
 
 Test-Case 'Keyball39: EEPROM に古い CPI が残っていると FAIL と Bootmagic の案内' {

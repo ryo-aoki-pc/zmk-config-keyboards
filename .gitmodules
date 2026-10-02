@@ -38,3 +38,7 @@
 	path = zmk-input-processor-xy-accel
 	url = https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel.git
 	branch = main
+[submodule "zmk-input-processor-aml-threshold"]
+	path = zmk-input-processor-aml-threshold
+	url = https://github.com/ryo-aoki-pc/zmk-input-processor-aml-threshold.git
+	branch = main
