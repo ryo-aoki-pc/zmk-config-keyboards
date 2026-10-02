@@ -146,6 +146,7 @@ class TestGenerate(unittest.TestCase):
             self.assertEqual(keys['left']['click']['legend'], 'F', name)
             self.assertEqual(keys['left']['shift']['usage'], 0xE1, name)
             self.assertEqual(keys['right']['scroll']['legend'], 'K', name)
+            self.assert_release_keys(keys, name)
             self.assertEqual(keys['right']['after_timeout']['usage'], 0x0D, name)  # J
             self.assertEqual(it['trackball']['aml']['timeout_ms'], 10000, name)
             self.assertEqual(it['output_switch']['usb']['legend'], 'U', name)
@@ -189,17 +190,31 @@ class TestGenerate(unittest.TestCase):
         self.assertEqual(self.data['lism.json']['physical']['layout_name'], '42-Key Layout')
         self.assertEqual(self.data['torabo-tsuki-lp.json']['physical']['layout_name'], 'L Layout')
 
+    def assert_release_keys(self, keys: dict, name: str):
+        # AML 中に修飾キーの位置をタップすると AML が切れ、BASE と同じ文字が出る
+        self.assertEqual((keys['left']['release_ctrl']['usage'], keys['left']['release_shift']['usage']),
+                         (0x04, 0x1D), name)                # A / Z
+        self.assertEqual((keys['right']['release_ctrl']['usage'], keys['right']['release_shift']['usage']),
+                         (0x2D, 0x38), name)                # - / /
+        self.assertEqual(keys['left']['release_shift']['pos'], keys['left']['shift']['pos'], name)
+
     def test_keyball(self):
         v = self.data['keyball39.json']['readout']['via']
         self.assertEqual(v['layer_count'], 4)
         self.assertEqual(v['keymap'][0][0][0], 0x14)        # KC_Q
+        self.assertEqual(v['keymap'][1][1][0], 0x01)        # KC_TRNS (A。押すと AML が切れる)
         self.assertEqual(v['keymap'][1][1][2], 0x5222)      # MO(2) (D)
+        self.assertEqual(v['keymap'][2][1][0], 0xE0)        # KC_LCTL (A)
         self.assertEqual(v['keymap'][2][1][3], 0xD1)        # KC_BTN1 (F)
         self.assertEqual(v['keymap'][3][0][0], 0x7820)      # RGB_TOG
         self.assertEqual(v['keymap'][3][3][1], 0x7E00)      # KBC_RST
         self.assertEqual(v['status']['cpi'], 5)
         self.assertEqual(v['status']['scroll_div'], 5)
         self.assertEqual(v['status']['aml_timeout'], 10000)
+        for f in ('keyball39.json', 'kq-mini.json'):
+            tb = self.data[f]['interactive']['trackball']['keys']
+            self.assertEqual(tb['left']['shift']['usage'], 0xE1, f)
+            self.assert_release_keys(tb, f)
         keys = self.data['keyball39.json']['physical']['keys']
         self.assertEqual(sum(1 for k in keys if k['present']), 39)
 

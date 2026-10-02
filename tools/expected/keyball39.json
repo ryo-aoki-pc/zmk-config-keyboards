@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "keyball",
-      "commit": "ea12a27b5a419ffdf2840b46ff7039d16d8b7d91",
+      "commit": "d8c28726e8c45af9293e5619eed2f5590066507e",
       "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/info.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["vial_keymap_docgen.py"]}
@@ -85,12 +85,12 @@
         ],
         [
           [0, 0, 0, 0, 0, 0],
-          [224, 0, 21026, 0, 0, 0],
-          [225, 0, 0, 0, 0, 0],
-          [0, 227, 226, 0, 0, 0],
+          [1, 0, 21026, 0, 0, 0],
+          [1, 0, 0, 0, 0, 0],
+          [0, 1, 1, 0, 0, 0],
           [0, 0, 0, 0, 0, 0],
-          [228, 0, 21026, 0, 0, 0],
-          [229, 0, 0, 0, 0, 0],
+          [1, 0, 21026, 0, 0, 0],
+          [1, 0, 0, 0, 0, 0],
           [0, 0, 0, 0, 0, 0]
         ],
         [
@@ -116,7 +116,7 @@
       ],
       "tokens": [
         ["KC_Q", "KC_W", "KC_E", "KC_R", "KC_T", "KC_Y", "KC_U", "KC_I", "KC_O", "KC_P", "KC_A", "KC_S", "KC_D", "KC_F", "KC_G", "KC_H", "KC_J", "KC_K", "KC_L", "KC_MINS", "KC_Z", "KC_X", "KC_C", "KC_V", "KC_B", "KC_N", "KC_M", "KC_COMM", "KC_DOT", "KC_SLSH", "KC_GRV", "KC_LGUI", "KC_LALT", "KC_SPC", "KC_SPC", "KC_RALT", "KC_CAPS", "KC_ENT", "&none", "&none", "KC_GRV", "KC_GRV"],
-        ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_LCTL", "&none", "MO(2)", "&none", "&none", "&none", "&none", "MO(2)", "&none", "KC_RCTL", "KC_LSFT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_RSFT", "&none", "KC_LGUI", "KC_LALT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
+        ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&trans", "&none", "MO(2)", "&none", "&none", "&none", "&none", "MO(2)", "&none", "&trans", "&trans", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&trans", "&none", "&trans", "&trans", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
         ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_LCTL", "KC_BTN2", "&none", "KC_BTN1", "&none", "&none", "KC_BTN1", "&none", "KC_BTN2", "KC_RCTL", "KC_LSFT", "KC_BTN5", "&none", "KC_BTN4", "&none", "&none", "KC_BTN4", "&none", "KC_BTN5", "KC_RSFT", "&none", "KC_LGUI", "KC_LALT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
         ["RGB_TOG", "AML_TO", "AML_I50", "AML_D50", "&trans", "&trans", "&trans", "SSNP_HOR", "SSNP_VRT", "SSNP_FRE", "RGB_MOD", "RGB_HUI", "RGB_SAI", "RGB_VAI", "SCRL_DVI", "&trans", "&trans", "&trans", "&trans", "&trans", "RGB_RMOD", "RGB_HUD", "RGB_SAD", "RGB_VAD", "SCRL_DVD", "CPI_D1K", "CPI_D100", "CPI_I100", "CPI_I1K", "KBC_SAVE", "QK_BOOT", "KBC_RST", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "KBC_RST", "QK_BOOT"]
       ],
@@ -168,12 +168,16 @@
           "scroll": {"pos": 12, "legend": "D"},
           "click": {"pos": 13, "button": 1, "legend": "F"},
           "shift": {"pos": 20, "usage": 225, "legend": "Z"},
+          "release_ctrl": {"pos": 10, "mod": "Ctrl", "usage": 4, "legend": "A"},
+          "release_shift": {"pos": 20, "mod": "Shift", "usage": 29, "legend": "Z"},
           "after_timeout": {"pos": 13, "usage": 9, "legend": "F"}
         },
         "right": {
           "scroll": {"pos": 17, "legend": "K"},
           "click": {"pos": 16, "button": 1, "legend": "J"},
           "shift": {"pos": 29, "usage": 229, "legend": "/"},
+          "release_ctrl": {"pos": 19, "mod": "Ctrl", "usage": 45, "legend": "-"},
+          "release_shift": {"pos": 29, "mod": "Shift", "usage": 56, "legend": "/"},
           "after_timeout": {"pos": 16, "usage": 13, "legend": "J"}
         }
       },

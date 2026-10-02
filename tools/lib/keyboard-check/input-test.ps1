@@ -401,8 +401,8 @@ function Invoke-KcAmlClickTest($Ctx, $Keys) {
 
 function Invoke-KcShiftClickTest($Ctx, $Keys) {
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts('AML: Shift + クリック', ('ボールを少し転がしてから、「{0}」→「{1}」→「{2}」の順に押してください' -f $Keys.shift.legend, $Keys.scroll.legend, $Keys.click.legend),
-            ('「{0}」と「{1}」は押したまま、「{2}」でクリックします。Shift を押したままクリックできれば合格です。' -f $Keys.shift.legend, $Keys.scroll.legend, $Keys.click.legend))
+        $Ctx.Form.SetTexts('AML: Shift + クリック', ('ボールを少し転がしてから、「{0}」→「{1}」→「{2}」の順に押してください' -f $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend),
+            ("「{0}」と「{1}」は押したまま、「{2}」でクリックします。Shift を押したままクリックできれば合格です。`n「{1}」を先に押すと AML が切れるので、「{0}」から押します。" -f $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend))
         $Ctx.Form.ClearEvents()
         $Ctx.Form.Confine($true)
         $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 40000 -Done {
@@ -424,6 +424,29 @@ function Invoke-KcShiftClickTest($Ctx, $Keys) {
     }
     if ($res -is [string]) { return $res }
     Add-KcInputResult $Ctx $Ctx.Category 'AML: Shift + クリック' $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    return 'done'
+}
+
+# AML 中に Ctrl / Shift の位置をタップすると、AML が切れて文字が入力される
+function Invoke-KcAmlReleaseTest($Ctx, $Key) {
+    $item = 'AML: {0} で解除' -f $Key.mod
+    $res = Invoke-KcRetryStep $Ctx {
+        $Ctx.Form.SetTexts($item, ('ボールを少し転がしてから、「{0}」をタップしてください' -f $Key.legend),
+            ("「{0}」は長押しで {1} になるキーです。AML 中に押すと AML が切れ、文字が入力されれば合格です。`n長押しにならないよう、短く押してください。" -f $Key.legend, $Key.mod))
+        $Ctx.Form.ClearEvents()
+        $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 40000 -Done {
+            param($ev, $now)
+            Test-KcKeysSettled $ev $Ctx.ScanTable $now 400
+        }
+        if ($r.Outcome -eq 'abort') { return 'abort' }
+        if ($r.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
+        $t = Test-KcAmlRelease $r.Events ([int]$Key.usage) $Ctx.ScanTable
+        Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
+        Wait-KcPause $Ctx 800
+        return $t
+    }
+    if ($res -is [string]) { return $res }
+    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
     return 'done'
 }
 
@@ -751,6 +774,11 @@ function Invoke-KcInputTest {
             }
             if ($outcome -eq 'done' -and $doBall) {
                 $outcome = Invoke-KcShiftClickTest $ctx $keys
+            }
+            foreach ($rk in @($keys.release_ctrl, $keys.release_shift)) {
+                if ($outcome -eq 'done' -and $doBall) {
+                    $outcome = Invoke-KcAmlReleaseTest $ctx $rk
+                }
             }
             if ($outcome -eq 'done' -and $doBall) {
                 $outcome = Invoke-KcScrollTest $ctx $ball $keys
