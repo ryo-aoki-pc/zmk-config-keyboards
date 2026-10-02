@@ -1471,7 +1471,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         },
         {
@@ -1525,7 +1529,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         },
         {
@@ -1579,7 +1587,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         },
         {
@@ -1714,7 +1726,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         },
         {
@@ -1796,7 +1812,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         },
         {
@@ -1851,7 +1871,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         },
         {
@@ -1903,7 +1927,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         },
         {
@@ -1959,7 +1987,11 @@
               {"op": "tap", "pos": 0, "key": "Q", "label": "Q", "layer": 0, "role": "check"}
             ],
             "text": "「V」をタップ、「Q」をタップ",
-            "check": {"usage": 20, "mods": 0}
+            "check": {"usage": 20, "mods": 0},
+            "expect": [
+              {"usage": 79, "mods": 0},
+              {"usage": 20, "mods": 0}
+            ]
           }
         }
       ],

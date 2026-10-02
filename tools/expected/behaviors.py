@@ -1071,7 +1071,8 @@ class Builder:
                                        'to_layer': to, 'steps': steps,
                                        'recover': {'actions': [dict(exits[0]['actions'][0]), dict(base_act)],
                                                    'text': self.describe([exits[0]['actions'][0], base_act]),
-                                                   'check': self.base_stroke()}})
+                                                   'check': self.base_stroke(),
+                                                   'expect': [s.to_json() for s in exits[0]['strokes']] + [self.base_stroke()]}})
 
     def build_morphs_and_tds(self, ctxs) -> None:
         sim_base = Sim(self.m)
@@ -1227,7 +1228,8 @@ class Builder:
         ex = self.cleanup(ctx['prefix'], ctx['to'])
         acts = [dict(ex['actions'][0]), dict(base_act)]
         sc['to_layer'] = ctx['to']
-        sc['recover'] = {'actions': acts, 'text': self.describe(acts), 'check': self.base_stroke()}
+        sc['recover'] = {'actions': acts, 'text': self.describe(acts), 'check': self.base_stroke(),
+                         'expect': [s.to_json() for s in ex['strokes']] + [self.base_stroke()]}
 
     def build_combos(self, base_paths) -> None:
         if not self.m.combos:

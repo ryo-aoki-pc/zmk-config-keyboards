@@ -12,8 +12,11 @@
         つなぐと、キーマップ
 
     実動作テスト (テスト用のウィンドウで、キーを押す・ボールを転がす)
-      - BASE レイヤーのキーのタップ、AML のクリック、Shift + クリック、AML の Ctrl / Shift での解除、
-        スクロールの向き、AML のタイムアウト、AML のしきい値 (わずかな動きでは発動しない)
+      - BASE レイヤーのキーのタップ
+      - レイヤー・ビヘイビア: レイヤーの移動 (押したまま)、長押し (mod-tap)、モッドモーフ、タップダンス、
+        &to での切り替え、コンボ。手順と期待する入力を、キーボードの図・レイヤーの帯・キーキャップで表示する
+      - AML のクリック、Shift + クリック、AML の Ctrl / Shift での解除、スクロールの向き、AML のタイムアウト、
+        AML のしきい値 (わずかな動きでは発動しない)
       - トラックボールの正規化: X/Y の比率と傾き (楕円補正)、キーボード間の速さ (LisM 基準)。推奨値を出す
 
     結果は PASS / FAIL / WARN / SKIP で表示し、tools/.cache/keyboard-check/reports/ にも保存します。
@@ -23,10 +26,12 @@
     KqMini は、Keyboard Quantizer Mini に Keyball39 をつないだ状態です。
 
 .PARAMETER Mode
-    All (読み出し検査と実動作テスト) / Readout (読み出し検査だけ) / Interactive (実動作テストだけ)。
+    All (読み出し検査と実動作テスト) / Readout (読み出し検査だけ) / Interactive (実動作テストだけ) /
+    Trace (レイヤーの動きを見る。ZMK のログ版ファームのログから、押したキーのレイヤーの遷移と解決を表示する。合否は出さない)。
 
 .PARAMETER Section
-    実動作テストの範囲。All / Keys (キーのタップ) / Trackball (AML・スクロール) / Calibrate (トラックボールの正規化)。
+    実動作テストの範囲。All / Keys (キーのタップ) / Behaviors (レイヤー・タップダンス・モッドモーフ・コンボ) /
+    Trackball (AML・スクロール) / Calibrate (トラックボールの正規化)。
 
 .PARAMETER Ball
     LisM のトラックボールの位置 (right / left / both)。省略すると尋ねます。
@@ -60,10 +65,10 @@ param(
     [ValidateSet('KqMini', 'Keyball39', 'LisM', 'AroundFortyRB', 'KUKEY42', 'Pyuron', 'roBa', 'torabo-tsuki-lp')]
     [string]$Keyboard,
 
-    [ValidateSet('All', 'Readout', 'Interactive')]
+    [ValidateSet('All', 'Readout', 'Interactive', 'Trace')]
     [string]$Mode,
 
-    [ValidateSet('All', 'Keys', 'Trackball', 'Calibrate')]
+    [ValidateSet('All', 'Keys', 'Behaviors', 'Trackball', 'Calibrate')]
     [string]$Section = 'All',
 
     [ValidateSet('right', 'left', 'both')]
@@ -96,8 +101,10 @@ $lib = Join-Path $PSScriptRoot 'lib\keyboard-check'
 . (Join-Path $lib 'qmk.ps1')
 . (Join-Path $lib 'zmk-studio.ps1')
 . (Join-Path $lib 'input-eval.ps1')
+. (Join-Path $lib 'behavior-eval.ps1')
 . (Join-Path $lib 'trackball-calib.ps1')
 . (Join-Path $lib 'input-test.ps1')
+. (Join-Path $lib 'behavior-test.ps1')
 
 if (-not $ExpectedDir) {
     $ExpectedDir = Join-Path $PSScriptRoot 'expected'
@@ -138,7 +145,7 @@ function Read-KcChoice([string]$Prompt, [int]$Count, [int]$Default) {
 # ---------------------------------------------------------------------------
 
 $found = @{ KqMini = @(); Keyball = @(); StudioPorts = @(); StudioNames = @{}; ZmkUsb = @() }
-if ($isWindowsHost) {
+if ($isWindowsHost -and $Mode -ne 'Trace') {
     Write-Host '接続中のキーボードを探しています...'
     # Find-* は配列をそのまま返す (return , $x) ので、@() で包まずに受け取る
     $found.KqMini = Find-KcRawHidInterface -Vid 'FEED' -ProductId '999C'
@@ -214,18 +221,22 @@ if (-not $Mode) {
     Write-Host '検査の内容:'
     Write-Host '  1. 読み出し検査 + 実動作テスト'
     Write-Host '  2. 読み出し検査だけ'
-    Write-Host '  3. 実動作テストだけ (キー・トラックボール・正規化)'
+    Write-Host '  3. 実動作テストだけ (キー・レイヤー・トラックボール・正規化)'
     Write-Host '  4. トラックボールの正規化だけ (楕円・速さ)'
-    switch (Read-KcChoice '番号' 4 1) {
+    Write-Host '  5. レイヤー・タップダンス・モッドモーフ・コンボだけ'
+    Write-Host '  6. レイヤーの動きを見る (ZMK のログ版ファームで、自由に押したキーのレイヤーの遷移と解決を表示)'
+    switch (Read-KcChoice '番号' 6 1) {
         1 { $Mode = 'All' }
         2 { $Mode = 'Readout' }
         3 { $Mode = 'Interactive' }
         4 { $Mode = 'Interactive'; $Section = 'Calibrate' }
+        5 { $Mode = 'Interactive'; $Section = 'Behaviors' }
+        6 { $Mode = 'Trace' }
     }
 }
-if ($Mode -ne 'Readout') {
+if ($Mode -ne 'Readout' -and $Mode -ne 'Trace') {
     if ($Section -eq 'All') {
-        $sections = @('Keys', 'Trackball', 'Calibrate')
+        $sections = @('Keys', 'Behaviors', 'Trackball', 'Calibrate')
     } else {
         $sections = @($Section)
     }
@@ -256,7 +267,7 @@ function Invoke-KcQmkReadoutSafe([string]$Category, $Iface, [scriptblock]$Body) 
     }
 }
 
-if ($Mode -ne 'Interactive') {
+if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace') {
     Write-Host '読み出し検査をしています...'
     switch ($board.Key) {
         'KqMini' {
@@ -340,7 +351,7 @@ if ($sections.Count -gt 0) {
     } else {
         $tb = $expected.interactive.trackball
         $balls = @($tb.balls)
-        if ([bool]$tb.ask_balls) {
+        if ([bool]$tb.ask_balls -and ($sections -contains 'Trackball' -or $sections -contains 'Calibrate')) {
             if ($Ball) {
                 $balls = @('right', 'left')
                 if ($Ball -ne 'both') { $balls = @($Ball) }
@@ -390,7 +401,7 @@ if ($sections.Count -gt 0) {
         }
         $options = @{
             Sections = $sections; Balls = $balls; Speed = $doSpeed; Diameter = $dia; Strength = ($CalibStrength / 100.0)
-            SpeedReference = $null; CachePath = $calibCache
+            SpeedReference = $null; CachePath = $calibCache; ReadoutMismatch = $script:KcZmkMismatch
         }
         if ($SpeedReference -gt 0) {
             $options.SpeedReference = $SpeedReference
