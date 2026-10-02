@@ -61,6 +61,7 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 
   `-Avrdude` で avrdude.exe を指定しなければ、公式の Windows 版 v8.3 を初回に `tools/.cache/` へダウンロードし、SHA256 で確認して使う (PATH 上の avrdude は使わない)。その後、caterina の COM ポートが現れるたびに片側ずつ書き込む。
 - `keyball-check.ps1` は読み取り専用の診断スクリプト。`Add-Type` で読み込む C# のヘルパーを使い、raw HID で VIA の get 系コマンドを送る。VIA の set / 書き込み系のコマンドは決して送らないこと。
+- `input-monitor.ps1` は入力イベントモニタ (ファームのデバッグ用)。Raw Input で、つないでいるすべてのキーボード・マウスの入力をデバイスごとに µs のタイムスタンプ付きで記録し、停止後に分析する (キーの時系列と押下時間、AML ビュー、マウスレポートの間隔と「停滞 → まとめて到着」の検出)。ウィンドウは `lib/keyboard-check/InputTestForm.cs` の `KcInputMonitorForm` で、専用の STA スレッドでメッセージループを回す (`KcInputTestForm` のように PowerShell 側の `DoEvents` + sleep で回すと、WM_INPUT の処理が 15 ms 単位に固まって間隔を測れない)。`KcInputEvent` / `KcRawInputParser` を共有するため、別の `.cs` にはしない (`Add-Type` は 1 回ごとに別アセンブリになり、同名の型が衝突する)。`lib/input-monitor/devices.ps1` (Raw Input のパス → USB / BLE・VID / PID・製品名・同じ物理デバイスのまとめ) と `analyze.ps1` (記録の CSV / JSON の読み書き、統計、報告、ライブログ。純粋関数) に分けてあり、記録は `tools/.cache/input-monitor/<日時>.{csv,json,txt}`。`-Analyze` は Linux の `pwsh` でも動き、`tests/input-monitor.Tests.ps1` がその場で作った記録で入口のスクリプトまで通す。
 - `lib/firmware-latest.ps1` は dot-source で読み込む。`Get-FirmwareLatest` (複数のアセットを続けて取得するための `-Quiet` がある) と `Show-FirmwareBuildInfo` を提供する。TLS 1.2・`-UseBasicParsing`・進捗バーの抑止をまとめた `Invoke-FirmwareDownload` もここにあり、`flash-keyball.ps1` は avrdude のダウンロードにこれを直接使う。
 - ダウンロードしたファイルは `tools/.cache/` に保存する (git の管理外)。
 
@@ -70,7 +71,7 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 - 期待値: `tools/expected/generate.py` (Python 3.10 以上、標準ライブラリだけ) が submodule の `.keymap` / overlay / `.conf` / `keymap.c` と `zmk-keymap-docgen` の `zmk_to_vial.py` から `tools/expected/*.json` を生成し、コミットしておく。機種を足すときは `ZMK_BOARDS` と `keyboard-check.ps1` の `$boards`、CI の submodule の一覧を揃える。
 - 読み出し検査: KQ-mini は Vial、Keyball39 は VIA (ryo-aoki-pc/keyball#12 で足した読み取り専用のコマンド `08 00 01`〜`03` を含む)、ZMK は ZMK Studio の RPC。送るのは読み取りのコマンドだけで、`lib/keyboard-check/qmk.ps1` の許可リストで縛っている。Vial の unlock (`FE 06`) や VIA / Studio の set 系は送らないこと。
 - 実動作テストとトラックボールの正規化: `lib/keyboard-check/InputTestForm.cs` (Raw Input) のウィンドウで入力を記録し、`input-eval.ps1` / `trackball-calib.ps1` の純粋関数で判定する。ファームのカーソルの加速は `Remove-KcAccel` で取り除いてから計算する (加速の処理を変えたら、`tests/trackball-calib.Tests.ps1` のファームを真似た計算も合わせる)。
-- テスト: `python tools/expected/generate.py --check`、`python -m unittest discover -s tools/expected`、`tools/tests/run.ps1` (Pester は使わない。Linux の `pwsh` でも Windows 専用のテスト以外は動く)。CI は `.github/workflows/keyboard-check.yml` (Linux と Windows PowerShell 5.1)。
+- テスト: `python tools/expected/generate.py --check`、`python -m unittest discover -s tools/expected`、`tools/tests/run.ps1` (Pester は使わない。Linux の `pwsh` でも Windows 専用のテスト以外は動く。`input-monitor` のテストもここで走る)。CI は `.github/workflows/keyboard-check.yml` (Linux と Windows PowerShell 5.1)。
 - `.cs` は ASCII だけで書き、Windows PowerShell 5.1 の `Add-Type` がコンパイルできる C# 5 の構文にする。
 
 ### PowerShell の約束事 (必須)

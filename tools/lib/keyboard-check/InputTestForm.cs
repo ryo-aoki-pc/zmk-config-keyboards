@@ -1,8 +1,11 @@
-// Window for the interactive test of tools/keyboard-check.ps1.
+// Windows for the interactive test of tools/keyboard-check.ps1 (KcInputTestForm) and for the
+// input event monitor of tools/input-monitor.ps1 (KcInputMonitorForm).
 // Records Raw Input (WM_INPUT) per device: keyboard scan codes (layout independent) and
 // relative mouse movement before pointer acceleration, so key taps and trackball motion can be
-// checked against the expected values.
-// Loaded by tools/lib/keyboard-check/input-test.ps1 with Add-Type.
+// checked against the expected values, and the timing of the reports can be analyzed.
+// Loaded by tools/lib/keyboard-check/input-test.ps1 with Add-Type. Both windows live in this one
+// file because every Add-Type call makes its own assembly: a second file could not share
+// KcInputEvent / KcRawInputParser without a duplicate type name.
 // Must stay C# 5 compatible (Windows PowerShell 5.1 compiles it with the .NET Framework compiler)
 // and ASCII only. User-visible strings are passed in from PowerShell.
 using System;
@@ -16,7 +19,8 @@ using System.Windows.Forms;
 
 public sealed class KcInputEvent
 {
-    public long Time;
+    public long Time;     // milliseconds since the window was created (Stopwatch)
+    public long TimeUs;   // microseconds, set by KcInputMonitorForm only (0 in KcInputTestForm)
     public long Device;
     public string Kind;   // "key" or "mouse"
     public int Scan;
@@ -713,6 +717,430 @@ public class KcInputTestForm : Form
         ReleaseClip();
         RemoveHook();
         base.Dispose(disposing);
+    }
+}
+
+// A keyboard or mouse known to Raw Input (GetRawInputDeviceList).
+public sealed class KcInputDeviceEntry
+{
+    public long Handle;
+    public int Type;   // 0 = mouse, 1 = keyboard, 2 = other HID
+}
+
+// Window for tools/input-monitor.ps1: records every keyboard / mouse Raw Input event of every device
+// with a microsecond timestamp. The message loop runs on its own STA thread (Launch), so WM_INPUT is
+// handled as soon as it arrives and the timestamps are not quantized by the PowerShell polling loop
+// (the polling loop of KcInputTestForm handles the queued messages in 15 ms batches).
+// Unlike KcInputTestForm it is not TopMost, does not confine the cursor and does not hook the Win key,
+// so the user can type into other applications while recording. Keys are swallowed only while this
+// window is in front (Ctrl+C / Ctrl+A are let through to copy the log).
+// Every public member may be called from another thread; UI updates are marshalled with BeginInvoke.
+public sealed class KcInputMonitorForm : Form
+{
+    [StructLayout(LayoutKind.Sequential)]
+    struct RAWINPUTDEVICE
+    {
+        public ushort UsagePage;
+        public ushort Usage;
+        public uint Flags;
+        public IntPtr Target;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RAWINPUTDEVICELIST
+    {
+        public IntPtr Device;
+        public uint Type;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] devices, uint count, uint size);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern uint GetRawInputData(IntPtr rawInput, uint command, byte[] data, ref uint size, uint headerSize);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern uint GetRawInputDeviceList(RAWINPUTDEVICELIST[] list, ref uint count, uint size);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+
+    const int WM_INPUT = 0x00FF;
+    const int WM_KEYDOWN = 0x0100;
+    const int WM_KEYUP = 0x0101;
+    const int WM_CHAR = 0x0102;
+    const int WM_SYSKEYDOWN = 0x0104;
+    const int WM_SYSKEYUP = 0x0105;
+    const int WM_SYSCHAR = 0x0106;
+    const int WM_SYSCOMMAND = 0x0112;
+    const int SC_KEYMENU = 0xF100;
+    const uint RID_INPUT = 0x10000003;
+    const uint RIDEV_INPUTSINK = 0x00000100;
+    const int MaxLogChars = 400000;
+
+    readonly object sync = new object();
+    readonly List<KcInputEvent> events = new List<KcInputEvent>();
+    readonly Stopwatch clock = Stopwatch.StartNew();
+    readonly Label titleLabel = new Label();
+    readonly Label hintLabel = new Label();
+    readonly TextBox logBox = new TextBox();
+    readonly Label statusLabel = new Label();
+    readonly FlowLayoutPanel buttonBar = new FlowLayoutPanel();
+    readonly KcNoFocusButton stopButton = new KcNoFocusButton();
+    readonly KcNoFocusButton markButton = new KcNoFocusButton();
+    readonly KcNoFocusButton clearButton = new KcNoFocusButton();
+    volatile bool closed;
+    string action = "";
+
+    public KcInputMonitorForm(string title, string stop, string mark, string clear, string hint)
+    {
+        Text = title ?? "input-monitor";
+        StartPosition = FormStartPosition.CenterScreen;
+        Size = new Size(960, 680);
+        MinimumSize = new Size(640, 400);
+        KeyPreview = false;
+        ImeMode = ImeMode.Disable;
+        BackColor = Color.FromArgb(246, 247, 250);
+        Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 10f);
+
+        titleLabel.Dock = DockStyle.Top;
+        titleLabel.Height = 36;
+        titleLabel.Font = new Font(Font.FontFamily, 12f, FontStyle.Bold);
+        titleLabel.Padding = new Padding(12, 8, 12, 0);
+        titleLabel.Text = title ?? "";
+
+        hintLabel.Dock = DockStyle.Top;
+        hintLabel.Height = 70;
+        hintLabel.Padding = new Padding(12, 0, 12, 0);
+        hintLabel.ForeColor = Color.FromArgb(70, 70, 80);
+        hintLabel.Text = hint ?? "";
+
+        logBox.Dock = DockStyle.Fill;
+        logBox.Multiline = true;
+        logBox.ReadOnly = true;
+        logBox.ScrollBars = ScrollBars.Vertical;
+        logBox.WordWrap = false;
+        logBox.HideSelection = false;
+        logBox.BackColor = Color.White;
+        logBox.Font = new Font(FontFamily.GenericMonospace, 10f);
+
+        statusLabel.Dock = DockStyle.Bottom;
+        statusLabel.Height = 48;
+        statusLabel.Font = new Font(Font.FontFamily, 11f, FontStyle.Bold);
+        statusLabel.Padding = new Padding(12, 6, 12, 0);
+
+        buttonBar.Dock = DockStyle.Bottom;
+        buttonBar.Height = 52;
+        buttonBar.FlowDirection = FlowDirection.RightToLeft;
+        buttonBar.Padding = new Padding(8);
+        SetupButton(stopButton, "stop", stop);
+        SetupButton(markButton, "mark", mark);
+        SetupButton(clearButton, "clear", clear);
+        buttonBar.Controls.Add(stopButton);
+        buttonBar.Controls.Add(markButton);
+        buttonBar.Controls.Add(clearButton);
+
+        Controls.Add(logBox);
+        Controls.Add(hintLabel);
+        Controls.Add(titleLabel);
+        Controls.Add(statusLabel);
+        Controls.Add(buttonBar);
+
+        FormClosed += delegate { closed = true; };
+    }
+
+    void SetupButton(KcNoFocusButton button, string name, string text)
+    {
+        button.Width = 150;
+        button.Height = 36;
+        button.Tag = name;
+        button.Text = text ?? name;
+        button.Click += delegate
+        {
+            lock (sync)
+            {
+                action = (string)button.Tag;
+            }
+        };
+    }
+
+    // ---- called from PowerShell ----
+
+    // Opens the window on its own STA thread and returns once it is shown (or throws after 5 s).
+    public static KcInputMonitorForm Launch(string title, string stop, string mark, string clear, string hint)
+    {
+        KcInputMonitorForm[] box = new KcInputMonitorForm[1];
+        Exception[] error = new Exception[1];
+        System.Threading.ManualResetEvent ready = new System.Threading.ManualResetEvent(false);
+        System.Threading.Thread thread = new System.Threading.Thread(delegate()
+        {
+            try
+            {
+                Application.EnableVisualStyles();
+                KcInputMonitorForm form = new KcInputMonitorForm(title, stop, mark, clear, hint);
+                form.Load += delegate
+                {
+                    box[0] = form;
+                    ready.Set();
+                };
+                Application.Run(form);
+            }
+            catch (Exception ex)
+            {
+                error[0] = ex;
+            }
+            finally
+            {
+                ready.Set();
+            }
+        });
+        thread.SetApartmentState(System.Threading.ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Name = "input-monitor";
+        thread.Start();
+        if (!ready.WaitOne(5000) || box[0] == null)
+        {
+            string reason = error[0] != null ? error[0].Message : "timeout";
+            throw new InvalidOperationException("cannot open the monitor window (" + reason + ")");
+        }
+        return box[0];
+    }
+
+    // Keyboards and mice currently known to Raw Input (other HID devices are left out).
+    public static KcInputDeviceEntry[] ListDevices()
+    {
+        uint count = 0;
+        uint size = (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICELIST));
+        if (GetRawInputDeviceList(null, ref count, size) == unchecked((uint)-1) || count == 0)
+        {
+            return new KcInputDeviceEntry[0];
+        }
+        RAWINPUTDEVICELIST[] list = new RAWINPUTDEVICELIST[count];
+        uint got = GetRawInputDeviceList(list, ref count, size);
+        if (got == unchecked((uint)-1))
+        {
+            return new KcInputDeviceEntry[0];
+        }
+        List<KcInputDeviceEntry> result = new List<KcInputDeviceEntry>();
+        for (int i = 0; i < got && i < list.Length; i++)
+        {
+            if (list[i].Type != KcRawInputParser.RIM_TYPEMOUSE && list[i].Type != KcRawInputParser.RIM_TYPEKEYBOARD)
+            {
+                continue;
+            }
+            KcInputDeviceEntry d = new KcInputDeviceEntry();
+            d.Handle = list[i].Device.ToInt64();
+            d.Type = (int)list[i].Type;
+            result.Add(d);
+        }
+        return result.ToArray();
+    }
+
+    public long NowUs { get { return clock.ElapsedTicks * 1000000L / Stopwatch.Frequency; } }
+
+    public bool IsClosed { get { return closed; } }
+
+    public bool IsForeground { get { return IsHandleCreated && GetForegroundWindow() == Handle; } }
+
+    // Returns the pressed button ("stop" / "mark" / "clear") once, or "". "stop" once the window is closed.
+    public string TakeAction()
+    {
+        lock (sync)
+        {
+            string a = action;
+            action = "";
+            if (closed && a.Length == 0)
+            {
+                return "stop";
+            }
+            return a;
+        }
+    }
+
+    public KcInputEvent[] TakeEvents()
+    {
+        lock (sync)
+        {
+            KcInputEvent[] a = events.ToArray();
+            events.Clear();
+            return a;
+        }
+    }
+
+    // Appends text (one or more lines separated by CRLF) to the log.
+    public void AppendLog(string text)
+    {
+        Post(delegate { AppendLogCore(text); });
+    }
+
+    public void ClearLog()
+    {
+        Post(delegate { logBox.Clear(); });
+    }
+
+    // level: 0 = neutral, 1 = ok, 2 = ng, 3 = warning
+    public void SetStatus(string text, int level)
+    {
+        Post(delegate { SetStatusCore(text, level); });
+    }
+
+    public void RequestClose()
+    {
+        if (closed || !IsHandleCreated)
+        {
+            return;
+        }
+        Post(delegate { Close(); });
+    }
+
+    // Waits until the window is closed; false on timeout.
+    public bool WaitClosed(int timeoutMs)
+    {
+        DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (!closed && DateTime.UtcNow < deadline)
+        {
+            System.Threading.Thread.Sleep(50);
+        }
+        return closed;
+    }
+
+    // ---- internals ----
+
+    // Runs an action on the UI thread (directly when called from it or before the handle exists).
+    void Post(MethodInvoker work)
+    {
+        if (closed || IsDisposed)
+        {
+            return;
+        }
+        try
+        {
+            if (IsHandleCreated && InvokeRequired)
+            {
+                BeginInvoke(work);
+            }
+            else
+            {
+                work();
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // the window is closing
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    void AppendLogCore(string text)
+    {
+        if (closed || IsDisposed)
+        {
+            return;
+        }
+        if (logBox.TextLength > MaxLogChars)
+        {
+            string old = logBox.Text;
+            int cut = old.IndexOf('\n', old.Length / 2);
+            logBox.Text = cut >= 0 ? old.Substring(cut + 1) : "";
+        }
+        logBox.AppendText((text ?? "") + "\r\n");
+    }
+
+    void SetStatusCore(string text, int level)
+    {
+        statusLabel.Text = text ?? "";
+        switch (level)
+        {
+            case 1: statusLabel.ForeColor = Color.FromArgb(20, 120, 40); break;
+            case 2: statusLabel.ForeColor = Color.FromArgb(190, 30, 30); break;
+            case 3: statusLabel.ForeColor = Color.FromArgb(170, 100, 0); break;
+            default: statusLabel.ForeColor = Color.FromArgb(40, 40, 50); break;
+        }
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        RAWINPUTDEVICE[] devices = new RAWINPUTDEVICE[2];
+        devices[0].UsagePage = 0x01;
+        devices[0].Usage = 0x06; // keyboard
+        devices[0].Flags = RIDEV_INPUTSINK;
+        devices[0].Target = Handle;
+        devices[1].UsagePage = 0x01;
+        devices[1].Usage = 0x02; // mouse
+        devices[1].Flags = RIDEV_INPUTSINK;
+        devices[1].Target = Handle;
+        if (!RegisterRawInputDevices(devices, 2, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE))))
+        {
+            throw new InvalidOperationException("RegisterRawInputDevices failed (Win32 error " + Marshal.GetLastWin32Error() + ")");
+        }
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        switch (m.Msg)
+        {
+            case WM_INPUT:
+                ReadRawInput(m.LParam);
+                break;
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            case WM_CHAR:
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_SYSCHAR:
+                // Swallow keys while this window is in front (Alt must not enter the menu mode).
+                return;
+            case WM_SYSCOMMAND:
+                if (((int)m.WParam & 0xFFF0) == SC_KEYMENU)
+                {
+                    return;
+                }
+                break;
+        }
+        base.WndProc(ref m);
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == (Keys.Control | Keys.C) || keyData == (Keys.Control | Keys.A))
+        {
+            return base.ProcessCmdKey(ref msg, keyData); // copying the log is allowed
+        }
+        return true;
+    }
+
+    protected override bool ProcessDialogKey(Keys keyData)
+    {
+        return true;
+    }
+
+    void ReadRawInput(IntPtr handle)
+    {
+        long timeUs = NowUs;
+        uint headerSize = (uint)(8 + 2 * IntPtr.Size);
+        uint size = 0;
+        GetRawInputData(handle, RID_INPUT, null, ref size, headerSize);
+        if (size == 0)
+        {
+            return;
+        }
+        byte[] data = new byte[size];
+        if (GetRawInputData(handle, RID_INPUT, data, ref size, headerSize) == unchecked((uint)-1))
+        {
+            return;
+        }
+        KcInputEvent e = KcRawInputParser.Parse(data, IntPtr.Size, timeUs / 1000);
+        if (e != null)
+        {
+            e.TimeUs = timeUs;
+            lock (sync)
+            {
+                events.Add(e);
+            }
+        }
     }
 }
 
