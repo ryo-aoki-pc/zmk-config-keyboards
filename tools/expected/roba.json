@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-roBa",
-      "commit": "e59ed4c20fc8a63e1de7dacc284ec53ff751ce22",
+      "commit": "ada521349e480db0ceb3cc3e9a701dcc7a44e940",
       "files": ["config/roBa.keymap", "config/roBa.json", "boards/shields/roBa/roBa.dtsi", "boards/shields/roBa/roBa_R.overlay", "boards/shields/roBa/roBa_R.conf", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -582,10 +582,10 @@
     "trackball": {
       "balls": ["right"],
       "ask_balls": false,
-      "aml": {"layer": 8, "scroll_layer": 9, "timeout_ms": 10000, "require_prior_idle_ms": 200},
+      "aml": {"layer": 8, "scroll_layer": 9, "timeout_ms": 10000, "require_prior_idle_ms": 200, "threshold": 10},
       "keys": {
         "left": {
-          "scroll": {"pos": 12, "legend": "D"},
+          "scroll": {"pos": 12, "legend": "D", "usage": 7},
           "click": {"pos": 13, "legend": "F", "button": 1},
           "shift": {"pos": 22, "legend": "Z", "usage": 225},
           "release_ctrl": {"pos": 10, "legend": "A", "mod": "Ctrl", "usage": 4},
@@ -593,7 +593,7 @@
           "after_timeout": {"pos": 13, "legend": "F", "usage": 9}
         },
         "right": {
-          "scroll": {"pos": 19, "legend": "K"},
+          "scroll": {"pos": 19, "legend": "K", "usage": 14},
           "click": {"pos": 18, "legend": "J", "button": 1},
           "shift": {"pos": 33, "legend": "/", "usage": 229},
           "release_ctrl": {"pos": 21, "legend": "-", "mod": "Ctrl", "usage": 45},
@@ -627,8 +627,9 @@
   "consistency": [
     {"level": "ok", "message": "AML の除外位置 (12 19) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
-    {"level": "ok", "message": "zip_temp_layer はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
+    {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/32 (README の共通基盤: 1/32、CPI 800 のため)"},
-    {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"}
+    {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
+    {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"}
   ]
 }

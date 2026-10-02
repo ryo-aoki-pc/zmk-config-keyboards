@@ -35,7 +35,8 @@
 | ローカルビルド | `Makefile` + `scripts/` + `.devcontainer/` (`make` / `make single` など) |
 | タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
 | AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置は D / K (`&mo SCRL`) だけ、マウスクリックでタイマー延長。修飾キーの位置 (A / - / Z / / / Win / Alt) を押しても AML が切れる。MOUSE_MOVE ではそこを `&trans` にしてあり、BASE と同じキーになる (A / - / Z / / はタップで文字、長押しで Ctrl / Shift)。マウスを使った直後に `a` や `z` を入力できる |
-| マウスレイヤーの修飾キー | MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。修飾キーとクリック・ホイールを組み合わせるときは、`D` / `K` を押してから修飾キーを押す (例: `D` → `Z` → `F` で Shift + クリック、`D` → `A` → ボールで Ctrl + ホイール)。修飾キーを先に押すと AML が切れ、`D` が文字になる。修飾キーを押したままボールを転がすと、200ms 後に AML に戻る |
+| AML の発動条件 | キー入力の振動などでボールがわずかに動いても AML にならない。キーを押した・離したあと `require-prior-idle-ms` (200ms) は発動せず (すべてのキーの押下と解放を数える)、止まっていた状態から動いた量 (X と Y それぞれ向き付きで足すので、行ったり来たりする振動は打ち消し合う) が 10 (加速の後の値 = カーソルの移動量) に達したら発動する。トラックボールのリスナーで `zip_temp_layer` の代わりに [zmk-input-processor-aml-threshold](https://github.com/ryo-aoki-pc/zmk-input-processor-aml-threshold) の `aml_threshold` (`threshold 10`) を使う。カーソルの動き、AML 中のタイムアウトの延長、クリックでの延長は変わらない。Keyball39 も同じ (`keymaps/via/config.h` の `KEYBALL_AML_THRESHOLD`、待ちは `AUTO_MOUSE_DELAY`)。調整は [AML の発動条件の調整](#aml-の発動条件の調整) |
+| マウスレイヤーの修飾キー | MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。修飾キーとクリック・ホイールを組み合わせるときは、`D` / `K` を押してから修飾キーを押す (例: `D` → `Z` → `F` で Shift + クリック、`D` → `A` → ボールで Ctrl + ホイール)。修飾キーを先に押すと AML が切れ、`D` が文字になる。修飾キーを押したままボールを転がすと、押してから 200ms たったあとにカーソルが 10 以上動いたところで AML に戻る |
 | トラックボールの細かさ | センサーの値を引き伸ばさず、1 カウントでカーソルが 1 動く (2 倍などにすると 2 ずつ飛ぶ)。AroundFortyRB / roBa は CPI 800、KUKEY42 は CPI 2000 + 楕円の補正 (`trackball_matrix` の divisor 2000)。LisM / Pyuron / torabo-tsuki-lp (PAW3222) は CPI を設定せず等倍 |
 | カーソルの加速 | 転がす速さに応じて移動量に倍率を掛ける ([zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) の `trackball_accel`)。速さ 0 で 0.5 倍 → 1000 カウント/秒で等倍 → 4000 カウント/秒以上で 1.3 倍 (`min-factor 500` / `speed-threshold 1000` / `max-factor 1300` / `speed-max 4000`)。カーソル移動だけに掛け、スクロールには掛けない。Keyball39 も同じ値 (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`)。調整は [カーソルの加速の調整](#カーソルの加速の調整) |
 | スクロール | `zip_scroll_scaler 1 16` (1/16)。例外: AroundFortyRB / roBa は CPI 800 なので `zip_scroll_scaler 1 32` (CPI 400 のときの 1/16 と同じ速さ)、KUKEY42 はドライバの `CONFIG_PMW3610_SCROLL_TICK=32`、torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
@@ -75,13 +76,32 @@
 | KUKEY42 | `boards/shields/KUKEY42/KUKEY42_R.overlay` |
 | Keyball39 | `qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h` |
 
+### AML の発動条件の調整
+
+キー入力の振動などでボールがわずかに動いても AML (マウスレイヤー) にならないよう、AML の発動に条件を付けています。
+
+- キーを押した・離したあと 200ms (keymap の `zip_temp_layer` の `require-prior-idle-ms`) は発動しない
+- 止まっていた状態から動いた量が 10 (`threshold`) に達したら発動する。動いた量は X と Y それぞれ向き付きで足すので、行ったり来たりする振動は打ち消し合う。大きさは「大きいほう + 小さいほうの半分」(√(X² + Y²) の近似)
+- 値は加速の後 (カーソルの移動量) で数える。ゆっくり転がすと加速が 0.5 倍なので、ボールのカウントでは約 2 倍になる
+- 100ms 以上動きが途切れたら、0 から数え直す
+- AML が有効な間は、これまでどおり少しでも動けばタイムアウトが延びる
+
+| 症状 | 変える値 |
+| --- | --- |
+| まだキー入力の振動で AML になる | `threshold` を上げる (例: 20) |
+| キーを離した直後に AML になる | keymap の `zip_temp_layer` の `require-prior-idle-ms` を上げる (例: 300) |
+| ボールを少し動かしただけでは AML にならない | `threshold` を下げる (例: 5)。0 にすると、キー入力の直後でなければ動いたらすぐ発動する |
+
+`aml_threshold` ノードは、各キーボードの `trackball_accel` と同じファイルにあります ([カーソルの加速の調整](#カーソルの加速の調整) の表)。
+Keyball39 は `qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h` の `KEYBALL_AML_THRESHOLD` (待ちは `AUTO_MOUSE_DELAY`) です。
+
 ### Keyboard Quantizer Mini + Keyball39 の役割分担
 
 keyball39 (via) は LisM BASE 配列の素の HID コードだけを送り、レイヤー・MT/LT・タップホールド設定
 (`&mt` / `&lt` の tapping-term / quick-tap / flavor) は vial-qmk-kq-mini 側の EEPROM デフォルト
 (`zmk_to_vial.py` で `lism.keymap` + `lism.vialmap.json` から生成) が担当します。
 Quantizer に無いマウスレイヤー (MOUSE_MOVE / MOUSE_SCROLL) と AML の除外キー・タイムアウト・
-require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&zip_temp_layer` 設定を再現しています。
+require-prior-idle・発動のしきい値は keyball39 本体側で LisM の `trackball.overlay` / `&zip_temp_layer` 設定を再現しています。
 
 - マウスレイヤーの修飾キー:
   - AML レイヤーでは、KQ-mini が mod-tap にする位置 (A / - / Z / /) とベースの Win / Alt の位置は `KC_TRNS` です。押すと AML が切れ、ベースと同じ素のキーを送ります。A / - / Z / / は KQ-mini の mod-tap になります (タップで文字、長押しで Ctrl / Shift)
@@ -110,6 +130,7 @@ require-prior-idle は keyball39 本体側で LisM の `trackball.overlay` / `&z
 | --- | --- | --- |
 | [zmk-keymap-docgen](https://github.com/ryo-aoki-pc/zmk-keymap-docgen) | `main` | キーマップドキュメント生成ツール |
 | [zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) | `main` | カーソルの加速の入力プロセッサ。ZMK の 6 リポジトリが `config/west.yml` でコミットを固定して取り込む |
+| [zmk-input-processor-aml-threshold](https://github.com/ryo-aoki-pc/zmk-input-processor-aml-threshold) | `main` | AML の発動条件の入力プロセッサ (振動などのわずかな動きでは AML にしない)。ZMK の 6 リポジトリが `config/west.yml` でコミットを固定して取り込む |
 
 ### QMK/Vial 関連
 
@@ -394,7 +415,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 | 機種 | 検査する内容 | 準備 |
 | --- | --- | --- |
 | Keyboard Quantizer Mini + Keyball39 | KQ-mini のキーマップ (全 8 レイヤー)、タップホールド設定 (tapping term など)、タップダンス、キーオーバーライド、コンボ、マクロ | KQ-mini を PC につなぐ。Vial は閉じる |
-| Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML・カーソルの加速の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12) 以降のファームで読める |
+| Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML (しきい値を含む)・カーソルの加速の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12)、AML のしきい値は [ryo-aoki-pc/keyball#16](https://github.com/ryo-aoki-pc/keyball/pull/16) 以降のファームで読める |
 | LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash-zmk.cmd` のファイルの一覧で `s`)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
 
 ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) は ZMK Studio では読めないので、実動作テストで確かめます。
@@ -411,9 +432,12 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
 | Shift + クリック | ボールを転がしたあと、`D` → `Z` → `F` で Shift + クリックになる |
 | AML の Ctrl / Shift での解除 | ボールを転がしたあと `A` (長押しで Ctrl) をタップすると、AML が切れて `a` が入力される。`Z` (長押しで Shift) も同じ |
 | スクロールの向き | `D` を押しながら手前へ転がすと下へ、右へ転がすと右へスクロールする (マウスのホイールと同じ向き) |
-| AML のタイムアウト | 10 秒触らないと AML が切れ、`F` で文字が入力される |
+| AML のタイムアウト | 10 秒触らないと AML が切れ、`D` を押したまま `F` で文字 (`d` と `f`) が入力される (AML のままだとクリックになる) |
+| AML のしきい値 | ボールにそっと触れてカーソルを数ドット (しきい値 10 未満) だけ動かしたあと、`D` を押したまま `F` で文字が入力される (わずかな動きでは AML にならない)。AML のタイムアウトが合格したときだけ行う |
 
 - 右手側のボールは左手のキー (`D` / `F` / `Z` / `A`)、左手側のボールは右手のキー (`K` / `J` / `/` / `-`) で試す
+- AML はカーソルがしきい値 (10) 以上動いたときに発動するので、AML のテストでボールの動きが小さすぎたときはやり直しになる
+- AML 中の `F` は ZMK では文字になる (`zip_temp_layer` が keymap より先に AML を切る) ので、AML が切れたかは `D` (AML 中はスクロールのキー) を押したまま `F` で確かめる
 - Win / Alt でも AML が切れるが、AML 中でも BASE でも同じキーが出るため、実動作テストでは確かめない (設定ファイルの整合と、Keyball のキーマップの読み出しで確かめる)
 - テスト中は、Win キーでスタートメニューが開かず、キーボードから送られたクリックはウィンドウの中だけで起きるようにしてある
 
@@ -459,7 +483,9 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
 | ZMK のキーマップが FAIL | ZMK Studio で保存した変更が残っている。Studio の「Restore Stock Settings」か、`tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」 |
 | ZMK の読み出しが SKIP (応答がない) | キーボードの出力が BLE になっている。BT レイヤーのキーを押しながら `U` (`&out OUT_USB`) で USB に切り替える |
 | スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
-| AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer`、Keyball の `AUTO_MOUSE_*`) が動いていない |
+| AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer` / `aml_threshold`、Keyball の `AUTO_MOUSE_*`) が動いていない。ボールの動きが小さすぎたときは FAIL ではなくやり直しになる |
+| AML のしきい値が FAIL (わずかな動きでクリックになった) | しきい値の無い古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む |
+| Keyball39 の AML のしきい値が SKIP / FAIL | SKIP はしきい値の無い古いファーム、FAIL は `config.h` の `KEYBALL_AML_THRESHOLD` が違うファーム。`tools/flash-keyball.cmd` で最新のファームを書き込む |
 | AML の Ctrl / Shift での解除が FAIL (修飾キーだけが入力された) | Ctrl / Shift で AML を解除しない古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む。長押しになった場合 (Ctrl / Shift になる) は、短く押してやり直す |
 | 読み出し検査は PASS なのに、タップホールドや AML の動作が意図と違う | [入力イベントを記録して調べる](#入力イベントを記録して調べる-toolsinput-monitorcmd) で、PC に届いたキーとタイミング (押下時間、修飾キーが出た時刻、ボールの移動からの経過) を見る |
 

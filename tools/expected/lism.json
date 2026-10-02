@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-LisM",
-      "commit": "8a6e6400b98ea9e7264f4509e3f2f5991d64e70f",
+      "commit": "24166537bfebace5e7711202abb68dcd730285d6",
       "files": ["config/lism.keymap", "config/lism.json", "boards/shields/lism/lism.dtsi", "build.yaml", "snippets/trackball-central/trackball.overlay", "snippets/trackball-peripheral/trackball.overlay", "snippets/non-trackball-central/non_trackball.overlay"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -570,10 +570,10 @@
     "trackball": {
       "balls": ["left", "right"],
       "ask_balls": true,
-      "aml": {"layer": 8, "scroll_layer": 9, "timeout_ms": 10000, "require_prior_idle_ms": 200},
+      "aml": {"layer": 8, "scroll_layer": 9, "timeout_ms": 10000, "require_prior_idle_ms": 200, "threshold": 10},
       "keys": {
         "left": {
-          "scroll": {"pos": 12, "legend": "D"},
+          "scroll": {"pos": 12, "legend": "D", "usage": 7},
           "click": {"pos": 13, "legend": "F", "button": 1},
           "shift": {"pos": 20, "legend": "Z", "usage": 225},
           "release_ctrl": {"pos": 10, "legend": "A", "mod": "Ctrl", "usage": 4},
@@ -581,7 +581,7 @@
           "after_timeout": {"pos": 13, "legend": "F", "usage": 9}
         },
         "right": {
-          "scroll": {"pos": 17, "legend": "K"},
+          "scroll": {"pos": 17, "legend": "K", "usage": 14},
           "click": {"pos": 16, "legend": "J", "button": 1},
           "shift": {"pos": 29, "legend": "/", "usage": 229},
           "release_ctrl": {"pos": 19, "legend": "-", "mod": "Ctrl", "usage": 45},
@@ -629,10 +629,12 @@
   "consistency": [
     {"level": "ok", "message": "AML の除外位置 (12 17) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
-    {"level": "ok", "message": "zip_temp_layer はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
+    {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/16 (README の共通基盤: 1/16)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "カーソルの加速 (左のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
+    {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"},
+    {"level": "ok", "message": "AML の発動条件 (左のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"},
     {
       "level": "warn",
       "message": "左ボールのスクロールの処理が、右手側の版で違います (trackball-central: <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>, <&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16> / non-trackball-central: <&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16>)。右手側の版によって左ボールのスクロールの向きが変わる可能性があります"

@@ -88,8 +88,59 @@ Test-Case 'AML のクリック、Shift + クリック、タイムアウト' {
     $z = (New-TapEvents @(0x1D)) + $sc
     Assert-Equal 'FAIL' (Test-KcShiftClick $z 0xE1 1 $scan).Status
 
-    Assert-Equal 'PASS' (Test-KcAfterTimeout (New-TapEvents @(0x09)) 0x09 $scan).Status
-    Assert-Equal 'FAIL' (Test-KcAfterTimeout $click 0x09 $scan).Status
+    # D を押したまま F: どちらも文字なら AML が切れている。クリックや、F だけ (D が文字にならない) なら AML のまま
+    Assert-Equal 'PASS' (Test-KcAmlOff (New-TapEvents @(0x07, 0x09)) 0x07 0x09 $scan).Status
+    $still = Test-KcAmlOff $click 0x07 0x09 $scan 'AML が時間がたっても切れていません'
+    Assert-Equal 'FAIL' $still.Status
+    Assert-Equal 'AML が時間がたっても切れていません' $still.Message
+    Assert-Equal 'FAIL' (Test-KcAmlOff (New-TapEvents @(0x09)) 0x07 0x09 $scan).Status
+    Assert-Equal 'NONE' (Test-KcAmlOff (New-TapEvents @(0x07)) 0x07 0x09 $scan).Status
+    Assert-Equal 'NONE' (Test-KcAmlOff @() 0x07 0x09 $scan).Status
+}
+
+Test-Case 'AML の発動に要る動き: 大きいほう + 小さいほうの半分、キーより前だけ数える' {
+    Assert-Equal 10 (Get-KcAmlDistance 7 -6)
+    Assert-Equal 12 (Get-KcAmlDistance -5 10)
+    $ev = @((New-KcMouseEvent 0 6 0), (New-KcMouseEvent 8 -2 0), (New-KcMouseEvent 16 0 3)) + (New-TapEvents @(0x07) 30) + @((New-KcMouseEvent 60 50 0))
+    $m = Measure-KcMotionBeforeKey $ev
+    Assert-Equal 4 $m.Dx
+    Assert-Equal 3 $m.Dy
+    Assert-Equal 5 $m.Distance
+    Assert-Equal 11 $m.Path
+    Assert-True ($null -eq (Test-KcAmlMotion $ev 0)) 'しきい値なし'
+    Assert-True ($null -eq (Test-KcAmlMotion $ev 5)) '足りている'
+    Assert-Equal 'NONE' (Test-KcAmlMotion $ev 10).Status
+}
+
+Test-Case 'AML の判定: ボールの動きが小さすぎるとやり直し (AML にならないまま文字が出ても FAIL / PASS にしない)' {
+    $smallMove = @((New-KcMouseEvent 0 3 0))
+    $bigMove = @((New-KcMouseEvent 0 30 0))
+    $typed = $smallMove + (New-TapEvents @(0x07, 0x09) 10)
+    $click = Test-KcAmlClick $typed 1 $scan -Threshold 10
+    Assert-Equal 'NONE' $click.Status
+    Assert-True ($click.Message -like '*小さすぎ*10*') $click.Message
+    Assert-Equal 'FAIL' (Test-KcAmlClick ($bigMove + (New-TapEvents @(0x07, 0x09) 10)) 1 $scan -Threshold 10).Status
+    Assert-Equal 'FAIL' (Test-KcAmlClick $typed 1 $scan).Status    # しきい値の無い期待値ではこれまでどおり
+    Assert-Equal 'NONE' (Test-KcShiftClick ($smallMove + (New-TapEvents @(0x07, 0xE1, 0x09) 10)) 0xE1 1 $scan -Threshold 10).Status
+    Assert-Equal 'NONE' (Test-KcAmlRelease ($smallMove + (New-TapEvents @(0x04) 10)) 0x04 $scan -Threshold 10).Status
+    Assert-Equal 'PASS' (Test-KcAmlRelease ($bigMove + (New-TapEvents @(0x04) 10)) 0x04 $scan -Threshold 10).Status
+}
+
+Test-Case 'AML のしきい値: わずかな動きのあと D を押したまま F で文字なら PASS' {
+    $tiny = @((New-KcMouseEvent 0 2 0), (New-KcMouseEvent 8 0 -3))   # 道のり 5
+    $df = New-TapEvents @(0x07, 0x09) 20
+    $ok = Test-KcAmlThreshold ($tiny + $df) 0x07 0x09 10 $scan
+    Assert-Equal 'PASS' $ok.Status
+    Assert-True ($ok.Actual -like '動き 5:*') $ok.Actual
+    # 道のりがしきい値未満なのにクリックになった = しきい値の無い古いファーム
+    $aml = $tiny + @((New-KcMouseEvent 30 0 0 0x0001), (New-KcMouseEvent 60 0 0 0x0002))
+    $fail = Test-KcAmlThreshold $aml 0x07 0x09 10 $scan
+    Assert-Equal 'FAIL' $fail.Status
+    Assert-True ($fail.Message -like '*古いファーム*') $fail.Message
+    # 動いていない / 動かしすぎ (行ったり来たりでも道のりで数える) はやり直し
+    Assert-Equal 'NONE' (Test-KcAmlThreshold $df 0x07 0x09 10 $scan).Status
+    $wiggle = @((New-KcMouseEvent 0 6 0), (New-KcMouseEvent 8 -6 0))
+    Assert-Equal 'NONE' (Test-KcAmlThreshold ($wiggle + $df) 0x07 0x09 10 $scan).Status
 }
 
 Test-Case 'AML の Ctrl / Shift での解除' {
