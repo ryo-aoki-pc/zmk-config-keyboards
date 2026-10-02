@@ -7,10 +7,10 @@
   "sources": [
     {
       "submodule": "keyball",
-      "commit": "a89d89789aea449b305b0acd68dd862524f3c663",
-      "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/info.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
+      "commit": "22d7e3cf1e80227e2c34c552dde980e4ebf2e6fd",
+      "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/keyboard.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["vial_keymap_docgen.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["vial_keymap_docgen.py"]}
   ],
   "device": {"usb_vid": "5957", "usb_pid": "0200", "usage_page": "FF60", "usage": "61"},
   "layers": [
@@ -117,8 +117,8 @@
       "tokens": [
         ["KC_Q", "KC_W", "KC_E", "KC_R", "KC_T", "KC_Y", "KC_U", "KC_I", "KC_O", "KC_P", "KC_A", "KC_S", "KC_D", "KC_F", "KC_G", "KC_H", "KC_J", "KC_K", "KC_L", "KC_MINS", "KC_Z", "KC_X", "KC_C", "KC_V", "KC_B", "KC_N", "KC_M", "KC_COMM", "KC_DOT", "KC_SLSH", "KC_GRV", "KC_LGUI", "KC_LALT", "KC_SPC", "KC_SPC", "KC_RALT", "KC_CAPS", "KC_ENT", "&none", "&none", "KC_GRV", "KC_GRV"],
         ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&trans", "&none", "MO(2)", "&none", "&none", "&none", "&none", "MO(2)", "&none", "&trans", "&trans", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&trans", "&none", "&trans", "&trans", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
-        ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_LCTL", "KC_BTN2", "&none", "KC_BTN1", "&none", "&none", "KC_BTN1", "&none", "KC_BTN2", "KC_RCTL", "KC_LSFT", "KC_BTN5", "&none", "KC_BTN4", "&none", "&none", "KC_BTN4", "&none", "KC_BTN5", "KC_RSFT", "&none", "KC_LGUI", "KC_LALT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
-        ["RGB_TOG", "AML_TO", "AML_I50", "AML_D50", "&trans", "&trans", "&trans", "SSNP_HOR", "SSNP_VRT", "SSNP_FRE", "RGB_MOD", "RGB_HUI", "RGB_SAI", "RGB_VAI", "SCRL_DVI", "&trans", "&trans", "&trans", "&trans", "&trans", "RGB_RMOD", "RGB_HUD", "RGB_SAD", "RGB_VAD", "SCRL_DVD", "CPI_D1K", "CPI_D100", "CPI_I100", "CPI_I1K", "KBC_SAVE", "QK_BOOT", "KBC_RST", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "KBC_RST", "QK_BOOT"]
+        ["&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "KC_LCTL", "MS_BTN2", "&none", "MS_BTN1", "&none", "&none", "MS_BTN1", "&none", "MS_BTN2", "KC_RCTL", "KC_LSFT", "MS_BTN5", "&none", "MS_BTN4", "&none", "&none", "MS_BTN4", "&none", "MS_BTN5", "KC_RSFT", "&none", "KC_LGUI", "KC_LALT", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none", "&none"],
+        ["UG_TOGG", "AML_TO", "AML_I50", "AML_D50", "&trans", "&trans", "&trans", "SSNP_HOR", "SSNP_VRT", "SSNP_FRE", "UG_NEXT", "UG_HUEU", "UG_SATU", "UG_VALU", "SCRL_DVI", "&trans", "&trans", "&trans", "&trans", "&trans", "UG_PREV", "UG_HUED", "UG_SATD", "UG_VALD", "SCRL_DVD", "CPI_D1K", "CPI_D100", "CPI_I100", "CPI_I1K", "KBC_SAVE", "QK_BOOT", "KBC_RST", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "&trans", "KBC_RST", "QK_BOOT"]
       ],
       "layout_options": {"mask": 3, "value": 1, "ball": "Right"},
       "macros_empty": true,
