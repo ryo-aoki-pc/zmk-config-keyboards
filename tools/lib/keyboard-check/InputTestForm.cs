@@ -1026,10 +1026,7 @@ public sealed class KcInputMonitorForm : Form
         }
         catch (InvalidOperationException)
         {
-            // the window is closing
-        }
-        catch (ObjectDisposedException)
-        {
+            // the window is closing (ObjectDisposedException is a subclass of this one)
         }
     }
 
