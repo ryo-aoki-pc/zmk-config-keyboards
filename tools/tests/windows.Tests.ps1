@@ -70,4 +70,25 @@ Test-Case 'Raw Input の解析: キー (E0 付き) とマウス (移動・ボタ
     [BitConverter]::GetBytes([uint16]0x02).CopyTo($fake, 2)     # E0 の左 Shift (偽の Shift) は捨てる
     Assert-Equal $null ([KcRawInputParser]::Parse((New-RawInputBytes 1 1 $fake 4), 4, 7))
     Assert-Equal $null ([KcRawInputParser]::Parse((New-RawInputBytes 1 0 $kb), 8, 7)) '注入された入力 (デバイス 0) は捨てる'
+    Assert-Equal 0 $e.TimeUs 'TimeUs はモニター用のウィンドウだけが埋める'
+}
+
+Test-Case 'InputTestForm.cs: モニター用のウィンドウ (KcInputMonitorForm) を作れる' -WindowsOnly {
+    Import-KcInputForm
+    $form = New-Object KcInputMonitorForm('t', '停止', 'マーク', 'クリア', 'hint')
+    try {
+        $form.AppendLog('x')
+        $form.SetStatus('s', 1)
+        Assert-Equal '' $form.TakeAction()
+        Assert-Equal 0 @($form.TakeEvents()).Count
+        Assert-True ($form.NowUs -ge 0) 'NowUs'
+        Assert-True (-not $form.IsClosed)
+        $form.RequestClose()
+    } finally {
+        $form.Dispose()
+    }
+    $list = @([KcInputMonitorForm]::ListDevices())
+    foreach ($d in $list) {
+        Assert-True ($d.Type -eq 0 -or $d.Type -eq 1) 'キーボードとマウスだけ'
+    }
 }
