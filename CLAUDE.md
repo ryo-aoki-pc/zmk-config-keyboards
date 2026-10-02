@@ -23,7 +23,7 @@ README、スクリプトの表示メッセージとコメント、コミット�
 
 ### LisM 基準
 
-`zmk-config-LisM` が、レイヤー構成 (BASE … SCRL の 10 レイヤー)、タップホールド設定、AML (オートマウスレイヤー。発動条件の `aml_threshold` の値を含む)、スクロール速度、カーソルの加速 (`trackball_accel` の値)、スリープの基準になっている。ZMK の 6 リポジトリはすべてこれに揃えている (例外は README の「共通基盤」の表に書く。例: torabo-tsuki-lp のスクロール速度)。動作の変更は、たいてい ZMK の 6 リポジトリすべてに入れる必要があり、`keyball` と `vial-qmk-kq-mini` にも入れることが多い。そうした変更では README の「共通基盤」の表も更新する。
+`zmk-config-LisM` が、レイヤー構成 (BASE … SCRL の 10 レイヤー)、タップホールド設定、AML (オートマウスレイヤー。発動条件の `aml_threshold` の値と、スクロール中も延ばす `zip_temp_layer` を含む)、スクロールの速度と向き、カーソルの加速 (`trackball_accel` の値)、スリープ、BLE (ZMK の既定値のまま、機種ごとの調整を入れない) の基準になっている。ZMK の 6 リポジトリはすべてこれに揃えている (例外は README の「共通基盤」の表に書く。例: torabo-tsuki-lp のスクロール速度)。動作の変更は、たいてい ZMK の 6 リポジトリすべてに入れる必要があり、`keyball` と `vial-qmk-kq-mini` にも入れることが多い。そうした変更では README の「共通基盤」の表も更新する。
 
 KQ-mini と Keyball39 は組み合わせて使い、役割を分担している:
 - Keyball39 は LisM BASE 配列の素の HID コードだけを送る。マウスレイヤーと AML (発動のしきい値を含む)、カーソルの加速も Keyball39 側で実装している。

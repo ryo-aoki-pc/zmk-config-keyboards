@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-roBa",
-      "commit": "ada521349e480db0ceb3cc3e9a701dcc7a44e940",
+      "commit": "0cf1c84383a27db341cfa5d88b80747ae9361d43",
       "files": ["config/roBa.keymap", "config/roBa.json", "boards/shields/roBa/roBa.dtsi", "boards/shields/roBa/roBa_R.overlay", "boards/shields/roBa/roBa_R.conf", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -628,6 +628,7 @@
     {"level": "ok", "message": "AML の除外位置 (12 19) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
+    {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (roBa/roBa_R.overlay の scroll-layer)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/32 (README の共通基盤: 1/32、CPI 800 のため)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"}

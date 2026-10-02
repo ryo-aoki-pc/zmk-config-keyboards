@@ -5,9 +5,9 @@
   "name": "Keyboard Quantizer Mini (+ Keyball39)",
   "kind": "vial",
   "sources": [
-    {"submodule": "zmk-config-LisM", "commit": "24166537bfebace5e7711202abb68dcd730285d6", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
+    {"submodule": "zmk-config-LisM", "commit": "7ee52395a887afca5b8bc69199c061855f58c1e0", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["zmk_to_vial.py"]},
-    {"submodule": "keyball", "commit": "22d7e3cf1e80227e2c34c552dde980e4ebf2e6fd", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
+    {"submodule": "keyball", "commit": "14403eb2bc387b02a04b364951d43be7b3448166", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
   ],
   "device": {"usb_vid": "FEED", "usb_pid": "999C", "usage_page": "FF60", "usage": "61", "vial_uid": [5, 228, 161, 127, 220, 135, 203, 42]},
   "layers": [

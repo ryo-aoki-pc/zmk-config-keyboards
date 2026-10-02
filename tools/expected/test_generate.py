@@ -122,6 +122,58 @@ class TestAmlThresholdParser(unittest.TestCase):
                 g.aml_threshold_nodes(Path(d), ['a.overlay'])
 
 
+class TestScrollAml(unittest.TestCase):
+    OVERLAY = '''
+&peripheral_listener {
+    input-processors = <&trackball_accel>, <&aml_threshold MOUS 10000>;
+    scroller {
+        layers = <SCRL>; // コメント
+        input-processors =
+            <&zip_temp_layer MOUS 10000>,   // スクロール中も MOUS を維持する
+            <&zip_xy_to_scroll_mapper>;
+    };
+};
+&central_listener {
+    scroller {
+        layers = <9>;
+        input-processors = <&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16>;
+    };
+    other {
+        layers = <3>;
+        input-processors = <&zip_xy_to_scroll_mapper>;
+    };
+};
+'''
+
+    def test_chains(self):
+        text = g.strip_c_comments(self.OVERLAY).replace('SCRL', '9').replace('MOUS', '8')
+        chains = g.scroll_chains(text, 9)
+        self.assertEqual([name for name, _ in chains], ['scroller', 'scroller'])
+        self.assertTrue(g.keeps_aml(chains[0][1], 8))
+        self.assertFalse(g.keeps_aml(chains[1][1], 8))
+        self.assertFalse(g.keeps_aml('<&zip_temp_layer 8 5000>', 8))
+        self.assertFalse(g.keeps_aml('<&zip_temp_layer 7 10000>', 8))
+
+    def test_consistency(self):
+        import tempfile
+        board = {'files': ['a/b.overlay'], 'scroll': {'scaler': [1, 16]}}
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, 'a').mkdir()
+            p = Path(d, 'a/b.overlay')
+            p.write_text(self.OVERLAY, encoding='utf-8')
+            r = g.scroll_aml_consistency(board, Path(d), 8, 9)
+            self.assertEqual(r['level'], 'warn')
+            self.assertIn('a/b.overlay の scroller', r['message'])
+            p.write_text(self.OVERLAY.replace('<&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16>',
+                                              '<&zip_temp_layer 8 10000>, <&zip_xy_to_scroll_mapper>'),
+                         encoding='utf-8')
+            self.assertEqual(g.scroll_aml_consistency(board, Path(d), 8, 9)['level'], 'ok')
+            p.write_text('&x { input-processors = <&trackball_accel>; };', encoding='utf-8')
+            r = g.scroll_aml_consistency(board, Path(d), 8, 9)
+            self.assertEqual(r['level'], 'warn')
+            self.assertIn('見つかりません', r['message'])
+
+
 class TestTables(unittest.TestCase):
     def test_scan_codes(self):
         self.assertEqual(g.HID_SCAN[0x04][:2], (0x1E, 0))          # A
@@ -260,6 +312,12 @@ class TestGenerate(unittest.TestCase):
         kq = self.data['kq-mini.json']['interactive']['trackball']['firmware']
         self.assertEqual(kq[0]['accel'], kb)                 # KQ-mini 経由でも Keyball の加速
         self.assertIsNone(kq[1]['accel'])
+
+    def test_scroll_keeps_aml(self):
+        # LisM 基準: スクロール中も AML を延ばす (すべての ZMK の機種で ok)
+        for b in g.ZMK_BOARDS:
+            msgs = [c for c in self.data[f'{b["id"]}.json']['consistency'] if 'スクロール中' in c['message']]
+            self.assertEqual([c['level'] for c in msgs], ['ok'], b['id'])
 
     def test_products(self):
         products = {b['id']: self.data[f'{b["id"]}.json']['device']['product'] for b in g.ZMK_BOARDS}
