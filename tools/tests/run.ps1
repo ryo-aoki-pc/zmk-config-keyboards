@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     - tools/**/*.ps1 が UTF-8 (BOM 付き) で、構文エラーが無いこと
-    - Windows PowerShell 5.1 で使えない構文 (??、?.、三項演算子、&& など) を使っていないこと
+    - Windows PowerShell 5.1 で使えない構文 (??、?.、三項演算子、&&、文字列の `e など) を使っていないこと
     - .cmd / .cs / .xaml が ASCII だけで書かれていること
     - tools/tests/*.Tests.ps1 の各テスト (偽のデバイスを使った読み出し検査、判定の計算など)
 
@@ -189,6 +189,13 @@ Test-Case 'Windows PowerShell 5.1 で使えない構文を使っていない' {
             }, $true)
         foreach ($n in $found) {
             $bad += ('{0}:{1} {2}' -f $f.Name, $n.Extent.StartLineNumber, $n.Extent.Text)
+        }
+        # 文字列のエスケープ `e (ESC) と `u{...} は PowerShell 6 から。5.1 では e や u{...} のままになる
+        foreach ($t in $tokens) {
+            if ($t.Kind -ne 'StringExpandable' -and $t.Kind -ne 'HereStringExpandable') { continue }
+            if ($t.Text -match '(?<!`)(?:``)*`(?:e|u\{)') {
+                $bad += ('{0}:{1} {2}' -f $f.Name, $t.Extent.StartLineNumber, $t.Text)
+            }
         }
     }
     Assert-Equal '' ($bad -join ' / ') 'PS7 専用の構文:'

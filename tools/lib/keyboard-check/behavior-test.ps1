@@ -179,7 +179,7 @@ function Show-KcBehaviorStep($Ctx, $Scenario, $Step, [string]$Title) {
     }
     $instruction = [string]$Step.text + 'してください'
     $form.SetTexts($Title, $instruction, $detail.Trim())
-    Update-KcBehaviorOutputs $Ctx $Step @()
+    [void](Update-KcBehaviorOutputs $Ctx $Step @())
 }
 
 # 期待する入力と実際の入力のキーキャップ

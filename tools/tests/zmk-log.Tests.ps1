@@ -71,7 +71,9 @@ function Get-ZlPress($State, [int]$Pos, [int]$Nth = 1) {
 }
 
 Test-Case '行の解析: 色・時刻・関数名、知らない行、欠落' {
-    $r = ConvertFrom-KcZmkLogLine ("`e[1;34m" + (New-ZlApply 12345.678 2 12 'MM_VIM_D') + "`e[0m`r")
+    # ESC は [char]27 で書く (`e は PowerShell 6 から。5.1 では ESC にならない)
+    $esc = [string][char]27
+    $r = ConvertFrom-KcZmkLogLine ($esc + '[1;34m' + (New-ZlApply 12345.678 2 12 'MM_VIM_D') + $esc + "[0m`r")
     Assert-Equal 'apply' $r.Type
     Assert-Equal 2 $r.Layer
     Assert-Equal 12 $r.Pos

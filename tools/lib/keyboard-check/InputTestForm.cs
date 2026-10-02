@@ -1412,13 +1412,18 @@ public sealed class KcInputTestForm : IDisposable
     }
 
     // On a low window (small screen, high scaling) the long instructions would push the keyboard
-    // picture out: the texts shrink with the height (down to 72 %).
+    // picture out: the texts shrink with the height (down to 72 %), and so do the layer strip, the
+    // chips of the presses and the key caps of the input (with the steps of the behaviors test).
     void FitTexts()
     {
         double f = Math.Max(0.72, Math.Min(1.0, root.ActualHeight / RoomyHeight));
         instructionText.FontSize = 26 * f;
         detailText.FontSize = 15 * f;
         statusText.FontSize = 16 * f;
+        ScaleTransform scale = new ScaleTransform(f, f);
+        layerStrip.LayoutTransform = scale;
+        sequencePanel.LayoutTransform = scale;
+        outputPanel.LayoutTransform = scale;
     }
 
     void OnSourceInitialized(object sender, EventArgs e)
