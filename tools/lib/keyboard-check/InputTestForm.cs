@@ -944,7 +944,9 @@ public sealed class KcInputTestForm : IDisposable
         root = content;
         window.Title = "keyboard-check";
         window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        KcUi.FitSize(window, 1100, 780, 800, 600);
+        // minimum height: with the steps of the behaviors test (layer strip, chips, key caps of the input)
+        // the keyboard picture still has room
+        KcUi.FitSize(window, 1100, 780, 800, 680);
         window.Topmost = true;
         InputMethod.SetIsInputMethodEnabled(window, false);
 
