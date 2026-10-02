@@ -193,7 +193,8 @@ ZMK_BT = {'BT_CLR': 0, 'BT_NXT': 1, 'BT_PRV': 2, 'BT_SEL': 3, 'BT_CLR_ALL': 4, '
 ZMK_OUT = {'OUT_TOG': 0, 'OUT_USB': 1, 'OUT_BLE': 2}
 ZMK_MOUSE_BUTTONS = {'MB1': 1, 'LCLK': 1, 'MB2': 2, 'RCLK': 2, 'MB3': 4, 'MCLK': 4, 'MB4': 8, 'MB5': 16}
 
-# QMK の基本キーコード (0x00〜0xFF) の表示名。KQ-mini (QMK keycodes 0.0.7) と Keyball (0.0.3) で共通
+# QMK の基本キーコード (0x00〜0xFF) の表示名。値は KQ-mini (QMK keycodes 0.0.7) と Keyball (0.0.9) で共通。
+# 表示名は旧名のまま (Keyball の keymap.c の MS_BTN1 などの新しい名前は qmk_name_table で引く)
 QMK_MOUSE_NAMES = {
     0xCD: 'KC_MS_U', 0xCE: 'KC_MS_D', 0xCF: 'KC_MS_L', 0xD0: 'KC_MS_R',
     0xD1: 'KC_BTN1', 0xD2: 'KC_BTN2', 0xD3: 'KC_BTN3', 0xD4: 'KC_BTN4', 0xD5: 'KC_BTN5',
@@ -205,7 +206,6 @@ QMK_MOUSE_NAMES = {
 # 判定のしきい値 (ツール側はここから読む)
 THRESHOLDS = {
     'ellipse_ratio_pass': 1.10,       # 楕円の縦横比 (長軸 ÷ 短軸) がこれ以下なら PASS
-    'rotation_min_deg': 5.0,          # 直線テストのずれがこれ以上なら、補正行列に回転も入れる
     'calib_min_points': 250,          # 楕円計測に必要な点の数 (calib_bin_ms ごとにまとめた数)
     'calib_bin_ms': 40,               # 楕円計測の移動量をこの間隔ごとにまとめる (1 カウント単位の誤差を減らす)
     'accel_window_ms': 40,            # カーソルの加速を取り除くとき、速さを測る区間
@@ -220,8 +220,6 @@ THRESHOLDS = {
 
 # 期待する向き (ユーザーの決定: スクロールはホイールと同じ向き)
 EXPECT_DIRECTIONS = {
-    'move_right': '+x',       # 右へ転がす → X が正
-    'move_toward': '+y',      # 手前へ転がす → Y が正 (画面の下)
     'scroll_toward': 'wheel-',  # 手前へ転がす → 下へスクロール (WHEEL が負)
     'scroll_right': 'hwheel+',  # 右へ転がす → 右へスクロール (HWHEEL が正)
 }
@@ -998,12 +996,16 @@ QMK_SHORT = {
 QMK_SPECIAL = {
     'RGB_TOG': 0x7820, 'RGB_MOD': 0x7821, 'RGB_RMOD': 0x7822, 'RGB_HUI': 0x7823, 'RGB_HUD': 0x7824,
     'RGB_SAI': 0x7825, 'RGB_SAD': 0x7826, 'RGB_VAI': 0x7827, 'RGB_VAD': 0x7828,
+    # QMK 0.30 で RGB_* が削除され、UG_* になった (値は同じ)
+    'UG_TOGG': 0x7820, 'UG_NEXT': 0x7821, 'UG_PREV': 0x7822, 'UG_HUEU': 0x7823, 'UG_HUED': 0x7824,
+    'UG_SATU': 0x7825, 'UG_SATD': 0x7826, 'UG_VALU': 0x7827, 'UG_VALD': 0x7828,
     'QK_BOOT': 0x7C00, 'QK_RBT': 0x7C01,
 }
 
 
 def qmk_name_table(zv, keyball_h: str) -> dict[str, int]:
-    """QMK 0.22 (keycodes 0.0.3) のキーコード名 → 値。keymap.c に出てくる名前を引けるだけ用意する。"""
+    """QMK のキーコード名 → 値。keymap.c に出てくる名前を引けるだけ用意する。
+    QMK 0.22 (keycodes 0.0.3) と 0.34 (0.0.9) のどちらの名前も引ける (KC_BTN1 / MS_BTN1 など)。"""
     t: dict[str, int] = {}
     for qmk_name, value in zv.ZMK_KEYCODES.values():
         t[qmk_name] = value
@@ -1014,6 +1016,8 @@ def qmk_name_table(zv, keyball_h: str) -> dict[str, int]:
         t[name] = value
     for i in range(1, 9):
         t[f'KC_MS_BTN{i}'] = 0xD0 + i
+        t[f'MS_BTN{i}'] = 0xD0 + i               # QMK 0.26 以降の名前
+        t[f'QK_MOUSE_BUTTON_{i}'] = 0xD0 + i
     t.update(QMK_SPECIAL)
     for m in re.finditer(r'(\w+)\s*=\s*QK_KB_(\d+)', keyball_h):
         t[m.group(1)] = 0x7E00 + int(m.group(2))
@@ -1055,12 +1059,16 @@ def qmk_tap(value: int) -> dict:
 
 def keyball_paths(sources: Sources) -> dict[str, Path]:
     kb = sources.path('keyball') / 'qmk_firmware/keyboards/keyball'
+    # QMK 0.34 では keyboard.json (QMK 0.22 では info.json)
+    info = kb / 'keyball39/keyboard.json'
+    if not info.exists():
+        info = kb / 'keyball39/info.json'
     return {
         'dir': kb,
         'keymap': kb / 'keyball39/keymaps/via/keymap.c',
         'config': kb / 'keyball39/keymaps/via/config.h',
         'h': kb / 'keyball39/keyball39.h',
-        'info': kb / 'keyball39/info.json',
+        'info': info,
         'lib_h': kb / 'lib/keyball/keyball.h',
     }
 
@@ -1101,7 +1109,7 @@ class Keyball:
         info = json.loads(read_text(p['info']))
         entries = info['layouts']['LAYOUT_no_ball']['layout']
         if len(entries) != len(self.arg_to_matrix):
-            raise GenError('info.json の LAYOUT_no_ball のキー数が LAYOUT と違います')
+            raise GenError(f'{p["info"].name} の LAYOUT_no_ball のキー数が LAYOUT と違います')
         self.keys = []
         for i, e in enumerate(entries):
             r, c = self.arg_to_matrix[i]
@@ -1236,7 +1244,7 @@ def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict, baseline_accel: d
             'qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c',
             'qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h',
             'qmk_firmware/keyboards/keyball/keyball39/keyball39.h',
-            'qmk_firmware/keyboards/keyball/keyball39/info.json',
+            f'qmk_firmware/keyboards/keyball/keyball39/{kb.paths["info"].name}',
             'qmk_firmware/keyboards/keyball/lib/keyball/keyball.h']),
             sources.source_entry('docgen', ['vial_keymap_docgen.py'])],
         'device': {'usb_vid': '5957', 'usb_pid': '0200', 'usage_page': 'FF60', 'usage': '61'},

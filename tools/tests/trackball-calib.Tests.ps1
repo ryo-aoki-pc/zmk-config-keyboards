@@ -100,24 +100,6 @@ Test-Case '傾きの無い楕円: zip_x_scaler / zip_y_scaler の推奨値' {
     Assert-Equal '<&zip_x_scaler 17 12>, <&zip_y_scaler 7 10>' $rec.Lines[0]
 }
 
-Test-Case '直線テストのずれは回転として補正に入る' {
-    $pts = @()
-    for ($i = 0; $i -lt 400; $i++) {
-        $t = $i / 40 * [math]::PI * 2
-        $pts += , @(([math]::Cos($t) * 10), ([math]::Sin($t) * 10))
-    }
-    $r = 10.0 * [math]::PI / 180
-    $strokes = @(
-        @{ Expect = '+x'; Dx = (500 * [math]::Cos($r)); Dy = (500 * [math]::Sin($r)) },
-        @{ Expect = '+y'; Dx = (-500 * [math]::Sin($r)); Dy = (500 * [math]::Cos($r)) }
-    )
-    $rec = New-KcEllipseRecommendation -Samples $pts -Strokes $strokes -Firmware $lismRight -Thresholds $thresholds
-    Assert-Near 10.0 $rec.Rotation 0.01 '回転'
-    Assert-Equal 'WARN' $rec.Status
-    $v = Invoke-KcMatrix $rec.Matrix @($strokes[0].Dx, $strokes[0].Dy)
-    Assert-Near 0.0 ([math]::Atan2($v[1], $v[0]) * 180 / [math]::PI) 0.01 '補正後は真横'
-}
-
 Test-Case '点が少ないと SKIP、速さがばらつくと注意を出す' {
     $rec = New-KcEllipseRecommendation -Samples @(@(1, 2), @(3, 4)) -Firmware $lismRight -Thresholds $thresholds
     Assert-Equal 'SKIP' $rec.Status

@@ -53,7 +53,7 @@ function Format-KcHex([long]$Value, [int]$Digits = 4) {
 }
 
 # ---------------------------------------------------------------------------
-# QMK キーコード (Keyball39: keycodes 0.0.3 / KQ-mini: 0.0.7。表示に使う範囲は同じ)
+# QMK キーコード (Keyball39: keycodes 0.0.9 / KQ-mini: 0.0.7。表示に使う範囲の値は同じ。表示名は旧名 (KC_BTN1 / RGB_TOG など) のまま)
 # ---------------------------------------------------------------------------
 
 # $Common: common.json、$Expected: 機種の JSON (custom_keycodes / layers を使う)
