@@ -421,7 +421,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 | Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML (しきい値を含む)・カーソルの加速の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12)、AML のしきい値は [ryo-aoki-pc/keyball#16](https://github.com/ryo-aoki-pc/keyball/pull/16) 以降のファームで読める |
 | LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash-zmk.cmd` のファイルの一覧で `s`)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
 
-ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio では読めないので、実動作テストで確かめます。
+ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) は ZMK Studio では読めないので、実動作テストで確かめます。
 
 ### 実動作テスト
 
@@ -431,7 +431,6 @@ ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio で
 | 項目 | 合格の条件 |
 | --- | --- |
 | キーのタップ | BASE レイヤーのキーを 1 つずつタップして、意図したキーが入力される (KQ-mini は、Keyball のキーを KQ-mini が変換した結果で確かめる) |
-| ボールの向き | 右へ転がすと右、手前へ転がすと下へカーソルが動く |
 | AML のクリック | ボールを転がしたあと、`D` を押しながら `F` でクリックになる (文字は入力されない) |
 | Shift + クリック | ボールを転がしたあと、`D` → `Z` → `F` で Shift + クリックになる |
 | AML の Ctrl / Shift での解除 | ボールを転がしたあと `A` (長押しで Ctrl) をタップすると、AML が切れて `a` が入力される。`Z` (長押しで Shift) も同じ |
@@ -461,7 +460,6 @@ ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio で
 計算は「KUKEY42 真円計測」ページと同じです (移動量の共分散から、楕円を同じ面積の円に戻す行列を求める)。
 ページはブラウザで OS のポインタの加速が入った値を測るため、補正の強さを下げる必要がありました。
 このスクリプトは Raw Input で、そのボールの値だけを OS の加速の前に測るので、補正の強さは 100% のまま使えます (`-CalibStrength` で変えられる)。
-直線のテスト (右へ / 手前へ) で 5° 以上ずれていれば、回転も補正に入れます。
 
 キーボードのファームの[カーソルの加速](#カーソルの加速の調整) (ZMK の `trackball_accel`、Keyball39 の `KEYBALL_ACCEL_*`) は、
 測った移動量から取り除いてから計算します。加速の後の値のままだと、速く動く長軸の向きほど大きく出て楕円が実際より細長くなり、
@@ -487,7 +485,7 @@ ZMK のトラックボールの設定 (反転・倍率・AML) は ZMK Studio で
 | Keyball39 のカーソルの加速が FAIL | `config.h` の `KEYBALL_ACCEL_*` が違うファームが書き込まれている。`tools/flash-keyball.cmd` で最新のファームを書き込む |
 | ZMK のキーマップが FAIL | ZMK Studio で保存した変更が残っている。Studio の「Restore Stock Settings」か、`tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」 |
 | ZMK の読み出しが SKIP (応答がない) | キーボードの出力が BLE になっている。BT レイヤーのキーを押しながら `U` (`&out OUT_USB`) で USB に切り替える |
-| ボールの向き・スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
+| スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
 | AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer` / `aml_threshold`、Keyball の `AUTO_MOUSE_*`) が動いていない。ボールの動きが小さすぎたときは FAIL ではなくやり直しになる |
 | AML のしきい値が FAIL (わずかな動きでクリックになった) | しきい値の無い古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む |
 | Keyball39 の AML のしきい値が SKIP / FAIL | SKIP はしきい値の無い古いファーム、FAIL は `config.h` の `KEYBALL_AML_THRESHOLD` が違うファーム。`tools/flash-keyball.cmd` で最新のファームを書き込む |
