@@ -5,9 +5,9 @@
   "name": "Keyboard Quantizer Mini (+ Keyball39)",
   "kind": "vial",
   "sources": [
-    {"submodule": "zmk-config-LisM", "commit": "8a6e6400b98ea9e7264f4509e3f2f5991d64e70f", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
+    {"submodule": "zmk-config-LisM", "commit": "24166537bfebace5e7711202abb68dcd730285d6", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
     {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["zmk_to_vial.py"]},
-    {"submodule": "keyball", "commit": "d8c28726e8c45af9293e5619eed2f5590066507e", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
+    {"submodule": "keyball", "commit": "a89d89789aea449b305b0acd68dd862524f3c663", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
   ],
   "device": {"usb_vid": "FEED", "usb_pid": "999C", "usage_page": "FF60", "usage": "61", "vial_uid": [5, 228, 161, 127, 220, 135, 203, 42]},
   "layers": [
@@ -680,10 +680,10 @@
     "trackball": {
       "balls": ["right"],
       "ask_balls": false,
-      "aml": {"layer": 1, "scroll_layer": 2, "timeout_ms": 10000, "require_prior_idle_ms": 200},
+      "aml": {"layer": 1, "scroll_layer": 2, "timeout_ms": 10000, "require_prior_idle_ms": 200, "threshold": 10},
       "keys": {
         "left": {
-          "scroll": {"pos": 12, "legend": "D"},
+          "scroll": {"pos": 12, "usage": 7, "legend": "D"},
           "click": {"pos": 13, "button": 1, "legend": "F"},
           "shift": {"pos": 20, "usage": 225, "legend": "Z"},
           "release_ctrl": {"pos": 10, "mod": "Ctrl", "usage": 4, "legend": "A"},
@@ -691,7 +691,7 @@
           "after_timeout": {"pos": 13, "usage": 9, "legend": "F"}
         },
         "right": {
-          "scroll": {"pos": 17, "legend": "K"},
+          "scroll": {"pos": 17, "usage": 14, "legend": "K"},
           "click": {"pos": 16, "button": 1, "legend": "J"},
           "shift": {"pos": 29, "usage": 229, "legend": "/"},
           "release_ctrl": {"pos": 19, "mod": "Ctrl", "usage": 45, "legend": "-"},

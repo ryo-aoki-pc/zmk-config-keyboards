@@ -7,13 +7,13 @@
 
     読み出し検査 (キーボードの設定を読み出して比べる。設定は書き換えない)
       - Keyboard Quantizer Mini: Vial でキーマップ・タップホールド設定・タップダンス・キーオーバーライド・マクロ
-      - Keyball39 (PC に直結): VIA でキーマップ・Ball availability・CPI / スクロール / AML の設定
+      - Keyball39 (PC に直結): VIA でキーマップ・Ball availability・CPI / スクロール / AML (しきい値を含む) の設定
       - ZMK (LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp): ZMK Studio 版の右手側を USB で
         つなぐと、キーマップ
 
     実動作テスト (テスト用のウィンドウで、キーを押す・ボールを転がす)
       - BASE レイヤーのキーのタップ、ボールの向き、AML のクリック、Shift + クリック、AML の Ctrl / Shift での解除、
-        スクロールの向き、AML のタイムアウト
+        スクロールの向き、AML のタイムアウト、AML のしきい値 (わずかな動きでは発動しない)
       - トラックボールの正規化: X/Y の比率と傾き (楕円補正)、キーボード間の速さ (LisM 基準)。推奨値を出す
 
     結果は PASS / FAIL / WARN / SKIP で表示し、tools/.cache/keyboard-check/reports/ にも保存します。

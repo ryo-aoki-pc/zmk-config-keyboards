@@ -7,8 +7,8 @@
   "sources": [
     {
       "submodule": "zmk-keyboard-torabo-tsuki-lp",
-      "commit": "be8ded837799a5eeb1d57a3b7510a6a030582c9e",
-      "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "build.yaml"]
+      "commit": "530a2a58fee557ff59d6a9ef33c39cbbfb474bba",
+      "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
@@ -858,10 +858,10 @@
     "trackball": {
       "balls": ["right"],
       "ask_balls": false,
-      "aml": {"layer": 8, "scroll_layer": 9, "timeout_ms": 10000, "require_prior_idle_ms": 200},
+      "aml": {"layer": 8, "scroll_layer": 9, "timeout_ms": 10000, "require_prior_idle_ms": 200, "threshold": 10},
       "keys": {
         "left": {
-          "scroll": {"pos": 27, "legend": "D"},
+          "scroll": {"pos": 27, "legend": "D", "usage": 7},
           "click": {"pos": 28, "legend": "F", "button": 1},
           "shift": {"pos": 39, "legend": "Z", "usage": 225},
           "release_ctrl": {"pos": 25, "legend": "A", "mod": "Ctrl", "usage": 4},
@@ -869,7 +869,7 @@
           "after_timeout": {"pos": 28, "legend": "F", "usage": 9}
         },
         "right": {
-          "scroll": {"pos": 34, "legend": "K"},
+          "scroll": {"pos": 34, "legend": "K", "usage": 14},
           "click": {"pos": 33, "legend": "J", "button": 1},
           "shift": {"pos": 50, "legend": "/", "usage": 229},
           "release_ctrl": {"pos": 36, "legend": "-", "mod": "Ctrl", "usage": 45},
@@ -903,8 +903,9 @@
   "consistency": [
     {"level": "ok", "message": "AML の除外位置 (27 34) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
-    {"level": "ok", "message": "zip_temp_layer はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
+    {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/1 (README の共通基盤: 1/1、実機で調整した値 + スムーズスクロール)"},
-    {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"}
+    {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
+    {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"}
   ]
 }

@@ -199,6 +199,45 @@ function Test-KcScroll($Motion, [string]$Expect, [int]$MinEvents = 2, [int]$Curs
     return [pscustomobject]@{ Status = 'FAIL'; Actual = $actual; Message = 'スクロールが少なすぎます (ゆっくり大きめに転がしてください)' }
 }
 
+# AML の発動に要る動きの大きさ。大きいほう + 小さいほうの半分 (√(X² + Y²) の近似。ファームと同じ計算)
+function Get-KcAmlDistance([double]$Dx, [double]$Dy) {
+    $ax = [math]::Abs($Dx)
+    $ay = [math]::Abs($Dy)
+    if ($ax -gt $ay) {
+        return $ax + [math]::Floor($ay / 2)
+    }
+    return $ay + [math]::Floor($ax / 2)
+}
+
+# 最初のキーの押下 (またはマウスボタン) より前のボールの動き。Distance: 正味の大きさ、Path: 道のり Σ(|dx|+|dy|)
+function Measure-KcMotionBeforeKey($Events) {
+    $dx = 0; $dy = 0; $path = 0
+    foreach ($e in @($Events)) {
+        if ($e.Kind -eq 'key') {
+            if (-not $e.Break) { break }
+            continue
+        }
+        if ($e.Buttons -ne 0) { break }
+        $dx += $e.Dx; $dy += $e.Dy
+        $path += [math]::Abs($e.Dx) + [math]::Abs($e.Dy)
+    }
+    return [pscustomobject]@{ Dx = $dx; Dy = $dy; Distance = (Get-KcAmlDistance $dx $dy); Path = $path }
+}
+
+# キーを押す前のボールの動きが、AML の発動に要る量 ($Threshold) に足りなかったら、やり直しの結果 (NONE)。
+# 足りていれば $null。AML にならないまま文字が出たのを FAIL や PASS にしないために使う
+function Test-KcAmlMotion($Events, [int]$Threshold) {
+    if ($Threshold -le 0) {
+        return $null
+    }
+    $m = Measure-KcMotionBeforeKey $Events
+    if ($m.Distance -ge $Threshold) {
+        return $null
+    }
+    return [pscustomobject]@{ Status = 'NONE'; Actual = ('キーを押す前のボールの動き {0}' -f $m.Distance)
+        Message = ('ボールの動きが小さすぎます (AML はカーソルが {0} 以上動いたときに発動します)。もう少し大きく転がしてください' -f $Threshold) }
+}
+
 # キーで押したマウスボタンが、押して離されたか
 function Test-KcButtonClicked($Motion, [int]$Button) {
     $down = @($Motion.Buttons | Where-Object { $_.Button -eq $Button -and $_.Down })
@@ -207,13 +246,17 @@ function Test-KcButtonClicked($Motion, [int]$Button) {
 }
 
 # AML のクリック: ボールを転がしたあと、スクロールキーを押しながらクリックキー → ボタンが出て、キーは出ない
-function Test-KcAmlClick($Events, [int]$Button, $ScanTable, [int[]]$AllowedUsages = @()) {
+function Test-KcAmlClick($Events, [int]$Button, $ScanTable, [int[]]$AllowedUsages = @(), [int]$Threshold = 0) {
     $motion = Measure-KcMotion $Events
     $all = ConvertTo-KcKeyActions $Events $ScanTable
     $keys = @($all | Where-Object { $_.Down -and $AllowedUsages -notcontains $_.Usage })
     $clicked = Test-KcButtonClicked $motion $Button
     $keyText = (@($keys | ForEach-Object { Get-KcKeyLabel $_ $ScanTable }) -join ' + ')
     if ($keys.Count -gt 0) {
+        $small = Test-KcAmlMotion $Events $Threshold
+        if ($null -ne $small) {
+            return $small
+        }
         return [pscustomobject]@{ Status = 'FAIL'; Actual = ('キー入力: ' + $keyText); Message = 'AML (マウスレイヤー) になっていません (キーがそのまま入力されました)' }
     }
     if ($clicked) {
@@ -227,7 +270,7 @@ function Test-KcAmlClick($Events, [int]$Button, $ScanTable, [int[]]$AllowedUsage
 }
 
 # Shift + クリック: Shift を押した → ボタンを押した → (ボタンを離した) → Shift を離した、の順
-function Test-KcShiftClick($Events, [int]$ShiftUsage, [int]$Button, $ScanTable) {
+function Test-KcShiftClick($Events, [int]$ShiftUsage, [int]$Button, $ScanTable, [int]$Threshold = 0) {
     $motion = Measure-KcMotion $Events
     $actions = ConvertTo-KcKeyActions $Events $ScanTable
     $shiftDown = @($actions | Where-Object { $_.Usage -eq $ShiftUsage -and $_.Down })
@@ -235,6 +278,10 @@ function Test-KcShiftClick($Events, [int]$ShiftUsage, [int]$Button, $ScanTable) 
     $others = @($actions | Where-Object { $_.Down -and $_.Usage -ne $ShiftUsage })
     $btnDown = @($motion.Buttons | Where-Object { $_.Button -eq $Button -and $_.Down })
     if ($others.Count -gt 0) {
+        $small = Test-KcAmlMotion $Events $Threshold
+        if ($null -ne $small) {
+            return $small
+        }
         $t = (@($others | ForEach-Object { Get-KcKeyLabel $_ $ScanTable }) -join ' + ')
         return [pscustomobject]@{ Status = 'FAIL'; Actual = ('キー入力: ' + $t); Message = 'Shift 以外のキーが入力されました (AML になっていないか、修飾キーになっていない)' }
     }
@@ -252,31 +299,65 @@ function Test-KcShiftClick($Events, [int]$ShiftUsage, [int]$Button, $ScanTable) 
     return [pscustomobject]@{ Status = 'FAIL'; Actual = 'Shift とクリックが重なっていません'; Message = 'クリックの時点で Shift が押されていませんでした' }
 }
 
-# AML が切れたあと: クリックキーの位置で、普通のキーが出る (クリックは出ない)
-function Test-KcAfterTimeout($Events, [int]$Usage, $ScanTable) {
+# AML になっていない: スクロールキー (D) を押したままクリックキー (F) を押すと、どちらも文字が出る (クリックは出ない)。
+# F だけでは確かめられない (ZMK は F を押すと、keymap より先に zip_temp_layer が AML を切るので、AML 中でも文字が出る)。
+# AML 中なら D はスクロールレイヤーのキー (文字は出ない) になり、F はクリックになる
+function Test-KcAmlOff($Events, [int]$ScrollUsage, [int]$ClickUsage, $ScanTable, [string]$AmlMessage = 'AML が切れていません') {
     $motion = Measure-KcMotion $Events
     $all = ConvertTo-KcKeyActions $Events $ScanTable
     $keys = @($all | Where-Object { $_.Down })
     $clicked = @($motion.Buttons | Where-Object { $_.Down })
+    $t = (@($keys | ForEach-Object { Get-KcKeyLabel $_ $ScanTable }) -join ' + ')
     if ($clicked.Count -gt 0) {
-        return [pscustomobject]@{ Status = 'FAIL'; Actual = 'クリック'; Message = 'AML が時間がたっても切れていません' }
+        $actual = 'クリック'
+        if ($t) { $actual = $t + ' + クリック' }
+        return [pscustomobject]@{ Status = 'FAIL'; Actual = $actual; Message = $AmlMessage }
     }
     if ($keys.Count -eq 0) {
         return [pscustomobject]@{ Status = 'NONE'; Actual = '(入力なし)' }
     }
-    $t = (@($keys | ForEach-Object { Get-KcKeyLabel $_ $ScanTable }) -join ' + ')
-    if (@($keys | Where-Object { $_.Usage -eq $Usage }).Count -gt 0) {
+    $hasScroll = @($keys | Where-Object { $_.Usage -eq $ScrollUsage }).Count -gt 0
+    $hasClick = @($keys | Where-Object { $_.Usage -eq $ClickUsage }).Count -gt 0
+    if ($hasScroll -and $hasClick) {
         return [pscustomobject]@{ Status = 'PASS'; Actual = $t }
+    }
+    if ($hasClick) {
+        return [pscustomobject]@{ Status = 'FAIL'; Actual = $t; Message = ('{0} (スクロールのキーが文字になりませんでした)' -f $AmlMessage) }
+    }
+    if ($hasScroll) {
+        return [pscustomobject]@{ Status = 'NONE'; Actual = $t; Message = 'クリックのキーが押されていません' }
     }
     return [pscustomobject]@{ Status = 'FAIL'; Actual = $t; Message = '期待と違うキーが入力されました' }
 }
 
+# AML のしきい値: わずかな動き (道のりがしきい値未満) のあと、AML になっていない。
+# 道のり Σ(|dx|+|dy|) は、ZMK・Keyball の判定 (向き付きの合計の、大きいほう + 小さいほうの半分) 以上になるので、
+# 道のりがしきい値未満なら AML は必ず発動しない (誤って FAIL にしない)
+function Test-KcAmlThreshold($Events, [int]$ScrollUsage, [int]$ClickUsage, [int]$Threshold, $ScanTable) {
+    $m = Measure-KcMotionBeforeKey $Events
+    if ($m.Path -eq 0) {
+        return [pscustomobject]@{ Status = 'NONE'; Actual = '(ボールの動きなし)'; Message = 'ボールが動いていません。そっと触れて、カーソルを少しだけ動かしてください' }
+    }
+    if ($m.Path -ge $Threshold) {
+        return [pscustomobject]@{ Status = 'NONE'; Actual = ('ボールの動き {0}' -f $m.Path)
+            Message = ('動かしすぎです (しきい値 {0} 未満で確かめます)。カーソルが数ドット動くだけにしてください' -f $Threshold) }
+    }
+    $t = Test-KcAmlOff $Events $ScrollUsage $ClickUsage $ScanTable ('わずかな動き ({0}) で AML になりました (しきい値の無い古いファーム)' -f $m.Path)
+    $t.Actual = ('動き {0}: {1}' -f $m.Path, $t.Actual)
+    return $t
+}
+
 # AML 中に修飾キーの位置 (Ctrl / Shift) をタップ: AML が切れて、BASE と同じ文字が出る
-function Test-KcAmlRelease($Events, [int]$Usage, $ScanTable) {
+function Test-KcAmlRelease($Events, [int]$Usage, $ScanTable, [int]$Threshold = 0) {
     $all = ConvertTo-KcKeyActions $Events $ScanTable
     $keys = @($all | Where-Object { $_.Down })
     if ($keys.Count -eq 0) {
         return [pscustomobject]@{ Status = 'NONE'; Actual = '(入力なし)' }
+    }
+    # AML にならないまま押しても文字は出るので、動きが足りなければ確かめたことにならない
+    $small = Test-KcAmlMotion $Events $Threshold
+    if ($null -ne $small) {
+        return $small
     }
     $t = (@($keys | ForEach-Object { Get-KcKeyLabel $_ $ScanTable }) -join ' + ')
     if (@($keys | Where-Object { $_.Usage -eq $Usage }).Count -gt 0) {

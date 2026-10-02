@@ -212,7 +212,7 @@ function New-FakeKqMini($Expected) {
 # Keyball のファームのコマンド (08 00 01) の応答 ([3] 以降)
 function New-FakeKeyballStatusBytes($Status) {
     $b = New-Object byte[] 29
-    $b[0] = 1
+    $b[0] = [byte](Get-KcProp $Status 'format' 1)
     $b[1] = 39
     $b[2] = 0x01 -bor 0x02 -bor 0x10 -bor 0x40
     $b[3] = [byte]$Status.cpi
@@ -227,6 +227,7 @@ function New-FakeKeyballStatusBytes($Status) {
     $b[14] = [byte]$Status.scroll_layer
     $b[24] = [byte]$Status.cpi_default
     $b[25] = [byte]$Status.scroll_div_default
+    $b[26] = [byte](Get-KcProp $Status 'aml_threshold' 0)
     return , $b
 }
 

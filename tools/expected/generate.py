@@ -483,7 +483,8 @@ ZMK_BOARDS = [
         'scroll': {'scaler': [1, 1], 'why': '実機で調整した値 + スムーズスクロール'},
         'files': ['config/keymap.keymap', 'config/info.json', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi',
                   'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi',
-                  'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay', 'build.yaml'],
+                  'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay',
+                  'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
     },
 ]
@@ -550,6 +551,39 @@ def accel_consistency(what: str, a: dict | None, baseline: dict | None) -> dict:
     return {'level': 'warn', 'message': f'{what}: {accel_text(a)} (LisM 基準: {accel_text(baseline)})'}
 
 
+AML_THRESHOLD_DEFAULT = 10  # zmk-input-processor-aml-threshold の binding の既定値
+
+
+def aml_threshold_nodes(base: Path, files: list[str]) -> dict[str, dict]:
+    """ファイルで定義した AML の発動条件 (zmk,input-processor-aml-threshold) のノード。ラベル → 値"""
+    out: dict[str, dict] = {}
+    for rel in files:
+        p = base / rel
+        if not p.exists():
+            continue
+        t = strip_c_comments(read_text(p))
+        for m in re.finditer(r'(\w+)\s*:\s*[\w-]+\s*\{([^{}]*?compatible\s*=\s*"zmk,input-processor-aml-threshold"[^{}]*)\}', t):
+            tm = re.search(r'temp-layer\s*=\s*<\s*&(\w+)\s*>', m.group(2))
+            if not tm:
+                raise GenError(f'{rel} の {m.group(1)} に temp-layer がありません')
+            th = re.search(r'threshold\s*=\s*<\s*(\d+)\s*>', m.group(2))
+            out[m.group(1)] = {'label': m.group(1), 'temp_layer': tm.group(1),
+                               'threshold': int(th.group(1)) if th else AML_THRESHOLD_DEFAULT}
+    return out
+
+
+def aml_threshold_in(nodes: dict[str, dict], processors: str) -> dict | None:
+    """listener の input-processors に入っている AML の発動条件のノード (無ければ None)。"""
+    for ref in re.findall(r'&(\w+)', processors):
+        if ref in nodes:
+            return dict(nodes[ref])
+    return None
+
+
+def aml_threshold_text(a: dict | None) -> str:
+    return 'なし (わずかな動きでも AML が発動する)' if a is None else f'{a["label"]} の threshold {a["threshold"]}'
+
+
 def listener_block(text: str, name: str, path: Path) -> str:
     """ノード (name { ... } または &name { ... }) の中身。子ノード (スクロール) より前の部分。"""
     m = re.search(rf'(?:&|\b){re.escape(name)}\s*(?::\s*[\w-]+\s*)?\{{(.*?)\n\s*\}};', text, re.DOTALL)
@@ -560,15 +594,18 @@ def listener_block(text: str, name: str, path: Path) -> str:
     return body[:child.start()] if child else body
 
 
-def zmk_trackball_firmware(board: dict, base: Path) -> list[dict]:
-    """ボールごとの、今のファームの設定 (正規化の推奨値を作るため)。"""
+def zmk_trackball_firmware(board: dict, base: Path) -> tuple[list[dict], list[dict | None]]:
+    """ボールごとの、今のファームの設定 (正規化の推奨値を作るため) と、AML の発動条件 (整合のチェック用)。"""
     entries = zmk_trackball_firmware_base(board, base)
     nodes = xy_accel_nodes(base, board['files'])
+    gates = aml_threshold_nodes(base, board['files'])
+    amls = []
     for e in entries:
         processors = e.pop('processors')
         e['accel'] = accel_in(nodes, processors)
         e['xy_scaler_set'] = bool(re.search(r'&zip_xy_scaler\b', processors))
-    return entries
+        amls.append(aml_threshold_in(gates, processors))
+    return entries, amls
 
 
 def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
@@ -669,7 +706,8 @@ def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
 
 
 def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int,
-                    firmware: list[dict], baseline_accel: dict | None) -> list[dict]:
+                    firmware: list[dict], amls: list[dict | None], baseline_accel: dict | None,
+                    baseline_aml: dict | None) -> list[dict]:
     """静的な整合チェック (情報 / 警告)。検査ツールは表示するだけ。"""
     out: list[dict] = []
     text = km.text
@@ -695,20 +733,24 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
 
     temp_layers: set[tuple[int, int]] = set()
     scalers: set[tuple[int, int]] = set()
+    # zip_temp_layer と同じ 2 つの値 (レイヤー、タイムアウト) を付ける AML の発動条件のノードも数える
+    temp_labels = ['zip_temp_layer'] + sorted(aml_threshold_nodes(base, board['files']))
+    temp_re = r'&(?:' + '|'.join(temp_labels) + r')\s+(\d+)\s+(\d+)'
     for rel in board['files']:
         p = base / rel
         if not p.exists():
             continue
         t = strip_c_comments(read_text(p))
         t = re.sub(r'\bMOUS\b', str(mous), t)
-        for m in re.finditer(r'&zip_temp_layer\s+(\d+)\s+(\d+)', t):
+        for m in re.finditer(temp_re, t):
             temp_layers.add((int(m.group(1)), int(m.group(2))))
         for m in re.finditer(r'&zip_scroll_scaler\s+(\d+)\s+(\d+)', t):
             scalers.add((int(m.group(1)), int(m.group(2))))
+    names = ' / '.join(temp_labels)
     if temp_layers == {(mous, 10000)}:
-        out.append({'level': 'ok', 'message': f'zip_temp_layer はすべて {mous} 10000 (AML: MOUSE_MOVE、10 秒)'})
+        out.append({'level': 'ok', 'message': f'{names} はすべて {mous} 10000 (AML: MOUSE_MOVE、10 秒)'})
     else:
-        out.append({'level': 'warn', 'message': f'zip_temp_layer の設定がそろっていません: {sorted(temp_layers)}'})
+        out.append({'level': 'warn', 'message': f'{names} の設定がそろっていません: {sorted(temp_layers)}'})
     # スクロールの速さ: README の「共通基盤」の表の値 (LisM は 1/16。CPI などが違う機種は例外として書いてある)
     want = board['scroll']
     why = f'、{want["why"]}' if 'why' in want else ''
@@ -732,6 +774,12 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
             out.append({'level': 'warn', 'message': f'カーソルの加速 ({name}): listener に入っていません'})
         else:
             out.append(accel_consistency(f'カーソルの加速 ({name}) {a["label"]}', a, baseline_accel))
+    # AML の発動条件: カーソル移動の listener に aml_threshold が入っていて、LisM 基準と同じ値か
+    for fw, g in zip(firmware, amls):
+        name = {'right': '右のボール', 'left': '左のボール'}.get(fw['side'], fw['side'])
+        same = g is not None and baseline_aml is not None and g['threshold'] == baseline_aml['threshold']
+        out.append({'level': 'ok' if same else 'warn',
+                    'message': f'AML の発動条件 ({name}): {aml_threshold_text(g)} (LisM 基準: {aml_threshold_text(baseline_aml)})'})
     if board['id'] == 'lism':
         # 左ボールのスクロールは、右手側の版 (trackball / non_trackball) の peripheral_listener で処理する
         def scroller(rel: str) -> str:
@@ -739,14 +787,21 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
             m = re.search(r'&peripheral_listener\s*\{.*?scroller\s*\{.*?input-processors\s*=(.*?);', t, re.DOTALL)
             return re.sub(r'\s+', ' ', m.group(1)).strip() if m else ''
         nodes = xy_accel_nodes(base, board['files'])
-        procs = []
+        gates = aml_threshold_nodes(base, board['files'])
+        procs, aml_procs = [], []
         for rel in ('snippets/trackball-central/trackball.overlay', 'snippets/non-trackball-central/non_trackball.overlay'):
             t = strip_c_comments(read_text(base / rel))
-            procs.append(accel_in(nodes, listener_block(t, 'peripheral_listener', base / rel)))
+            block = listener_block(t, 'peripheral_listener', base / rel)
+            procs.append(accel_in(nodes, block))
+            aml_procs.append(aml_threshold_in(gates, block))
         if not same_accel(procs[0], procs[1]):
             out.append({'level': 'warn', 'message': (
                 f'左ボールのカーソルの加速が、右手側の版で違います (trackball-central: {accel_text(procs[0])} / '
                 f'non-trackball-central: {accel_text(procs[1])})')})
+        if aml_procs[0] != aml_procs[1]:
+            out.append({'level': 'warn', 'message': (
+                f'左ボールの AML の発動条件が、右手側の版で違います (trackball-central: {aml_threshold_text(aml_procs[0])} / '
+                f'non-trackball-central: {aml_threshold_text(aml_procs[1])})')})
         a = scroller('snippets/trackball-central/trackball.overlay')
         b = scroller('snippets/non-trackball-central/non_trackball.overlay')
         if a != b:
@@ -780,7 +835,8 @@ def zmk_product(board: dict, base: Path) -> str:
     return m.group(1)
 
 
-def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None) -> dict:
+def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
+            baseline_aml: dict | None) -> dict:
     base = sources.path(board['sub'])
     km = ZmkKeymap(kd, zv, base / board['keymap'])
     n_layers = len(km.layer_names)
@@ -854,8 +910,12 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None) 
             if 'usage' not in t:
                 raise GenError(f'{board["name"]}: {mod} の位置 {pos} が BASE でキーを出しません')
             return {'pos': pos, 'legend': keys[pos]['legend'], 'mod': mod, 'usage': t['usage']}
+        # AML が切れていれば、スクロールキーの位置で BASE の文字が出る (AML のタイムアウト・しきい値のテスト)
+        scroll_tap = km.tap(base_layer[s])
+        if 'usage' not in scroll_tap:
+            raise GenError(f'{board["name"]}: スクロールキーの位置 {s} が BASE でキーを出しません')
         hand_keys[hand] = {
-            'scroll': {'pos': s, 'legend': keys[s]['legend']},
+            'scroll': {'pos': s, 'legend': keys[s]['legend'], 'usage': scroll_tap['usage']},
             'click': {'pos': c, 'legend': keys[c]['legend'], 'button': 1},
             'shift': {'pos': sh, 'legend': keys[sh]['legend'],
                       'usage': zmk_keycode(zv, km.layers[scrl][sh].split()[1]) & 0xFFFF},
@@ -896,7 +956,9 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None) 
         layers.append({'index': i, 'name': name, 'alias': km.alias_by_index.get(i, '')})
 
     files = board['files']
-    firmware = zmk_trackball_firmware(board, base)
+    firmware, amls = zmk_trackball_firmware(board, base)
+    # AML の発動に要る動きの量 (実動作テスト用)。ボールごとに違えば小さいほう、入っていないボールがあれば 0
+    aml_threshold = min((g['threshold'] if g else 0) for g in amls) if amls else 0
     return {
         'schema': SCHEMA, 'generator': GENERATOR, 'id': board['id'], 'name': board['name'], 'kind': 'zmk',
         'sources': [sources.source_entry(board['sub'], files),
@@ -910,13 +972,14 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None) 
             'taps': taps, 'skipped': skipped,
             'trackball': {
                 'balls': board['balls'], 'ask_balls': board['ask_balls'],
-                'aml': {'layer': mous, 'scroll_layer': scrl, 'timeout_ms': aml_timeout, 'require_prior_idle_ms': idle},
+                'aml': {'layer': mous, 'scroll_layer': scrl, 'timeout_ms': aml_timeout, 'require_prior_idle_ms': idle,
+                        'threshold': aml_threshold},
                 'keys': hand_keys,
                 'firmware': firmware,
             },
             'output_switch': output_switch,
         },
-        'consistency': zmk_consistency(board, base, km, mous, scrl, firmware, baseline_accel),
+        'consistency': zmk_consistency(board, base, km, mous, scrl, firmware, amls, baseline_accel, baseline_aml),
     }
 
 
@@ -1074,11 +1137,18 @@ class Keyball:
             # 速さは 8ms ごとの移動量 (大きいほう + 小さいほうの半分) から求め、1 回の報告は ±127 で頭打ちになる
             self.accel = {'model': 'keyball', 'label': 'KEYBALL_ACCEL_*', **accel_vals,
                           'interval_ms': need('KEYBALL_REPORTMOUSE_INTERVAL', config_h, lib_h), 'clamp': 127}
+        # AML の発動に要る動きの量 (keymap.c の auto_mouse_activation。値は config.h)
+        self.aml_threshold = define_int(config_h, 'KEYBALL_AML_THRESHOLD')
+        if self.aml_threshold is not None and 'auto_mouse_activation' not in km_text:
+            raise GenError('config.h に KEYBALL_AML_THRESHOLD がありますが、keymap.c に auto_mouse_activation がありません')
         self.status = {
             'format': 1, 'model': 39, 'cpi': cpi // 100, 'scroll_div': sdiv, 'scroll_snap': 2,
             'aml_enabled': True, 'aml_layer': aml_layer, 'aml_timeout': aml_time, 'aml_delay': aml_delay,
             'scroll_layer': scroll_layer, 'cpi_default': cpi // 100, 'scroll_div_default': sdiv,
         }
+        if self.aml_threshold is not None:
+            # 08 00 01 の形式 2 から [29] で返す
+            self.status.update({'format': 2, 'aml_threshold': self.aml_threshold})
 
     def cell(self, layer: int, pos: int) -> int:
         r, c = self.arg_to_matrix[pos]
@@ -1101,7 +1171,7 @@ class Keyball:
             after = tap_of_pos(c)
             sh, ct = shift[0]['pos'], ctrl[0]['pos']
             out[hand] = {
-                'scroll': {'pos': scroll[0]['pos']},
+                'scroll': {'pos': scroll[0]['pos'], 'usage': tap_of_pos(scroll[0]['pos'])},
                 'click': {'pos': c, 'button': 1},
                 'shift': {'pos': sh, 'usage': self.cell(scrl, sh)},
                 'release_ctrl': {'pos': ct, 'mod': 'Ctrl', 'usage': tap_of_pos(ct)},
@@ -1154,6 +1224,8 @@ def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict, baseline_accel: d
          'message': f'AML のタイムアウト AUTO_MOUSE_TIME = {st["aml_timeout"]} (LisM {lism_aml["timeout_ms"]})'},
         {'level': 'ok' if st['aml_delay'] == lism_aml['require_prior_idle_ms'] else 'warn',
          'message': f'AML の発動条件 AUTO_MOUSE_DELAY = {st["aml_delay"]} (LisM require-prior-idle-ms {lism_aml["require_prior_idle_ms"]})'},
+        {'level': 'ok' if kb.aml_threshold == lism_aml['threshold'] else 'warn',
+         'message': f'AML のしきい値 KEYBALL_AML_THRESHOLD = {kb.aml_threshold} (LisM {lism_aml["threshold"]})'},
         {'level': 'ok' if 2 ** (st['scroll_div'] - 1) == 16 else 'warn',
          'message': f'スクロールの倍率 1/{2 ** (st["scroll_div"] - 1)} (KEYBALL_SCROLL_DIV_DEFAULT {st["scroll_div"]}、LisM 1/16)'},
         accel_consistency('カーソルの加速 KEYBALL_ACCEL_*', kb.accel, baseline_accel),
@@ -1184,7 +1256,8 @@ def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict, baseline_accel: d
             'trackball': {
                 'balls': ['right'], 'ask_balls': False,
                 'aml': {'layer': st['aml_layer'], 'scroll_layer': st['scroll_layer'],
-                        'timeout_ms': st['aml_timeout'], 'require_prior_idle_ms': st['aml_delay']},
+                        'timeout_ms': st['aml_timeout'], 'require_prior_idle_ms': st['aml_delay'],
+                        'threshold': kb.aml_threshold or 0},
                 'keys': tb_keys,
                 'firmware': kb.firmware(),
             },
@@ -1325,7 +1398,8 @@ def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball) -> dict:
             'trackball': {
                 'balls': ['right'], 'ask_balls': False,
                 'aml': {'layer': st['aml_layer'], 'scroll_layer': st['scroll_layer'],
-                        'timeout_ms': st['aml_timeout'], 'require_prior_idle_ms': st['aml_delay']},
+                        'timeout_ms': st['aml_timeout'], 'require_prior_idle_ms': st['aml_delay'],
+                        'threshold': kb.aml_threshold or 0},
                 'keys': tb_keys,
                 'firmware': kb.firmware() + [{'side': 'kq-mini', 'sensor': None, 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
                                               'xy_scaler': [1, 1], 'xy_scaler_set': False, 'matrix': None, 'divisor': None,
@@ -1380,8 +1454,10 @@ def generate(sources: Sources) -> dict[str, str]:
     baseline = xy_accel_nodes(sources.path(lism_board['sub']), [lism_board['dtsi']]).get('trackball_accel')
     if baseline is None:
         raise GenError(f'{lism_board["dtsi"]} に trackball_accel がありません')
+    # AML の発動条件の基準: LisM の aml_threshold
+    baseline_aml = aml_threshold_nodes(sources.path(lism_board['sub']), [lism_board['dtsi']]).get('aml_threshold')
     for board in ZMK_BOARDS:
-        data = gen_zmk(board, sources, kd, zv, baseline)
+        data = gen_zmk(board, sources, kd, zv, baseline, baseline_aml)
         out[f'{board["id"]}.json'] = data
         if board['id'] == 'lism':
             lism = data

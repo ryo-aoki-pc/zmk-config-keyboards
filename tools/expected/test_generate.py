@@ -74,6 +74,54 @@ class TestAccelParser(unittest.TestCase):
         self.assertEqual(g.accel_consistency('x', a, dict(a, max_factor=1000))['level'], 'warn')
 
 
+class TestAmlThresholdParser(unittest.TestCase):
+    OVERLAY = '''
+/ {
+    /omit-if-no-ref/ aml_threshold: aml_threshold {
+        compatible = "zmk,input-processor-aml-threshold";
+        #input-processor-cells = <2>;
+        temp-layer = <&zip_temp_layer>; // コメント
+        threshold = <12>;
+    };
+    aml_default: aml_default {
+        compatible = "zmk,input-processor-aml-threshold";
+        #input-processor-cells = <2>;
+        temp-layer = <&zip_temp_layer>;
+    };
+};
+&pointing_listener {
+    input-processors =
+        <&trackball_accel>,
+        <&aml_threshold 8 10000>;
+
+    scroller {
+        layers = <9>;
+        input-processors = <&zip_temp_layer 8 10000>, <&zip_xy_to_scroll_mapper>;
+    };
+};
+'''
+
+    def test_nodes_and_listener(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, 'a.overlay').write_text(self.OVERLAY, encoding='utf-8')
+            nodes = g.aml_threshold_nodes(Path(d), ['a.overlay', 'missing.overlay'])
+            proc = g.listener_block(g.strip_c_comments(self.OVERLAY), 'pointing_listener', Path(d, 'a.overlay'))
+        self.assertEqual(nodes['aml_threshold'], {'label': 'aml_threshold', 'temp_layer': 'zip_temp_layer', 'threshold': 12})
+        self.assertEqual(nodes['aml_default']['threshold'], g.AML_THRESHOLD_DEFAULT)
+        self.assertEqual(g.aml_threshold_in(nodes, proc)['threshold'], 12)
+        self.assertIsNone(g.aml_threshold_in(nodes, '<&trackball_accel>, <&zip_temp_layer 8 10000>'))
+        self.assertIn('なし', g.aml_threshold_text(None))
+
+    def test_missing_temp_layer(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, 'a.overlay').write_text('/ { x: x { compatible = "zmk,input-processor-aml-threshold"; }; };',
+                                            encoding='utf-8')
+            with self.assertRaises(g.GenError):
+                g.aml_threshold_nodes(Path(d), ['a.overlay'])
+
+
 class TestTables(unittest.TestCase):
     def test_scan_codes(self):
         self.assertEqual(g.HID_SCAN[0x04][:2], (0x1E, 0))          # A
@@ -149,6 +197,9 @@ class TestGenerate(unittest.TestCase):
             self.assert_release_keys(keys, name)
             self.assertEqual(keys['right']['after_timeout']['usage'], 0x0D, name)  # J
             self.assertEqual(it['trackball']['aml']['timeout_ms'], 10000, name)
+            self.assertEqual(it['trackball']['aml']['threshold'], 10, name)
+            self.assertEqual(keys['left']['scroll']['usage'], 0x07, name)   # D (AML が切れていれば文字)
+            self.assertEqual(keys['right']['scroll']['usage'], 0x0E, name)  # K
             self.assertEqual(it['output_switch']['usb']['legend'], 'U', name)
             a = [t for t in it['taps'] if t['usage'] == 0x04]
             self.assertEqual(len(a), 1, name)                      # A (タップ)
@@ -211,9 +262,13 @@ class TestGenerate(unittest.TestCase):
         self.assertEqual(v['status']['cpi'], 5)
         self.assertEqual(v['status']['scroll_div'], 5)
         self.assertEqual(v['status']['aml_timeout'], 10000)
+        self.assertEqual(v['status']['format'], 2)
+        self.assertEqual(v['status']['aml_threshold'], 10)
         for f in ('keyball39.json', 'kq-mini.json'):
             tb = self.data[f]['interactive']['trackball']['keys']
             self.assertEqual(tb['left']['shift']['usage'], 0xE1, f)
+            self.assertEqual(tb['left']['scroll']['usage'], 0x07, f)
+            self.assertEqual(self.data[f]['interactive']['trackball']['aml']['threshold'], 10, f)
             self.assert_release_keys(tb, f)
         keys = self.data['keyball39.json']['physical']['keys']
         self.assertEqual(sum(1 for k in keys if k['present']), 39)

@@ -374,9 +374,14 @@ function Invoke-KcDirectionTest($Ctx, [string]$Ball, $Strokes) {
     return 'done'
 }
 
+# AML の発動に要るボールの動きの量 (期待値の aml.threshold。無ければ 0 = しきい値なし)
+function Get-KcAmlThreshold($Ctx) {
+    return [int](Get-KcProp $Ctx.Expected.interactive.trackball.aml 'threshold' 0)
+}
+
 function Invoke-KcAmlClickTest($Ctx, $Keys) {
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts('AML (自動マウスレイヤー): クリック', ('ボールを少し転がしてから、「{0}」を押したまま「{1}」を押してください' -f $Keys.scroll.legend, $Keys.click.legend),
+        $Ctx.Form.SetTexts('AML (自動マウスレイヤー): クリック', ('カーソルが 1 cm ほど動くまでボールを転がしてから、「{0}」を押したまま「{1}」を押してください' -f $Keys.scroll.legend, $Keys.click.legend),
             ("ボールを転がすと AML になり、「{0}」でクリック、「{1}」はスクロールのキーになります (文字は入力されません)。`nクリックはこのウィンドウの中だけで起きます。" -f $Keys.click.legend, $Keys.scroll.legend))
         $Ctx.Form.ClearEvents()
         $Ctx.Form.Confine($true)
@@ -389,7 +394,7 @@ function Invoke-KcAmlClickTest($Ctx, $Keys) {
         $Ctx.Form.Confine($false)
         if ($r.Outcome -eq 'abort') { return 'abort' }
         if ($r.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
-        $t = Test-KcAmlClick $r.Events ([int]$Keys.click.button) $Ctx.ScanTable
+        $t = Test-KcAmlClick $r.Events ([int]$Keys.click.button) $Ctx.ScanTable -Threshold (Get-KcAmlThreshold $Ctx)
         Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
         Wait-KcPause $Ctx 800
         return $t
@@ -401,7 +406,7 @@ function Invoke-KcAmlClickTest($Ctx, $Keys) {
 
 function Invoke-KcShiftClickTest($Ctx, $Keys) {
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts('AML: Shift + クリック', ('ボールを少し転がしてから、「{0}」→「{1}」→「{2}」の順に押してください' -f $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend),
+        $Ctx.Form.SetTexts('AML: Shift + クリック', ('カーソルが 1 cm ほど動くまでボールを転がしてから、「{0}」→「{1}」→「{2}」の順に押してください' -f $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend),
             ("「{0}」と「{1}」は押したまま、「{2}」でクリックします。Shift を押したままクリックできれば合格です。`n「{1}」を先に押すと AML が切れるので、「{0}」から押します。" -f $Keys.scroll.legend, $Keys.shift.legend, $Keys.click.legend))
         $Ctx.Form.ClearEvents()
         $Ctx.Form.Confine($true)
@@ -417,7 +422,7 @@ function Invoke-KcShiftClickTest($Ctx, $Keys) {
         $Ctx.Form.Confine($false)
         if ($r.Outcome -eq 'abort') { return 'abort' }
         if ($r.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
-        $t = Test-KcShiftClick $r.Events ([int]$Keys.shift.usage) ([int]$Keys.click.button) $Ctx.ScanTable
+        $t = Test-KcShiftClick $r.Events ([int]$Keys.shift.usage) ([int]$Keys.click.button) $Ctx.ScanTable -Threshold (Get-KcAmlThreshold $Ctx)
         Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
         Wait-KcPause $Ctx 800
         return $t
@@ -431,7 +436,7 @@ function Invoke-KcShiftClickTest($Ctx, $Keys) {
 function Invoke-KcAmlReleaseTest($Ctx, $Key) {
     $item = 'AML: {0} で解除' -f $Key.mod
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts($item, ('ボールを少し転がしてから、「{0}」をタップしてください' -f $Key.legend),
+        $Ctx.Form.SetTexts($item, ('カーソルが 1 cm ほど動くまでボールを転がしてから、「{0}」をタップしてください' -f $Key.legend),
             ("「{0}」は長押しで {1} になるキーです。AML 中に押すと AML が切れ、文字が入力されれば合格です。`n長押しにならないよう、短く押してください。" -f $Key.legend, $Key.mod))
         $Ctx.Form.ClearEvents()
         $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 40000 -Done {
@@ -440,7 +445,7 @@ function Invoke-KcAmlReleaseTest($Ctx, $Key) {
         }
         if ($r.Outcome -eq 'abort') { return 'abort' }
         if ($r.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
-        $t = Test-KcAmlRelease $r.Events ([int]$Key.usage) $Ctx.ScanTable
+        $t = Test-KcAmlRelease $r.Events ([int]$Key.usage) $Ctx.ScanTable -Threshold (Get-KcAmlThreshold $Ctx)
         Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
         Wait-KcPause $Ctx 800
         return $t
@@ -459,7 +464,7 @@ function Invoke-KcScrollTest($Ctx, [string]$Ball, $Keys) {
     )
     foreach ($d in $dirs) {
         $res = Invoke-KcRetryStep $Ctx {
-            $Ctx.Form.SetTexts(('スクロール ({0}のボール)' -f $bn), ('ボールを少し転がしてから、「{0}」を押したまま、{1}のボールを{2}ゆっくり大きく転がしてください' -f $Keys.scroll.legend, $bn, $d.Text),
+            $Ctx.Form.SetTexts(('スクロール ({0}のボール)' -f $bn), ('カーソルが 1 cm ほど動くまでボールを転がしてから、「{0}」を押したまま、{1}のボールを{2}ゆっくり大きく転がしてください' -f $Keys.scroll.legend, $bn, $d.Text),
                 'スクロールは 16 カウントで 1 段なので、大きめに転がしてください。止まると次へ進みます。')
             $Ctx.Form.ClearEvents()
             $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 40000 -Done {
@@ -475,6 +480,11 @@ function Invoke-KcScrollTest($Ctx, [string]$Ball, $Keys) {
                 return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' }
             }
             $t = Test-KcScroll (Measure-KcMotion $r.Events) $d.Expect
+            if ($t.Status -ne 'PASS') {
+                # スクロールにならなかったのが、最初の動きが小さくて AML にならなかったせいなら、やり直す
+                $small = Test-KcAmlMotion $r.Events (Get-KcAmlThreshold $Ctx)
+                if ($null -ne $small) { $t = $small }
+            }
             Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
             Wait-KcPause $Ctx 800
             return $t
@@ -489,13 +499,16 @@ function Invoke-KcScrollTest($Ctx, [string]$Ball, $Keys) {
 function Invoke-KcTimeoutTest($Ctx, $Keys) {
     $aml = $Ctx.Expected.interactive.trackball.aml
     $waitMs = [int]$aml.timeout_ms + [int]$Ctx.Common.thresholds.aml_timeout_margin_ms
+    # AML が発動するだけ動かしてから数える
+    $minMove = [math]::Max(40, (Get-KcAmlThreshold $Ctx))
+    $Ctx.AmlTimeoutPassed = $false
     $res = Invoke-KcRetryStep $Ctx {
-        $Ctx.Form.SetTexts('AML のタイムアウト', 'ボールを少し転がしてから手を離し、カウントダウンが終わるまで何も触らないでください',
+        $Ctx.Form.SetTexts('AML のタイムアウト', 'カーソルが 1 cm ほど動くまでボールを転がしてから手を離し、カウントダウンが終わるまで何も触らないでください',
             ('AML は {0} 秒で切れるはずです。切れたあと、「{1}」で文字が入力されれば合格です。' -f ([int]$aml.timeout_ms / 1000), $Keys.click.legend))
         $Ctx.Form.ClearEvents()
         $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 60000 -Done {
             param($ev, $now)
-            Test-KcMotionSettled $ev $now 40 300
+            Test-KcMotionSettled $ev $now $minMove 300
         }
         if ($r.Outcome -eq 'abort') { return 'abort' }
         if ($r.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
@@ -513,7 +526,8 @@ function Invoke-KcTimeoutTest($Ctx, $Keys) {
                 $Ctx.Form.SetStatus(('残り {0} 秒' -f [math]::Ceiling(($end - $Ctx.Form.NowMs) / 1000.0)), 0)
             }
         }
-        $Ctx.Form.SetTexts('AML のタイムアウト', ('「{0}」をタップしてください' -f $Keys.click.legend), 'AML が切れていれば、文字が入力されます。')
+        $Ctx.Form.SetTexts('AML のタイムアウト', ('「{0}」を押したまま「{1}」を押してください' -f $Keys.scroll.legend, $Keys.click.legend),
+            ("AML が切れていれば、「{0}」「{1}」が文字として入力されます (AML のままだとクリックになります)。`nクリックはこのウィンドウの中だけで起きます。" -f $Keys.scroll.legend, $Keys.click.legend))
         $Ctx.Form.ClearEvents()
         $Ctx.Form.Confine($true)
         $r2 = Wait-KcStep -Ctx $Ctx -TimeoutMs 30000 -Done {
@@ -525,13 +539,46 @@ function Invoke-KcTimeoutTest($Ctx, $Keys) {
         $Ctx.Form.Confine($false)
         if ($r2.Outcome -eq 'abort') { return 'abort' }
         if ($r2.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
-        $t = Test-KcAfterTimeout $r2.Events ([int]$Keys.after_timeout.usage) $Ctx.ScanTable
+        $t = Test-KcAmlOff $r2.Events ([int]$Keys.scroll.usage) ([int]$Keys.after_timeout.usage) $Ctx.ScanTable 'AML が時間がたっても切れていません'
         Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
         Wait-KcPause $Ctx 800
         return $t
     }
     if ($res -is [string]) { return $res }
+    $Ctx.AmlTimeoutPassed = ($res.Status -eq 'PASS')
     Add-KcInputResult $Ctx $Ctx.Category ('AML のタイムアウト ({0} 秒)' -f ([int]$aml.timeout_ms / 1000)) $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    return 'done'
+}
+
+# わずかな動き (キー入力の振動くらい) では AML にならない。AML が切れている (タイムアウトが PASS) ところから始める
+function Invoke-KcAmlThresholdTest($Ctx, $Keys) {
+    $threshold = Get-KcAmlThreshold $Ctx
+    $item = 'AML のしきい値 (わずかな動きでは発動しない)'
+    if (-not $Ctx.AmlTimeoutPassed) {
+        Add-KcInputResult $Ctx $Ctx.Category $item 'SKIP' 'AML のタイムアウトが合格しなかったため確かめられません'
+        return 'done'
+    }
+    $res = Invoke-KcRetryStep $Ctx {
+        $Ctx.Form.SetTexts($item, ('ボールにそっと触れてカーソルを数ドットだけ動かしてから、「{0}」を押したまま「{1}」を押してください' -f $Keys.scroll.legend, $Keys.click.legend),
+            ("AML は、止まっていた状態からカーソルが {0} 以上動いたときに発動します (キー入力の振動などで発動しないため)。`nわずかな動きなら AML にならず、「{1}」「{2}」が文字として入力されれば合格です。クリックはこのウィンドウの中だけで起きます。" -f $threshold, $Keys.scroll.legend, $Keys.click.legend))
+        $Ctx.Form.ClearEvents()
+        $Ctx.Form.Confine($true)
+        $r = Wait-KcStep -Ctx $Ctx -TimeoutMs 40000 -Done {
+            param($ev, $now)
+            $m = Measure-KcMotion $ev
+            if (Test-KcButtonClicked $m 1) { return ($now - @($ev)[@($ev).Count - 1].Time) -ge 300 }
+            Test-KcKeysSettled $ev $Ctx.ScanTable $now 400
+        }
+        $Ctx.Form.Confine($false)
+        if ($r.Outcome -eq 'abort') { return 'abort' }
+        if ($r.Outcome -ne 'done') { return [pscustomobject]@{ Status = 'NONE'; Actual = '(スキップ)' } }
+        $t = Test-KcAmlThreshold $r.Events ([int]$Keys.scroll.usage) ([int]$Keys.after_timeout.usage) $threshold $Ctx.ScanTable
+        Show-KcStepResult $Ctx $t.Status ($t.Actual + ' ' + [string](Get-KcProp $t 'Message' ''))
+        Wait-KcPause $Ctx 800
+        return $t
+    }
+    if ($res -is [string]) { return $res }
+    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
     return 'done'
 }
 
@@ -724,6 +771,7 @@ function Invoke-KcInputTest {
         ScanTable = (New-KcScanTable $Common); Keyboard = [long]0; Mouse = [long]0; Devices = @(); KeyboardName = ''; MouseName = ''
         Category = ('{0}: 実動作' -f $Expected.name); CalibCategory = ('{0}: トラックボールの正規化' -f $Expected.name)
         CalibEntries = (New-Object 'System.Collections.Generic.List[object]'); SpeedReference = $null; Form = $null
+        AmlTimeoutPassed = $false
     }
     if ($null -ne $Options.SpeedReference) {
         $ctx.SpeedReference = [pscustomobject]@{ Cpi = [double]$Options.SpeedReference; PerRev = $null; Source = '-SpeedReference' }
@@ -789,6 +837,9 @@ function Invoke-KcInputTest {
         }
         if ($outcome -eq 'done' -and $doBall -and $null -ne $lastKeys) {
             $outcome = Invoke-KcTimeoutTest $ctx $lastKeys
+        }
+        if ($outcome -eq 'done' -and $doBall -and $null -ne $lastKeys -and (Get-KcAmlThreshold $ctx) -gt 0) {
+            $outcome = Invoke-KcAmlThresholdTest $ctx $lastKeys
         }
         if ($outcome -eq 'done') {
             $form.SetTexts('完了', '実動作テストが終わりました', '結果はコンソールに表示されます。')

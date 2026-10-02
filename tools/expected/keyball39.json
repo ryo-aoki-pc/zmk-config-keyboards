@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "keyball",
-      "commit": "d8c28726e8c45af9293e5619eed2f5590066507e",
+      "commit": "a89d89789aea449b305b0acd68dd862524f3c663",
       "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/info.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "8e2d18b3ead828c23cc3338a47dde5892ba2807a", "files": ["vial_keymap_docgen.py"]}
@@ -123,7 +123,7 @@
       "layout_options": {"mask": 3, "value": 1, "ball": "Right"},
       "macros_empty": true,
       "status": {
-        "format": 1,
+        "format": 2,
         "model": 39,
         "cpi": 5,
         "scroll_div": 5,
@@ -134,7 +134,8 @@
         "aml_delay": 200,
         "scroll_layer": 2,
         "cpi_default": 5,
-        "scroll_div_default": 5
+        "scroll_div_default": 5,
+        "aml_threshold": 10
       },
       "custom_keycodes": [
         [32256, "KBC_RST"],
@@ -162,10 +163,10 @@
     "trackball": {
       "balls": ["right"],
       "ask_balls": false,
-      "aml": {"layer": 1, "scroll_layer": 2, "timeout_ms": 10000, "require_prior_idle_ms": 200},
+      "aml": {"layer": 1, "scroll_layer": 2, "timeout_ms": 10000, "require_prior_idle_ms": 200, "threshold": 10},
       "keys": {
         "left": {
-          "scroll": {"pos": 12, "legend": "D"},
+          "scroll": {"pos": 12, "usage": 7, "legend": "D"},
           "click": {"pos": 13, "button": 1, "legend": "F"},
           "shift": {"pos": 20, "usage": 225, "legend": "Z"},
           "release_ctrl": {"pos": 10, "mod": "Ctrl", "usage": 4, "legend": "A"},
@@ -173,7 +174,7 @@
           "after_timeout": {"pos": 13, "usage": 9, "legend": "F"}
         },
         "right": {
-          "scroll": {"pos": 17, "legend": "K"},
+          "scroll": {"pos": 17, "usage": 14, "legend": "K"},
           "click": {"pos": 16, "button": 1, "legend": "J"},
           "shift": {"pos": 29, "usage": 229, "legend": "/"},
           "release_ctrl": {"pos": 19, "mod": "Ctrl", "usage": 45, "legend": "-"},
@@ -203,6 +204,7 @@
   "consistency": [
     {"level": "ok", "message": "AML のタイムアウト AUTO_MOUSE_TIME = 10000 (LisM 10000)"},
     {"level": "ok", "message": "AML の発動条件 AUTO_MOUSE_DELAY = 200 (LisM require-prior-idle-ms 200)"},
+    {"level": "ok", "message": "AML のしきい値 KEYBALL_AML_THRESHOLD = 10 (LisM 10)"},
     {"level": "ok", "message": "スクロールの倍率 1/16 (KEYBALL_SCROLL_DIV_DEFAULT 5、LisM 1/16)"},
     {"level": "ok", "message": "カーソルの加速 KEYBALL_ACCEL_*: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"}
   ]
