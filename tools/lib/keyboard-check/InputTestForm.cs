@@ -1,7 +1,7 @@
-// Windows for the interactive test of tools/keyboard-check.ps1 (KcInputTestForm), the layer trace of
+// Windows for the interactive test of tools/scripts/keyboard-check.ps1 (KcInputTestForm), the layer trace of
 // keyboard-check.ps1 -Mode Trace (KcLayerTraceForm), the tap-hold timing of keyboard-check.ps1 -Mode HoldTap
-// (KcHoldTapForm with its timeline KcTimelineView), the input event monitor of tools/input-monitor.ps1
-// (KcInputMonitorForm) and the flashing tool tools/flash.ps1 (KcFlashForm), built with WPF.
+// (KcHoldTapForm with its timeline KcTimelineView), the input event monitor of tools/scripts/input-monitor.ps1
+// (KcInputMonitorForm) and the flashing tool tools/scripts/flash.ps1 (KcFlashForm), built with WPF.
 // Records Raw Input (WM_INPUT) per device: keyboard scan codes (layout independent) and
 // relative mouse movement before pointer acceleration, so key taps and trackball motion can be
 // checked against the expected values, and the timing of the reports can be analyzed.
@@ -216,6 +216,7 @@ public static class KcUi
     public static Window CreateWindow(string contentFile, out FrameworkElement root)
     {
         ResourceDictionary theme = (ResourceDictionary)LoadXaml("Theme.xaml");
+        ApplyMonoFont(theme);
         Window window = new Window();
         window.Resources.MergedDictionaries.Add(theme);
         window.Style = (Style)theme["KcWindow"];
@@ -228,6 +229,117 @@ public static class KcUi
     {
         string path = System.IO.Path.Combine(xamlDir, file);
         return XamlReader.Parse(System.IO.File.ReadAllText(path, Encoding.UTF8));
+    }
+
+    // The monospace font of the logs (KcMonoFont) is HackGen Console NF when it is installed. Installed for
+    // all users, WPF finds it by the name in Theme.xaml. Installed for the current user only (what the
+    // Install button of Windows does since Windows 10 1809: %LOCALAPPDATA%\Microsoft\Windows\Fonts), it
+    // is not always in the system font collection of WPF, so the file registered in HKCU is put in front.
+    public const string MonoFontName = "HackGen Console NF";
+    static bool monoFontLooked;
+    static string monoFontFile;
+
+    static void ApplyMonoFont(ResourceDictionary theme)
+    {
+        if (!monoFontLooked)
+        {
+            monoFontLooked = true;
+            if (!IsSystemFont(MonoFontName))
+            {
+                monoFontFile = FindUserFontFile(MonoFontName);
+            }
+        }
+        FontFamily mono = theme["KcMonoFont"] as FontFamily;
+        if (monoFontFile == null || mono == null)
+        {
+            return;
+        }
+        try
+        {
+            theme["KcMonoFont"] = new FontFamily(FontFileSource(monoFontFile, MonoFontName, mono.Source));
+        }
+        catch (Exception)
+        {
+            // keep the fonts of Theme.xaml
+        }
+    }
+
+    // Whether WPF finds a font family by its name.
+    public static bool IsSystemFont(string family)
+    {
+        try
+        {
+            foreach (FontFamily f in Fonts.SystemFontFamilies)
+            {
+                foreach (string name in f.FamilyNames.Values)
+                {
+                    if (string.Equals(name, family, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // treated as missing
+        }
+        return false;
+    }
+
+    // The file of a font family installed for the current user ("<family> Regular (TrueType)" and so on in
+    // HKCU; the Regular one when there are several), or null. "HackGen35 Console NF" is not "HackGen Console NF".
+    public static string FindUserFontFile(string family)
+    {
+        try
+        {
+            using (Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\Fonts"))
+            {
+                if (key == null)
+                {
+                    return null;
+                }
+                string found = null;
+                foreach (string name in key.GetValueNames())
+                {
+                    if (!name.StartsWith(family + " ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    string file = key.GetValue(name) as string;
+                    if (string.IsNullOrEmpty(file))
+                    {
+                        continue;
+                    }
+                    if (!System.IO.Path.IsPathRooted(file))
+                    {
+                        file = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                            @"Microsoft\Windows\Fonts", file);
+                    }
+                    if (!System.IO.File.Exists(file))
+                    {
+                        continue;
+                    }
+                    if (found == null || name.IndexOf("Regular", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        found = file;
+                    }
+                }
+                return found;
+            }
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    // A FontFamily source that takes the family from a font file, then the fallback list: "file:///...#Family,
+    // Fallback". A comma in the path would split the list, so it is escaped.
+    public static string FontFileSource(string fontFile, string family, string fallback)
+    {
+        string uri = new Uri(fontFile).AbsoluteUri.Replace(",", "%2C");
+        return uri + "#" + family + (string.IsNullOrEmpty(fallback) ? "" : ", " + fallback);
     }
 
     // A named element of the window content (throws when the XAML does not have it).
@@ -1512,7 +1624,7 @@ public sealed class KcInputDeviceEntry
     public int Type;   // 0 = mouse, 1 = keyboard, 2 = other HID
 }
 
-// Window for tools/input-monitor.ps1: records every keyboard / mouse Raw Input event of every device
+// Window for tools/scripts/input-monitor.ps1: records every keyboard / mouse Raw Input event of every device
 // with a microsecond timestamp. The window runs on its own STA thread (Launch), so WM_INPUT is
 // handled as soon as it arrives and the timestamps are not quantized by the PowerShell polling loop
 // (the polling loop of KcInputTestForm handles the queued messages in 15 ms batches).
@@ -2265,7 +2377,7 @@ public sealed class KcLayerTraceForm : IDisposable
     }
 }
 
-// The window of tools/flash.ps1: choose a keyboard, a build (latest / PR / past custom build) and the
+// The window of tools/scripts/flash.ps1: choose a keyboard, a build (latest / PR / past custom build) and the
 // options, then follow the steps while the flashing scripts run (their output is shown in the log).
 // The window runs on a thread of its own (Launch) so the PowerShell thread can download and run the
 // child processes; every setter is posted to the window thread. The buttons and the selections are

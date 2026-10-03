@@ -67,19 +67,19 @@
     楕円補正の強さ (0〜100、既定 100)。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard KUKEY42 -Mode Interactive -Section Calibrate
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard KUKEY42 -Mode Interactive -Section Calibrate
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard LisM -Mode Interactive -Section Behaviors
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard LisM -Mode Interactive -Section Behaviors
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard LisM -Mode Trace
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard LisM -Mode Trace
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard LisM -Mode HoldTap
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard LisM -Mode HoldTap
 #>
 [CmdletBinding()]
 param(
@@ -115,7 +115,9 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-$lib = Join-Path $PSScriptRoot 'lib\keyboard-check'
+# このスクリプトは tools\scripts にある。lib・expected・.cache は tools の下
+$toolsDir = Split-Path -Parent $PSScriptRoot
+$lib = Join-Path $toolsDir 'lib\keyboard-check'
 . (Join-Path $lib 'expected.ps1')
 . (Join-Path $lib 'results.ps1')
 . (Join-Path $lib 'rawhid.ps1')
@@ -133,9 +135,9 @@ $lib = Join-Path $PSScriptRoot 'lib\keyboard-check'
 . (Join-Path $lib 'hold-tap-ui.ps1')
 
 if (-not $ExpectedDir) {
-    $ExpectedDir = Join-Path $PSScriptRoot 'expected'
+    $ExpectedDir = Join-Path $toolsDir 'expected'
 }
-$cacheDir = Join-Path $PSScriptRoot '.cache\keyboard-check'
+$cacheDir = Join-Path $toolsDir '.cache\keyboard-check'
 $calibCache = Join-Path $cacheDir 'trackball.json'
 $isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """tools/keyboard-check の期待値 (tools/expected/*.json) を submodule から生成する。
 
-検査ツール (tools/keyboard-check.ps1) は、ここで生成した JSON を「意図した設定」として、
+検査ツール (tools/scripts/keyboard-check.ps1) は、ここで生成した JSON を「意図した設定」として、
 キーボードから読み出した設定や、キーを押したときの動作と比べる。
 
     python tools/expected/generate.py            # 期待値を書き出す

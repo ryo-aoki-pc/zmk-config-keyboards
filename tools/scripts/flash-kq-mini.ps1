@@ -7,7 +7,7 @@
     最新ビルド。-Tag / -Pr で PR や過去のビルド) をダウンロードして書き込みます。書き込みは
     flash-uf2.ps1 が行い、KQ-mini はシリアルポート経由で自動的にブートローダに切り替えます。
 
-    tools\flash-kq-mini.cmd をダブルクリックすると、書き込みツールのウィンドウ (flash.ps1) が開きます。
+    tools\scripts\flash-kq-mini.cmd をダブルクリックすると、KQ-mini を選んだ状態で書き込みツールのウィンドウ (flash.ps1) が開きます。
 
 .PARAMETER Path
     書き込む .uf2 ファイル。省略すると最新のファームウェアをダウンロードします。
@@ -23,10 +23,10 @@
     PR のビルド (firmware-pr-<番号>) を書き込みます。-Tag とは一緒に使えません。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-kq-mini.ps1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-kq-mini.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-kq-mini.ps1 sekigon_keyboard_quantizer_mini_vial.uf2
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-kq-mini.ps1 sekigon_keyboard_quantizer_mini_vial.uf2
 #>
 [CmdletBinding()]
 param(
@@ -44,13 +44,15 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'lib\firmware-release.ps1')
-. (Join-Path $PSScriptRoot 'lib\flash-plan.ps1')
+# このスクリプトは tools\scripts にある。lib・expected・.cache は tools の下
+$TOOLS_DIR = Split-Path -Parent $PSScriptRoot
+. (Join-Path $TOOLS_DIR 'lib\firmware-release.ps1')
+. (Join-Path $TOOLS_DIR 'lib\flash-plan.ps1')
 
 if (-not $Path) {
     try {
         $kqmini = $script:FlashKeyboards['KQ-mini']
-        $Path = Get-FirmwareAsset -Repo $kqmini.Repo -Asset $kqmini.Asset -OutDir (Join-Path $PSScriptRoot '.cache\firmware') `
+        $Path = Get-FirmwareAsset -Repo $kqmini.Repo -Asset $kqmini.Asset -OutDir (Join-Path $TOOLS_DIR '.cache\firmware') `
             -Tag (Get-FirmwareTag $Tag $Pr)
     } catch {
         Write-Host ''

@@ -1,4 +1,4 @@
-﻿# 入力イベントモニタ (tools/input-monitor.ps1、lib/input-monitor/*.ps1) のテスト。
+﻿# 入力イベントモニタ (tools/scripts/input-monitor.ps1、lib/input-monitor/*.ps1) のテスト。
 # パスの解析・間隔の統計・停滞の検出・キーの時系列・AML ビュー・記録ファイルの往復は Windows の API を使わない。
 
 . (Join-Path $script:KcLib 'expected.ps1')
@@ -9,7 +9,7 @@
 
 $imCommon = Get-KcExpected 'common' $script:ExpectedDir
 $imScan = New-KcScanTable $imCommon
-$script:ImEntry = Join-Path $script:ToolsDir 'input-monitor.ps1'
+$script:ImEntry = Join-Path $script:ToolsDir 'scripts\input-monitor.ps1'
 $script:ImHostExe = (Get-Process -Id $PID).Path
 
 $imUsbKeyboardPath = '\\?\HID#VID_1D50&PID_615E&MI_00&Col01#8&2f3a1b2c&0&0000#{884b96c3-56ef-11d1-bc8c-00a0c91405dd}'

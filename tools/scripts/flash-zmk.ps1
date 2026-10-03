@@ -50,16 +50,16 @@
     1 回の書き込みごとに、ブートローダのドライブが現れるまで待つ秒数。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-zmk.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 -Keyboard LisM -Mode ResetBoth
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-zmk.ps1 -Keyboard LisM -Mode ResetBoth
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 -Keyboard Pyuron -Mode Right -Studio
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-zmk.ps1 -Keyboard Pyuron -Mode Right -Studio
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 -Keyboard LisM -Mode Both -Pr 27
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-zmk.ps1 -Keyboard LisM -Mode Both -Pr 27
 #>
 [CmdletBinding()]
 param(
@@ -92,11 +92,13 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'lib\firmware-release.ps1')
-. (Join-Path $PSScriptRoot 'lib\flash-plan.ps1')
+# このスクリプトは tools\scripts にある。lib・expected・.cache は tools の下
+$TOOLS_DIR = Split-Path -Parent $PSScriptRoot
+. (Join-Path $TOOLS_DIR 'lib\firmware-release.ps1')
+. (Join-Path $TOOLS_DIR 'lib\flash-plan.ps1')
 
 $FLASH_UF2 = Join-Path $PSScriptRoot 'flash-uf2.ps1'
-$CACHE_DIR = Join-Path $PSScriptRoot '.cache\firmware'
+$CACHE_DIR = Join-Path $TOOLS_DIR '.cache\firmware'
 
 function Stop-WithError([string]$Message) {
     Write-Host ''
@@ -191,7 +193,7 @@ for ($i = 0; $i -lt $steps.Count; $i++) {
         for ($j = $i; $j -lt $steps.Count; $j++) {
             Write-Host ("  {0} ({1}): {2}" -f $steps[$j].Side, $steps[$j].What, $paths[$steps[$j].Asset])
         }
-        Write-Host '  もう一度このスクリプトを実行するか、上のファイルを tools\flash-uf2.cmd にドラッグ＆ドロップして書き込んでください。'
+        Write-Host '  もう一度このスクリプトを実行するか、上のファイルを tools\flash.cmd にドラッグ＆ドロップして書き込んでください。'
         exit 1
     }
     # BMP の設定リセットは、書き込んだあとに一度起動させないと動かない

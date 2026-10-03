@@ -1,5 +1,5 @@
 <!--
-  Content of the tap-hold timing window of tools/keyboard-check.ps1 -Mode HoldTap (KcHoldTapForm in
+  Content of the tap-hold timing window of tools/scripts/keyboard-check.ps1 -Mode HoldTap (KcHoldTapForm in
   InputTestForm.cs): the target key, the presets, the key presses read from the logging firmware and the
   settings on the left; the result and the timeline (KcTimelineView draws ChartCanvas) on the right.
   Loaded with XamlReader: no x:Class, the named elements are looked up by C#.

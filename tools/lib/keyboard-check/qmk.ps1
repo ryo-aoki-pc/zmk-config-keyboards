@@ -507,7 +507,7 @@ function Invoke-KcKqMiniReadout {
     $expUid = (@($Expected.device.vial_uid) | ForEach-Object { '{0:X2}' -f $_ }) -join ''
     if ($uidHex -ne $expUid) {
         [void](Add-KcResult -Results $Results -Category $cat -Item 'Vial の ID' -Status FAIL -Expected $expUid -Actual $uidHex `
-                -Hint 'vial-qmk-kq-mini のファームではないようです。tools/flash-kq-mini.cmd で書き込み直してください')
+                -Hint 'vial-qmk-kq-mini のファームではないようです。tools/flash.cmd (KQ-mini) で書き込み直してください')
         return
     }
     [void](Add-KcResult -Results $Results -Category $cat -Item 'Vial の ID' -Status PASS -Actual ('{0} (Vial プロトコル {1})' -f $uidHex, $id.Protocol))
@@ -537,7 +537,7 @@ function Invoke-KcKqMiniReadout {
     }
     $format = { param($x) Format-KcQmkKeycode $x $names }
     $diffs = Compare-KcKeymapGrid $v.keymap $actual $layers $rows $cols $describe $format
-    $hint = 'Vial で変更した内容が KQ-mini の EEPROM に残っています。Vial の「File → Load saved layout」で vial-qmk-kq-mini の KEYMAP.vil を読み込むか、tools/flash-kq-mini.cmd で書き込み直すと戻ります (同じファームの書き直しでは戻りません)'
+    $hint = 'Vial で変更した内容が KQ-mini の EEPROM に残っています。Vial の「File → Load saved layout」で vial-qmk-kq-mini の KEYMAP.vil を読み込むか、tools/flash.cmd (KQ-mini) で書き込み直すと戻ります (同じファームの書き直しでは戻りません)'
     $mouseDiffs = @()
     foreach ($m in @($v.mouse_cells)) {
         for ($l = 0; $l -lt $layers; $l++) {
@@ -680,7 +680,7 @@ function Add-KcEntryResult($Results, [string]$Category, [string]$Item, [string[]
         [void](Add-KcResult -Results $Results -Category $Category -Item $Item -Status PASS -Actual ('{0} (一致)' -f $Summary))
     } else {
         [void](Add-KcResult -Results $Results -Category $Category -Item $Item -Status FAIL -Expected $Summary -Actual ('{0} 件が違う' -f $Diffs.Count) `
-                -Details $Diffs -Hint 'Vial で変更した内容が残っています。KEYMAP.vil を読み込み直すか、tools/flash-kq-mini.cmd で書き込み直してください')
+                -Details $Diffs -Hint 'Vial で変更した内容が残っています。KEYMAP.vil を読み込み直すか、tools/flash.cmd (KQ-mini) で書き込み直してください')
     }
 }
 
@@ -736,7 +736,7 @@ function Invoke-KcKeyballReadout {
         $format = { param($x) Format-KcQmkKeycode $x $names }
         $diffs = Compare-KcKeymapGrid $v.keymap $actual $layers $rows $cols $describe $format
         Add-KcKeymapResult $Results $cat $diffs ($layers * $rows * $cols) `
-            'VIA で変更した内容が EEPROM に残っています。VIA でキーを戻すか、tools/flash-keyball.cmd で書き込み直してください (同じ日にビルドしたファームでは戻らないことがあります)'
+            'VIA で変更した内容が EEPROM に残っています。VIA でキーを戻すか、tools/flash.cmd (Keyball39) で書き込み直してください (同じ日にビルドしたファームでは戻らないことがあります)'
     }
 
     # ボールの検出 (layout options の Ball availability)
@@ -760,14 +760,14 @@ function Invoke-KcKeyballReadout {
     $st = Read-KcKeyballStatus $Query
     if ($null -eq $st) {
         [void](Add-KcResult -Results $Results -Category $cat -Item 'トラックボールの設定 (CPI / スクロール / AML)' -Status SKIP `
-                -Actual 'このファームでは読めません' -Hint 'tools/flash-keyball.cmd で最新のファームを書き込むと読めるようになります')
+                -Actual 'このファームでは読めません' -Hint 'tools/flash.cmd (Keyball39) で最新のファームを書き込むと読めるようになります')
     } else {
         Add-KcKeyballStatusResults $Results $cat $st $v.status
         $accel = Read-KcKeyballAccel $Query
         $expAccel = Get-KcProp (@($Expected.interactive.trackball.firmware)[0]) 'accel' $null
         if ($null -eq $accel) {
             [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status SKIP `
-                    -Actual 'このファームでは読めません' -Hint 'tools/flash-keyball.cmd で最新のファームを書き込むと読めるようになります')
+                    -Actual 'このファームでは読めません' -Hint 'tools/flash.cmd (Keyball39) で最新のファームを書き込むと読めるようになります')
         } elseif ($null -eq $expAccel) {
             [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status INFO -Actual (Format-KcAccel $accel))
         } else {
@@ -781,7 +781,7 @@ function Invoke-KcKeyballReadout {
                 [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status PASS -Actual (Format-KcAccel $accel))
             } else {
                 [void](Add-KcResult -Results $Results -Category $cat -Item 'カーソルの加速' -Status FAIL -Expected (Format-KcAccel $expAccel) -Actual (Format-KcAccel $accel) `
-                        -Hint 'ファームの config.h の KEYBALL_ACCEL_* が期待値 (LisM 基準) と違います。tools/flash-keyball.cmd で最新のファームを書き込んでください')
+                        -Hint 'ファームの config.h の KEYBALL_ACCEL_* が期待値 (LisM 基準) と違います。tools/flash.cmd (Keyball39) で最新のファームを書き込んでください')
             }
         }
         $date = Read-KcKeyballBuildDate $Query
@@ -847,13 +847,13 @@ function Add-KcKeyballStatusResults($Results, [string]$Category, $Status, $Exp) 
     $expThreshold = Get-KcProp $Exp 'aml_threshold' $null
     if ($null -eq $Status.AmlThreshold) {
         [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status SKIP -Actual 'このファームでは読めません' `
-                -Hint 'しきい値の無い古いファームです。tools/flash-keyball.cmd で最新のファームを書き込んでください')
+                -Hint 'しきい値の無い古いファームです。tools/flash.cmd (Keyball39) で最新のファームを書き込んでください')
     } elseif ($null -eq $expThreshold) {
         [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status INFO -Actual ([string]$Status.AmlThreshold))
     } elseif ([int]$expThreshold -eq $Status.AmlThreshold) {
         [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status PASS -Actual ([string]$Status.AmlThreshold))
     } else {
         [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status FAIL -Expected ([string]$expThreshold) -Actual ([string]$Status.AmlThreshold) `
-                -Hint 'ファームの config.h の KEYBALL_AML_THRESHOLD が期待値 (LisM 基準) と違います。tools/flash-keyball.cmd で最新のファームを書き込んでください')
+                -Hint 'ファームの config.h の KEYBALL_AML_THRESHOLD が期待値 (LisM 基準) と違います。tools/flash.cmd (Keyball39) で最新のファームを書き込んでください')
     }
 }

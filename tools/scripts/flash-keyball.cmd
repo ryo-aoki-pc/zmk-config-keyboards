@@ -1,5 +1,5 @@
 @echo off
-rem Double-click to open the firmware flashing tool (flash.cmd) with Keyball39 selected,
+rem Double-click to open the firmware flashing tool (tools\flash.cmd) with Keyball39 selected,
 rem or drag and drop a .hex file onto this file to flash that file instead.
 rem See the "Keyball39" flashing section in README.md for details.
 setlocal

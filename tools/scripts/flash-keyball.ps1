@@ -14,7 +14,7 @@
     caterina ブートローダは起動から約 8 秒で終了するので、COM ポートが現れたらすぐに書き込みます。
     Keyball は KQ-mini 経由では書き込めないので、PC に直接つないでください。
 
-    tools\flash-keyball.cmd をダブルクリックすると、書き込みツールのウィンドウ (flash.ps1) が開きます。
+    tools\scripts\flash-keyball.cmd をダブルクリックすると、Keyball39 を選んだ状態で書き込みツールのウィンドウ (flash.ps1) が開きます。
 
 .PARAMETER Path
     書き込む .hex ファイル。省略すると最新のファームウェアをダウンロードします。
@@ -36,13 +36,13 @@
     PR のビルド (firmware-pr-<番号>) を書き込みます。-Tag とは一緒に使えません。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-keyball.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 keyball_keyball39_via.hex -Count 1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-keyball.ps1 keyball_keyball39_via.hex -Count 1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 -Pr 19
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-keyball.ps1 -Pr 19
 #>
 [CmdletBinding()]
 param(
@@ -64,10 +64,12 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'lib\firmware-release.ps1')
-. (Join-Path $PSScriptRoot 'lib\flash-plan.ps1')
+# このスクリプトは tools\scripts にある。lib・expected・.cache は tools の下
+$TOOLS_DIR = Split-Path -Parent $PSScriptRoot
+. (Join-Path $TOOLS_DIR 'lib\firmware-release.ps1')
+. (Join-Path $TOOLS_DIR 'lib\flash-plan.ps1')
 
-$CACHE_DIR = Join-Path $PSScriptRoot '.cache'
+$CACHE_DIR = Join-Path $TOOLS_DIR '.cache'
 
 # ATmega32U4 (32 KB) の先頭 28 KB がアプリケーション領域。0x7000 以降は caterina ブートローダ。
 $APP_END = 0x7000

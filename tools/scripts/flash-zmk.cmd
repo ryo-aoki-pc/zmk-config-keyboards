@@ -1,5 +1,5 @@
 @echo off
-rem Double-click to open the firmware flashing tool (flash.cmd) for the ZMK keyboards (LisM /
+rem Double-click to open the firmware flashing tool (tools\flash.cmd) for the ZMK keyboards (LisM /
 rem AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp),
 rem or drag and drop a .uf2 file onto this file to flash that file instead.
 rem See the "ZMK" flashing section in README.md for details.
