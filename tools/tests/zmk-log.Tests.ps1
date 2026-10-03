@@ -99,6 +99,27 @@ Test-Case '行の解析: 色・時刻・関数名、知らない行、欠落' {
     Assert-True $k.Pressed
 }
 
+Test-Case 'hold-tap の判定待ちの間の行 (保留・素通し・流し直し・後片付け)' {
+    $c = ConvertFrom-KcZmkLogLine (New-ZlLine 1 'position_state_changed_listener' '34 capturing 15 down event')
+    Assert-Equal 'ht_capture' $c.Type
+    Assert-Equal 34 $c.Pos
+    Assert-Equal 15 $c.Other
+    Assert-True $c.Pressed
+    $b = ConvertFrom-KcZmkLogLine (New-ZlLine 1 'position_state_changed_listener' '34 bubbling 12 up event')
+    Assert-Equal 'ht_bubble' $b.Type
+    Assert-Equal $false $b.Pressed
+    $k = ConvertFrom-KcZmkLogLine (New-ZlLine 1 'keycode_state_changed_listener' '34 capturing 0xE1 down event')
+    Assert-Equal 'other' $k.Type '修飾キーの保留は位置ではない'
+    $r = ConvertFrom-KcZmkLogLine (New-ZlLine 1 'release_captured_events' 'Releasing key position event for position 15 released')
+    Assert-Equal 'ht_replay' $r.Type
+    Assert-Equal 15 $r.Pos
+    Assert-Equal $false $r.Pressed
+    Assert-Equal 'ht_cleanup' (ConvertFrom-KcZmkLogLine (New-ZlLine 1 'on_hold_tap_binding_released' '34 cleaning up hold-tap')).Type
+    Assert-Equal 'ht_retro' (ConvertFrom-KcZmkLogLine (New-ZlLine 1 'decide_retro_tap' '34 retro tap')).Type
+    Assert-Equal 'ht_retro_hold' (ConvertFrom-KcZmkLogLine (New-ZlLine 1 'update_hold_status_for_retro_tap' 'Update hold tap 34 status to hold-interrupt')).Type
+    Assert-Equal 'ht_hwu' (ConvertFrom-KcZmkLogLine (New-ZlLine 1 'decide_hold_tap' '34 hold behavior pressed while undecided')).Type
+}
+
 Test-Case '途中で切れた行をつなぐ' {
     $buf = ''
     $a = Split-KcLogChunk ([ref]$buf) "abc`r`nde"
@@ -270,24 +291,18 @@ Test-Case '期待値: ZMK の機種はデバイス名とレイヤーごとの表
     }
 }
 
-# flash-zmk.ps1 は、$KEYBOARDS のセントラルの名前に _studio / _logging を付けてダウンロードする。
+# 書き込みツール (lib/flash-plan.ps1) は、$FlashKeyboards のセントラルの名前に _studio / _logging を付けてダウンロードする。
 # その名前が、各リポジトリの build.yaml (期待値の studio_artifacts / logging_artifacts) にあること
-Test-Case 'アセット名: flash-zmk のセントラル + _studio / _logging が build.yaml にある' {
-    $tokens = $null
-    $errors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ToolsDir 'flash-zmk.ps1'), [ref]$tokens, [ref]$errors)
-    $assign = $ast.Find({
-            param($n)
-            $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$KEYBOARDS'
-        }, $true)
-    Assert-True ($null -ne $assign) '$KEYBOARDS が見つからない'
-    $table = $assign.Right.Find({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
+Test-Case 'アセット名: 書き込みツールのセントラル + _studio / _logging が build.yaml にある' {
+    . (Join-Path $script:ToolsDir 'lib\flash-plan.ps1')
     $count = 0
-    foreach ($pair in $table.KeyValuePairs) {
-        $id = ([string]$pair.Item1.Value).ToLowerInvariant()
-        $inner = $pair.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
-        $rightPair = @($inner.KeyValuePairs | Where-Object { $_.Item1.Value -eq 'Right' })[0]
-        $right = [string]$rightPair.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true).Value
+    foreach ($key in @($script:FlashKeyboards.Keys)) {
+        $k = $script:FlashKeyboards[$key]
+        if ($k.Kind -ne 'zmk') {
+            continue
+        }
+        $id = ([string]$key).ToLowerInvariant()
+        $right = [string]$k.Right
         $names = @($right)
         if ($right.Contains('{v}')) { $names = @($right.Replace('{v}', 'trackball'), $right.Replace('{v}', 'non_trackball')) }
         $e = Get-KcExpected $id $script:ExpectedDir

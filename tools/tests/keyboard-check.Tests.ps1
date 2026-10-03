@@ -1,8 +1,8 @@
-﻿# 入口のスクリプト (tools/keyboard-check.ps1) を別のプロセスで実行するテスト (キーボードはつながっていない前提)
+﻿# 入口のスクリプト (tools/scripts/keyboard-check.ps1) を別のプロセスで実行するテスト (キーボードはつながっていない前提)
 
 . (Join-Path $script:KcLib 'expected.ps1')
 
-$script:KcEntry = Join-Path $script:ToolsDir 'keyboard-check.ps1'
+$script:KcEntry = Join-Path $script:ToolsDir 'scripts\keyboard-check.ps1'
 $script:KcHostExe = (Get-Process -Id $PID).Path
 
 function Invoke-KcEntry([string[]]$Arguments) {
@@ -29,6 +29,19 @@ Test-Case 'KQ-mini: 見つからなければ SKIP、Keyball は直結の案内' 
     $r = Invoke-KcEntry @('-Keyboard', 'KqMini', '-Mode', 'Readout')
     Assert-Equal 2 $r.Code ('終了コード。出力: ' + $r.Output)
     Assert-True ($r.Report -like '*KQ-mini 経由では読めません*') $r.Report
+}
+
+Test-Case 'HoldTap: Keyball39 (直結) はタップホールドが無いので、KQ-mini を案内して終了コード 0' {
+    $r = Invoke-KcEntry @('-Keyboard', 'Keyball39', '-Mode', 'HoldTap')
+    Assert-Equal 0 $r.Code ('終了コード。出力: ' + $r.Output)
+    Assert-True ($r.Output -like '*タップホールドがありません*Keyboard Quantizer Mini + Keyball39*') $r.Output
+}
+
+Test-Case 'HoldTap: Windows 以外では、ウィンドウを開かずに終了コード 0' {
+    if ($script:IsWindowsHost) { return }
+    $r = Invoke-KcEntry @('-Keyboard', 'LisM', '-Mode', 'HoldTap')
+    Assert-Equal 0 $r.Code ('終了コード。出力: ' + $r.Output)
+    Assert-True ($r.Output -like '*Windows でのみ*') $r.Output
 }
 
 Test-Case '機種の一覧: ZMK Studio のデバイス名が期待値と合う' {

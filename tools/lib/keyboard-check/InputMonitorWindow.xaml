@@ -1,5 +1,5 @@
 <!--
-  Content of the window of tools/input-monitor.ps1 (KcInputMonitorForm in InputTestForm.cs).
+  Content of the window of tools/scripts/input-monitor.ps1 (KcInputMonitorForm in InputTestForm.cs).
   Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
   Theme keys (Theme.xaml) are referenced with DynamicResource because the theme is merged into the
   window after this content is parsed. ASCII only: texts are set from PowerShell.

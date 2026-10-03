@@ -1,6 +1,6 @@
 <!--
   Dark theme shared by the WPF windows of tools/lib/keyboard-check/InputTestForm.cs
-  (KcInputTestForm / KcInputMonitorForm). KcUi.CreateWindow merges this dictionary into each window
+  (KcInputTestForm / KcInputMonitorForm / KcLayerTraceForm / KcFlashForm). KcUi.CreateWindow merges this dictionary into each window
   before the window content is parsed, so the window XAML refers to these keys with DynamicResource.
   Inside this file a key must be defined before a StaticResource refers to it.
   ASCII only: user-visible strings are passed in from PowerShell.
@@ -126,8 +126,10 @@
   <!-- ==== fonts ==== -->
   <!-- WPF picks a font per character from the list: Latin from Segoe UI, Japanese from Yu Gothic UI -->
   <FontFamily x:Key="KcUiFont">Segoe UI, Yu Gothic UI, Meiryo UI</FontFamily>
-  <!-- Japanese capable monospace font for the log -->
-  <FontFamily x:Key="KcMonoFont">BIZ UDGothic, MS Gothic</FontFamily>
+  <!-- Japanese capable monospace font for the logs: HackGen Console NF when installed, else BIZ UDGothic.
+       KcUi.CreateWindow puts a HackGen Console NF installed for the current user only (not always in the
+       system font collection of WPF) in front, so the styles refer to it with DynamicResource. -->
+  <FontFamily x:Key="KcMonoFont">HackGen Console NF, BIZ UDGothic, MS Gothic</FontFamily>
 
   <!-- ==== window ==== -->
   <Style x:Key="KcWindow" TargetType="Window">
@@ -304,7 +306,7 @@
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{StaticResource KcText}"/>
     <Setter Property="BorderThickness" Value="0"/>
-    <Setter Property="FontFamily" Value="{StaticResource KcMonoFont}"/>
+    <Setter Property="FontFamily" Value="{DynamicResource KcMonoFont}"/>
     <Setter Property="FontSize" Value="13"/>
     <Setter Property="Padding" Value="12,10"/>
     <Setter Property="IsReadOnly" Value="True"/>
@@ -407,5 +409,261 @@
     <Setter Property="Background" Value="{StaticResource KcChrome}"/>
     <Setter Property="BorderBrush" Value="{StaticResource KcDivider}"/>
     <Setter Property="BorderThickness" Value="0,0,0,1"/>
+  </Style>
+
+  <!-- ==== flashing tool (tools/scripts/flash.ps1, KcFlashForm) ==== -->
+  <!-- Items of the keyboard list and the build list: radio buttons (one selected), never focused, so keys
+       typed by the keyboard being flashed cannot change the selection. -->
+  <Style x:Key="KcNavItem" TargetType="RadioButton">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Foreground" Value="{StaticResource KcText}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="14,8,12,8"/>
+    <Setter Property="Margin" Value="0,0,0,4"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Grid>
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
+              <ContentPresenter Margin="{TemplateBinding Padding}" RecognizesAccessKey="False"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+            </Border>
+            <Border x:Name="Bar" Width="3" HorizontalAlignment="Left" Margin="0,10" CornerRadius="2"
+                    Background="{StaticResource KcAccentLight}" Visibility="Collapsed"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Bar" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource KcSurfaceHover}"/>
+      </Trigger>
+      <Trigger Property="IsChecked" Value="True">
+        <Setter Property="Background" Value="{StaticResource KcSurfaceRaised}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <Style x:Key="KcBuildItem" TargetType="RadioButton" BasedOn="{StaticResource KcNavItem}">
+    <Setter Property="BorderBrush" Value="{StaticResource KcBorder}"/>
+    <Setter Property="Padding" Value="16,10,14,11"/>
+    <Setter Property="Margin" Value="0,0,0,8"/>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource KcSurfaceHover}"/>
+      </Trigger>
+      <Trigger Property="IsChecked" Value="True">
+        <Setter Property="Background" Value="{StaticResource KcSurfaceRaised}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource KcAccentLight}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <Style x:Key="KcGroupCaption" TargetType="TextBlock" BasedOn="{StaticResource KcSectionCaption}">
+    <Setter Property="Margin" Value="4,10,0,6"/>
+  </Style>
+
+  <!-- segmented control: a row of radio buttons in a rounded bar -->
+  <Style x:Key="KcSegmentBar" TargetType="Border">
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="Background" Value="{StaticResource KcBg}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource KcBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="3"/>
+  </Style>
+
+  <Style x:Key="KcSegment" TargetType="RadioButton">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{StaticResource KcTextMuted}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Padding" Value="8,6"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border Background="{TemplateBinding Background}" CornerRadius="7" SnapsToDevicePixels="True">
+            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              RecognizesAccessKey="False"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Foreground" Value="{StaticResource KcText}"/>
+        <Setter Property="Background" Value="{StaticResource KcSurfaceHover}"/>
+      </Trigger>
+      <Trigger Property="IsChecked" Value="True">
+        <Setter Property="Foreground" Value="{StaticResource KcOnAccent}"/>
+        <Setter Property="Background" Value="{StaticResource KcAccent}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- one choice of a vertical list (radio dot, title and a description) -->
+  <Style x:Key="KcChoice" TargetType="RadioButton">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Foreground" Value="{StaticResource KcText}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{StaticResource KcBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="Margin" Value="0,0,0,6"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
+            <DockPanel Margin="{TemplateBinding Padding}">
+              <Grid DockPanel.Dock="Left" Width="18" Height="18" Margin="0,1,10,0" VerticalAlignment="Top">
+                <Ellipse x:Name="Ring" Stroke="{StaticResource KcTextFaint}" StrokeThickness="1.5"/>
+                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource KcAccentLight}" Visibility="Collapsed"/>
+              </Grid>
+              <ContentPresenter RecognizesAccessKey="False" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+            </DockPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+              <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource KcAccentLight}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource KcSurfaceHover}"/>
+      </Trigger>
+      <Trigger Property="IsChecked" Value="True">
+        <Setter Property="Background" Value="{StaticResource KcSurfaceRaised}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource KcAccentLight}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- small button in a card header (refresh) -->
+  <!-- slider of the tap-hold timing window (mouse only: it must not take the keys of the tested keyboard) -->
+  <Style x:Key="KcSliderThumb" TargetType="Thumb">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Width" Value="16"/>
+    <Setter Property="Height" Value="16"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Ellipse Fill="{StaticResource KcAccentLight}" Stroke="{StaticResource KcSurface}" StrokeThickness="2"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="KcSlider" TargetType="Slider">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="IsMoveToPointEnabled" Value="True"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Slider">
+          <Grid Height="22" Background="Transparent">
+            <Border Height="4" CornerRadius="2" Background="{StaticResource KcBorder}" VerticalAlignment="Center"/>
+            <Track x:Name="PART_Track">
+              <Track.DecreaseRepeatButton>
+                <RepeatButton Command="Slider.DecreaseLarge" Focusable="False" IsTabStop="False">
+                  <RepeatButton.Template>
+                    <ControlTemplate TargetType="RepeatButton">
+                      <Border Height="4" CornerRadius="2" Background="{StaticResource KcAccent}"/>
+                    </ControlTemplate>
+                  </RepeatButton.Template>
+                </RepeatButton>
+              </Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton>
+                <RepeatButton Command="Slider.IncreaseLarge" Focusable="False" IsTabStop="False">
+                  <RepeatButton.Template>
+                    <ControlTemplate TargetType="RepeatButton">
+                      <Border Background="Transparent"/>
+                    </ControlTemplate>
+                  </RepeatButton.Template>
+                </RepeatButton>
+              </Track.IncreaseRepeatButton>
+              <Track.Thumb>
+                <Thumb Style="{StaticResource KcSliderThumb}"/>
+              </Track.Thumb>
+            </Track>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="KcToolButton" TargetType="Button" BasedOn="{StaticResource KcButton}">
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="Height" Value="30"/>
+    <Setter Property="Padding" Value="14,0"/>
+    <Setter Property="FontSize" Value="12.5"/>
+  </Style>
+
+  <!-- read-only colored log (one paragraph per line) -->
+  <Style x:Key="KcLogRich" TargetType="RichTextBox">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource KcText}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="FontFamily" Value="{DynamicResource KcMonoFont}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="IsReadOnly" Value="True"/>
+    <Setter Property="IsUndoEnabled" Value="False"/>
+    <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+    <Setter Property="SelectionBrush" Value="{StaticResource KcSelection}"/>
+    <Setter Property="CaretBrush" Value="{StaticResource KcText}"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RichTextBox">
+          <Border Background="{TemplateBinding Background}">
+            <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" Focusable="False"/>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- dark tool tips (full titles of the builds) -->
+  <Style TargetType="ToolTip">
+    <Setter Property="Background" Value="{StaticResource KcSurfaceRaised}"/>
+    <Setter Property="Foreground" Value="{StaticResource KcText}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource KcBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="FontSize" Value="12.5"/>
   </Style>
 </ResourceDictionary>

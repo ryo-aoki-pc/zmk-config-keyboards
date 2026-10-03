@@ -9,6 +9,13 @@
 . (Join-Path $script:KcLib 'input-test.ps1')
 . (Join-Path $script:KcLib 'behavior-test.ps1')
 . (Join-Path $script:KcLib 'layer-trace.ps1')
+. (Join-Path $script:KcLib 'hold-tap-sim.ps1')
+. (Join-Path $script:KcLib 'hold-tap.ps1')
+. (Join-Path $script:KcLib 'hold-tap-ui.ps1')
+. (Join-Path $script:ToolsDir 'lib\firmware-release.ps1')
+. (Join-Path $script:ToolsDir 'lib\flash-plan.ps1')
+. (Join-Path $script:ToolsDir 'lib\flash-ui.ps1')
+. (Join-Path $script:TestsDir 'flash-fixtures.ps1')
 
 Test-Case 'RawHid.cs をコンパイルできる' {
     Import-KcCSharp 'RawHid.cs' 'KcRawHid'
@@ -38,6 +45,32 @@ Test-Case 'InputTestForm.cs をコンパイルして、ウィンドウを作れ�
     } finally {
         $form.Dispose()
     }
+}
+
+Test-Case 'ログのフォント: HackGen Console NF を先頭に、無ければ BIZ UDGothic に落ちる' -WindowsOnly {
+    Import-KcInputForm
+    $root = $null
+    $window = [KcUi]::CreateWindow('InputMonitorWindow.xaml', [ref]$root)
+    try {
+        $source = $window.FindResource('KcMonoFont').Source
+        Assert-True ($source -like '*HackGen Console NF, BIZ UDGothic, MS Gothic') $source
+    } finally {
+        $window.Close()
+    }
+    Assert-True (-not [KcUi]::IsSystemFont('No Such Font Family')) 'IsSystemFont'
+    Assert-Equal $null ([KcUi]::FindUserFontFile('No Such Font Family'))
+    Assert-Equal 'file:///C:/Users/Taro%20Yamada%2Cx/Fonts/a.ttf#HackGen Console NF, MS Gothic' `
+        ([KcUi]::FontFileSource('C:\Users\Taro Yamada,x\Fonts\a.ttf', 'HackGen Console NF', 'MS Gothic'))
+    # ファイルの URI で指定したフォント (等幅の Courier New) が使われる。次の候補の Segoe UI に落ちると i と M の幅が違う
+    $family = New-Object System.Windows.Media.FontFamily ([KcUi]::FontFileSource((Join-Path $env:windir 'Fonts\cour.ttf'), 'Courier New', 'Segoe UI'))
+    $typeface = New-Object System.Windows.Media.Typeface($family, [System.Windows.FontStyles]::Normal,
+        [System.Windows.FontWeights]::Normal, [System.Windows.FontStretches]::Normal)
+    $width = {
+        param([string]$Text)
+        (New-Object System.Windows.Media.FormattedText($Text, [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Windows.FlowDirection]::LeftToRight, $typeface, 20.0, [System.Windows.Media.Brushes]::Black)).Width
+    }
+    Assert-Near (& $width 'iiii') (& $width 'MMMM') 0.01 'Courier New の i と M の幅'
 }
 
 # RAWINPUT のバイト列 (64 ビット: ヘッダー 24 バイト)
@@ -137,6 +170,52 @@ function Show-UiOffscreen($Window) {
 function Get-UiSpan($Element, $Root) {
     $p = $Element.TranslatePoint((New-Object System.Windows.Point 0, 0), $Root)
     return [pscustomobject]@{ Left = $p.X; Right = $p.X + $Element.ActualWidth }
+}
+
+# 要素の中の TextBlock (ContentPresenter が文字列から作るものも含む)
+function Get-UiTextBlocks($Element) {
+    $found = New-Object System.Collections.ArrayList
+    $stack = New-Object System.Collections.Stack
+    $stack.Push($Element)
+    while ($stack.Count -gt 0) {
+        $e = $stack.Pop()
+        if ($e -is [System.Windows.Controls.TextBlock]) { [void]$found.Add($e) }
+        $n = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($e)
+        for ($i = 0; $i -lt $n; $i++) { $stack.Push([System.Windows.Media.VisualTreeHelper]::GetChild($e, $i)) }
+    }
+    return $found.ToArray()
+}
+
+# 折り返さない TextBlock の文字が、親から割り当てられた幅に収まる (WPF は収まらない文字を切って描く。
+# そのとき ActualWidth は文字の幅のままなので、同じ書式の TextBlock を測って、割り当ての幅と比べる)
+function Assert-UiTextNotClipped($Element) {
+    foreach ($tb in (Get-UiTextBlocks $Element)) {
+        if (-not $tb.IsVisible -or -not $tb.Text) { continue }
+        if ($tb.TextWrapping -ne [System.Windows.TextWrapping]::NoWrap -or $tb.TextTrimming -ne [System.Windows.TextTrimming]::None) { continue }
+        $probe = New-Object System.Windows.Controls.TextBlock
+        $probe.Text = $tb.Text
+        $probe.FontFamily = $tb.FontFamily
+        $probe.FontSize = $tb.FontSize
+        $probe.FontWeight = $tb.FontWeight
+        $probe.FontStyle = $tb.FontStyle
+        $probe.FontStretch = $tb.FontStretch
+        $probe.Language = $tb.Language
+        [System.Windows.Media.TextOptions]::SetTextFormattingMode($probe, [System.Windows.Media.TextOptions]::GetTextFormattingMode($tb))
+        $probe.Measure((New-Object System.Windows.Size ([double]::PositiveInfinity), ([double]::PositiveInfinity)))
+        $slot = [System.Windows.Controls.Primitives.LayoutInformation]::GetLayoutSlot($tb)
+        $room = $slot.Width - $tb.Margin.Left - $tb.Margin.Right
+        Assert-True ($probe.DesiredSize.Width -le $room + 1) ('「{0}」が切れない ({1:N1} > {2:N1})' -f $tb.Text, $probe.DesiredSize.Width, $room)
+    }
+}
+
+# 書き込みツールの選ぶ画面: 3 つの欄がウィンドウに収まり、オプションの文字が切れない
+function Assert-UiFlashSelectFits($Root) {
+    $width = $Root.ActualWidth
+    foreach ($name in @('KeyboardsCard', 'BuildsCard', 'OptionsCard')) {
+        $span = Get-UiSpan $Root.FindName($name) $Root
+        Assert-True ($span.Right -le $width + 0.5) ('{0} がウィンドウに収まる ({1:N1} > {2:N1})' -f $name, $span.Right, $width)
+    }
+    Assert-UiTextNotClipped $Root.FindName('OptionsPanel')
 }
 
 Test-Case 'テスト用のウィンドウを描画できる (各状態、最小の大きさ)' -WindowsOnly {
@@ -357,4 +436,352 @@ Test-Case 'レイヤーの動きを見るウィンドウを描画できる (ロ�
     }
     Assert-True $form.IsClosed '閉じた'
     Assert-Equal 'stop' $form.TakeAction() '閉じたら終了'
+}
+
+# 書き込みツールの子プロセスの偽物 (HasExited / ExitCode はテストで変える)
+function New-WfChild([string[]]$Lines = @(), [int]$ExitCode = 0, [bool]$Exited = $true) {
+    $lineObjects = @(foreach ($l in $Lines) { [pscustomobject]@{ Text = $l; IsError = $false; Partial = $false } })
+    $child = [pscustomobject]@{ Pending = $lineObjects; HasExited = $Exited; ExitCode = $ExitCode; Killed = $false }
+    $child | Add-Member -MemberType ScriptMethod -Name TakeLines -Value { $a = $this.Pending; $this.Pending = @(); return , $a }
+    $child | Add-Member -MemberType ScriptMethod -Name Kill -Value { $this.Killed = $true; $this.HasExited = $true; $this.ExitCode = 1 }
+    $child | Add-Member -MemberType ScriptMethod -Name Dispose -Value { }
+    return $child
+}
+
+# 本物の KcFlashForm と画面の流れ (flash-ui.ps1)。一覧の取得・ダウンロード・子プロセスは偽物
+function New-WfContext($Form) {
+    $script:WfChildren = New-Object System.Collections.Queue
+    return (New-FlashUiContext -Form $Form -ToolsDir 'C:\tools' -WaitSeconds 600 `
+            -GetBuilds {
+                param($Repo)
+                $builds = @(ConvertFrom-FirmwareListPages @(New-FlashFixtureLismJson) (New-FlashFixtureIssuesJson))
+                if ($Repo -notlike '*LisM') { foreach ($b in $builds) { $b.Assets = $null } }
+                return @{ Builds = $builds; Source = 'api'; Message = ''; Level = 0; FetchedAt = [DateTime]::UtcNow }
+            } `
+            -Download {
+                param($Repo, $Tag, $Assets, $OnFile)
+                $paths = @{}
+                for ($i = 0; $i -lt $Assets.Count; $i++) {
+                    & $OnFile $i $Assets.Count $Assets[$i]
+                    $paths[$Assets[$i]] = 'C:\fw\' + $Assets[$i]
+                }
+                return @{ Paths = $paths; Info = @{ commit = 'aaaaaaa1234'; built = '2026-10-02T03:00:00Z' } }
+            } `
+            -NewChild { param($Command) $script:WfChildren.Dequeue() })
+}
+
+function Invoke-WfActions($Ctx) {
+    foreach ($a in (Get-FlashUiCoalescedActions $Ctx.Form.TakeActions())) {
+        Invoke-FlashUiAction $Ctx $a
+    }
+    [KcUi]::DoEvents()
+}
+
+Test-Case '書き込みツールのウィンドウ: 定数が画面の流れ (flash-ui.ps1) と同じ' -WindowsOnly {
+    Import-KcInputForm
+    Assert-Equal ([KcFlashForm]::PageSelect) $script:FlashUiPageSelect
+    Assert-Equal ([KcFlashForm]::PageRun) $script:FlashUiPageRun
+    Assert-Equal ([KcFlashForm]::LevelOk) $script:FlashUiLevelOk
+    Assert-Equal ([KcFlashForm]::LevelNg) $script:FlashUiLevelNg
+    Assert-Equal ([KcFlashForm]::LevelWarn) $script:FlashUiLevelWarn
+    Assert-Equal ([KcFlashForm]::LevelFaint) $script:FlashUiLevelFaint
+    Assert-Equal ([KcFlashForm]::StepActive) $script:FlashUiStepActive
+    Assert-Equal ([KcFlashForm]::StepDone) $script:FlashUiStepDone
+    Assert-Equal ([KcFlashForm]::StepFailed) $script:FlashUiStepFailed
+    Assert-Equal ([KcFlashForm]::KindPr) $script:FlashUiKinds['pr']
+    Assert-Equal ([KcFlashForm]::KindCustom) $script:FlashUiKinds['custom']
+    Assert-Equal ([KcFlashForm]::PrMerged) $script:FlashUiPrStates['merged']
+    Assert-Equal ([KcFlashForm]::PrClosed) $script:FlashUiPrStates['closed']
+    Assert-Equal ([KcFlashForm]::StyleSegments) $script:FlashUiStyleSegments
+}
+
+Test-Case '書き込みツールのウィンドウを描画できる (選ぶ画面・最小の大きさ・書き込み中・失敗・完了)' -WindowsOnly {
+    Import-KcInputForm
+    $form = New-Object KcFlashForm('ファームウェアの書き込み')
+    try {
+        $w = $form.Window
+        Show-UiOffscreen $w
+        $root = $w.Content
+        $ctx = New-WfContext $form
+        Initialize-FlashUi $ctx 'LisM'
+        [KcUi]::DoEvents()
+        Assert-Equal 4 $root.FindName('BuildList').Children.Count 'ビルドの一覧'
+        Assert-Equal 10 $root.FindName('KeyboardList').Children.Count '機種 8 台とグループの見出し 2 つ'
+        Assert-Equal 0 @($form.TakeActions()).Count '選び直しただけでは操作にならない'
+        Save-UiSnapshot $form 'flash-1-select'
+        Assert-UiFlashSelectFits $root
+
+        # PR のビルドをクリック → 操作 build:firmware-pr-27
+        $pr = @($root.FindName('BuildList').Children | Where-Object { $_.Content -ne $null })[1]
+        $pr.IsChecked = $true
+        Assert-Equal 'build:firmware-pr-27' (@($form.TakeActions()) -join ',')
+        Invoke-FlashUiAction $ctx 'build:firmware-pr-27'
+        Invoke-FlashUiAction $ctx 'option:mode:ResetBoth'
+        Invoke-FlashUiAction $ctx 'option:central:studio'
+        [KcUi]::DoEvents()
+        Assert-Equal 4 $root.FindName('PlanSteps').Children.Count '手順'
+        Save-UiSnapshot $form 'flash-2-select-options'
+        Assert-UiFlashSelectFits $root
+        Invoke-FlashUiAction $ctx 'option:central:logging'
+        [KcUi]::DoEvents()
+        Assert-UiFlashSelectFits $root
+
+        $w.Width = $w.MinWidth
+        $w.Height = $w.MinHeight
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'flash-3-select-min'
+        Assert-UiAboveFooter $root @('SelectPage')
+        Assert-UiFlashSelectFits $root
+        Invoke-FlashUiAction $ctx 'option:central:studio'
+        $spans = @(@('CloseButton', 'StartButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
+        Assert-True ($spans[0].Right -le $spans[1].Left) 'ボタンが重ならない'
+        Assert-True ($spans[1].Right -le $root.ActualWidth) 'ボタンがウィンドウに収まる'
+        $w.Width = 1220
+        $w.Height = 800
+
+        # 書き込み: 1 手順目は書き込み中、ログに成功・失敗・薄い行
+        $script:WfChildren.Enqueue((New-WfChild @('ファームウェア: settings_reset-seeeduino_xiao_ble-zmk.uf2', '  nRF52840 / 196 ブロック', '', 'ブートローダのドライブを待っています...', '  (ドライブ切断によるエラー「...」は想定どおり)') 0 $false))
+        $root.FindName('StartButton').RaiseEvent((New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
+        Assert-Equal 'start' (@($form.TakeActions()) -join ',')
+        Invoke-FlashUiAction $ctx 'start'
+        Update-FlashUiTick $ctx
+        [KcUi]::DoEvents()
+        Assert-Equal 'run' $ctx.State.Phase
+        Assert-True ($root.FindName('RunPage').Visibility -eq [System.Windows.Visibility]::Visible) '書き込む画面'
+        Save-UiSnapshot $form 'flash-4-run'
+        Assert-UiAboveFooter $root @('RunPage')
+
+        $ctx.State.Child.Pending = @([pscustomobject]@{ Text = '失敗: 600 秒待ってもブートローダのドライブが見つかりませんでした。'; IsError = $false; Partial = $false },
+            [pscustomobject]@{ Text = '  リセットボタンを素早く 2 回押してください。'; IsError = $false; Partial = $false })
+        $ctx.State.Child.ExitCode = 1
+        $ctx.State.Child.HasExited = $true
+        Update-FlashUiTick $ctx
+        [KcUi]::DoEvents()
+        Assert-Equal 'failed' $ctx.State.Phase
+        Save-UiSnapshot $form 'flash-5-failed'
+        $spans = @(@('CloseButton', 'BackButton', 'RetryButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
+        for ($i = 1; $i -lt $spans.Count; $i++) {
+            Assert-True ($spans[$i - 1].Right -le $spans[$i].Left) 'ボタンが重ならない'
+        }
+
+        for ($i = 0; $i -lt 4; $i++) { $script:WfChildren.Enqueue((New-WfChild @('成功: ブートローダが全ブロックを受け取り、ボードが再起動しました。') 0 $true)) }
+        Invoke-FlashUiAction $ctx 'retry'
+        for ($i = 0; $i -lt 4; $i++) { Update-FlashUiTick $ctx }
+        [KcUi]::DoEvents()
+        Assert-Equal 'done' $ctx.State.Phase
+        Save-UiSnapshot $form 'flash-6-done'
+    } finally {
+        $form.Dispose()
+    }
+    Assert-True $form.IsClosed '閉じた'
+    Assert-Equal 'close' (@($form.TakeActions()) -join ',') '閉じたら close'
+}
+
+Test-Case '書き込みツールのウィンドウ: BMP の設定リセットの後の「続ける」を描画できる' -WindowsOnly {
+    Import-KcInputForm
+    $form = New-Object KcFlashForm('ファームウェアの書き込み')
+    try {
+        Show-UiOffscreen $form.Window
+        $ctx = New-WfContext $form
+        Initialize-FlashUi $ctx 'torabo-tsuki-lp'
+        Invoke-FlashUiAction $ctx 'option:mode:ResetBoth'
+        $script:WfChildren.Enqueue((New-WfChild @('成功: ok') 0 $true))
+        Invoke-FlashUiAction $ctx 'start'
+        Update-FlashUiTick $ctx
+        [KcUi]::DoEvents()
+        Assert-Equal 'pause' $ctx.State.Phase
+        Assert-True ($form.Window.Content.FindName('ContinueButton').Visibility -eq [System.Windows.Visibility]::Visible) '続ける'
+        Save-UiSnapshot $form 'flash-7-bmp-continue'
+
+        # 書き込み中は、タイトルバーで閉じても close の操作になるだけ (PowerShell が子プロセスを止めてから閉じる)
+        $form.Window.Close()
+        [KcUi]::DoEvents()
+        Assert-True (-not $form.IsClosed) 'まだ閉じない'
+        Assert-Equal 'close' (@($form.TakeActions()) -join ',')
+    } finally {
+        $form.Dispose()
+    }
+    Assert-True $form.IsClosed '閉じた'
+}
+
+Test-Case '書き込みツールのウィンドウ: 専用のスレッドで開き、別のスレッドから操作して閉じられる' -WindowsOnly {
+    Import-KcInputForm
+    $form = [KcFlashForm]::Launch('ファームウェアの書き込み (テスト)')
+    try {
+        $form.SetTexts('FLASH', 't', 's')
+        $form.SetKeyboards([string[]]@('LisM'), [string[]]@('LisM'), [string[]]@('XIAO'), [string[]]@('ZMK'))
+        $form.SelectKeyboard('LisM')
+        $form.AppendLog('line', 1, $false)
+        $form.SetStatus('s', 0)
+        Start-Sleep -Milliseconds 200
+        Assert-Equal 0 @($form.TakeActions()).Count
+        Assert-True (-not $form.IsClosed) '開いている'
+        $form.RequestClose()
+        Assert-True ($form.WaitClosed(5000)) '閉じた'
+    } finally {
+        $form.Dispose()
+    }
+}
+
+Test-Case 'タップホールドのウィンドウ: 定数がグラフのモデル (hold-tap.ps1) と同じ' -WindowsOnly {
+    Import-KcInputForm
+    Assert-Equal ([KcTimelineView]::LaneCaption) $script:KcHtLaneCaption
+    Assert-Equal ([KcTimelineView]::LaneKey) $script:KcHtLaneKey
+    Assert-Equal ([KcTimelineView]::LaneOutput) $script:KcHtLaneOutput
+    Assert-Equal ([KcTimelineView]::LaneStrip) $script:KcHtLaneStrip
+    Assert-Equal ([KcTimelineView]::BarPlain) $script:KcHtBarPlain
+    Assert-Equal ([KcTimelineView]::BarUndecided) $script:KcHtBarUndecided
+    Assert-Equal ([KcTimelineView]::BarTap) $script:KcHtBarTap
+    Assert-Equal ([KcTimelineView]::BarHold) $script:KcHtBarHold
+    Assert-Equal ([KcTimelineView]::BarMod) $script:KcHtBarMod
+    Assert-Equal ([KcTimelineView]::BarLayer) $script:KcHtBarLayer
+    Assert-Equal ([KcTimelineView]::BarKey) $script:KcHtBarKey
+    Assert-Equal ([KcTimelineView]::BarOther) $script:KcHtBarOther
+    Assert-Equal ([KcTimelineView]::BarBaseline) $script:KcHtBarBaseline
+    Assert-Equal ([KcTimelineView]::BarFirmware) $script:KcHtBarFirmware
+    Assert-Equal ([KcTimelineView]::BarStripTap) $script:KcHtBarStripTap
+    Assert-Equal ([KcTimelineView]::BarStripHold) $script:KcHtBarStripHold
+    Assert-Equal ([KcTimelineView]::BarStripNone) $script:KcHtBarStripNone
+    Assert-Equal ([KcTimelineView]::SpanWindow) $script:KcHtSpanWindow
+    Assert-Equal ([KcTimelineView]::MarkDecision) $script:KcHtMarkDecision
+    Assert-Equal ([KcTimelineView]::MarkTerm) $script:KcHtMarkTerm
+    Assert-Equal ([KcTimelineView]::MarkFirmware) $script:KcHtMarkFirmware
+    Assert-Equal ([KcTimelineView]::MarkCursor) $script:KcHtMarkCursor
+    Assert-Equal ([KcTimelineView]::MarkBaseline) $script:KcHtMarkBaseline
+    Assert-Equal ([KcTimelineView]::ArrowCapture) $script:KcHtArrowCapture
+    Assert-Equal ([KcTimelineView]::HandleTerm) $script:KcHtHandleTerm
+    Assert-Equal ([KcTimelineView]::HandleNone) $script:KcHtHandleNone
+    Assert-Equal ([KcHoldTapForm]::SummaryTap) 1
+    Assert-Equal ([KcHoldTapForm]::SummaryHold) 2
+}
+
+# グラフの線のラベル (Canvas の Border) が重ならない
+function Assert-UiChartLabelsApart($Root) {
+    $chips = @($Root.FindName('ChartCanvas').Children | Where-Object { $_ -is [System.Windows.Controls.Border] } | ForEach-Object {
+            $x = [System.Windows.Controls.Canvas]::GetLeft($_)
+            $y = [System.Windows.Controls.Canvas]::GetTop($_)
+            [pscustomobject]@{ Text = $_.Child.Text; L = $x; T = $y; R = $x + $_.DesiredSize.Width; B = $y + $_.DesiredSize.Height }
+        })
+    Assert-True ($chips.Count -ge 2) 'ラベルがある'
+    for ($i = 0; $i -lt $chips.Count; $i++) {
+        for ($j = $i + 1; $j -lt $chips.Count; $j++) {
+            $a = $chips[$i]
+            $b = $chips[$j]
+            $apart = $a.R -le $b.L + 0.5 -or $b.R -le $a.L + 0.5 -or $a.B -le $b.T + 0.5 -or $b.B -le $a.T + 0.5
+            Assert-True $apart ('「{0}」と「{1}」が重ならない' -f $a.Text, $b.Text)
+        }
+    }
+}
+
+# 本物の KcHoldTapForm と画面の流れ (hold-tap-ui.ps1)
+function Invoke-WhtActions($Ctx) {
+    foreach ($a in (Get-KcHoldTapCoalescedActions $Ctx.Form.TakeActions())) {
+        [void](Invoke-KcHoldTapAction $Ctx $a)
+    }
+    [KcUi]::DoEvents()
+}
+
+Test-Case 'タップホールドのウィンドウを描画できる (LisM のロール・ドラッグ・実測、最小の大きさ、KQ-mini)' -WindowsOnly {
+    Import-KcInputForm
+    $form = New-Object KcHoldTapForm('タップホールドのタイミング')
+    try {
+        $w = $form.Window
+        Show-UiOffscreen $w
+        $root = $w.Content
+        $model = New-KcHtModel (Get-KcExpected 'lism' $script:ExpectedDir)
+        $ctx = New-KcHoldTapContext -Form $form -Model $model -CacheDir ''
+        Initialize-KcHoldTapUi $ctx
+        [KcUi]::DoEvents()
+        Assert-True ($root.FindName('ChartCanvas').Children.Count -gt 20) 'グラフを描いた'
+        Assert-True ($root.FindName('SummaryTitle').Text -like 'タップ*') $root.FindName('SummaryTitle').Text
+        Assert-Equal 0 @($form.TakeActions()).Count '表示しただけでは操作にならない'
+        Save-UiSnapshot $form 'keyboard-check-9-holdtap'
+        Assert-UiAboveFooter $root @('ChartCard', 'SummaryBanner')
+        Assert-UiTextNotClipped $root.FindName('PresetPanel')
+        Assert-UiTextNotClipped $root.FindName('ParamPanel')
+
+        # 対象のキーを離す時刻をドラッグ → 離したところで drop の操作 (途中の drag はまとめる)
+        $form.Timeline.SimulateDrag(2, 140, $false)
+        $form.Timeline.SimulateDrag(2, 160, $true)
+        $acts = Get-KcHoldTapCoalescedActions $form.TakeActions()
+        Assert-Equal 'drop:2:160' ($acts -join ',')
+        foreach ($a in $acts) { [void](Invoke-KcHoldTapAction $ctx $a) }
+        [KcUi]::DoEvents()
+        Assert-True ($root.FindName('SummaryTitle').Text -like 'ホールド*') $root.FindName('SummaryTitle').Text
+        # tapping-term の線をドラッグ
+        $form.Timeline.SimulateDrag($script:KcHtHandleTerm, 200, $true)
+        Invoke-WhtActions $ctx
+        Assert-Equal 200 $ctx.State.Config.Zmk['mt'].Term
+        Save-UiSnapshot $form 'keyboard-check-10-holdtap-term'
+
+        # ログ版ファームで押したもの (ファームの判定を重ねる)
+        $ep = @{
+            Seq = 1; Target = 10; Start = 5000.2; TargetIndex = 0; Dropped = $false; Uncertain = $true
+            Events = @(@{ Pos = 10; Down = $true; T = 0; Role = 'target' }, @{ Pos = 15; Down = $true; T = 60; Role = 'partner' },
+                @{ Pos = 15; Down = $false; T = 100; Role = 'partner' }, @{ Pos = 10; Down = $false; T = 150; Role = 'target' })
+            Decisions = @(@{ Pos = 10; Status = 'hold-interrupt'; Moment = 'other-key-up'; Flavor = 'balanced'; T = 100 })
+            Hid = @(@{ T = 100; Usage = 0xE0; Pressed = $true }, @{ T = 100; Usage = 0x0B; Pressed = $true },
+                @{ T = 100; Usage = 0x0B; Pressed = $false }, @{ T = 150; Usage = 0xE0; Pressed = $false })
+        }
+        Invoke-KcHoldTapAction $ctx 'reset' | Out-Null
+        Add-KcHtEpisode $ctx $ep
+        [KcUi]::DoEvents()
+        Assert-Equal 1 $root.FindName('EpisodeList').Children.Count
+        Save-UiSnapshot $form 'keyboard-check-11-holdtap-live'
+        Assert-UiChartLabelsApart $root
+
+        # 比較の行を押すと flavor が変わる。最小の大きさ
+        [void](Invoke-KcHoldTapAction $ctx 'param:flavor:tap-preferred')
+        $w.Width = $w.MinWidth
+        $w.Height = $w.MinHeight
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'keyboard-check-12-holdtap-min'
+        Assert-UiAboveFooter $root @('ChartCard', 'SummaryBanner')
+        Assert-UiChartLabelsApart $root
+        Assert-UiTextNotClipped $root.FindName('ParamPanel')
+        $spans = @(@('CloseButton', 'SaveButton', 'ClearButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
+        for ($i = 1; $i -lt $spans.Count; $i++) {
+            Assert-True ($spans[$i - 1].Right -le $spans[$i].Left) 'ボタンが重ならない'
+        }
+    } finally {
+        $form.Dispose()
+    }
+    Assert-True $form.IsClosed '閉じた'
+
+    $form = New-Object KcHoldTapForm('タップホールドのタイミング')
+    try {
+        Show-UiOffscreen $form.Window
+        $root = $form.Window.Content
+        $ctx = New-KcHoldTapContext -Form $form -Model (New-KcHtModel (Get-KcExpected 'kq-mini' $script:ExpectedDir)) -CacheDir ''
+        Initialize-KcHoldTapUi $ctx
+        [void](Invoke-KcHoldTapAction $ctx 'preset:nest')
+        [KcUi]::DoEvents()
+        Assert-True ($root.FindName('EpisodesBox').Visibility -ne [System.Windows.Visibility]::Visible) 'KQ-mini はログを読まない'
+        Save-UiSnapshot $form 'keyboard-check-13-holdtap-kq'
+        Assert-UiTextNotClipped $root.FindName('ParamPanel')
+    } finally {
+        $form.Dispose()
+    }
+}
+
+Test-Case 'タップホールドのウィンドウ: 専用のスレッドで開き、別のスレッドから操作して閉じられる' -WindowsOnly {
+    Import-KcInputForm
+    $form = [KcHoldTapForm]::Launch('タップホールドのタイミング (テスト)')
+    try {
+        $form.SetTexts('HOLD-TAP', 't')
+        $form.SetKeyChoices([string[]]@('10'), [string[]]@('A'), '10')
+        $form.AddSliderParam('term', 'tapping-term-ms', 50, 500, 150, '', '')
+        $form.SetParamValue('term', '180', 'x')
+        $form.SetStatus('s', 0)
+        $form.MaskWinKey($true)
+        Start-Sleep -Milliseconds 200
+        Assert-Equal 0 @($form.TakeActions()).Count 'PowerShell からの値は操作にならない'
+        Assert-True (-not $form.IsClosed) '開いている'
+        $form.MaskWinKey($false)
+        $form.RequestClose()
+        Assert-True ($form.WaitClosed(5000)) '閉じた'
+        Assert-Equal 'close' (@($form.TakeActions()) -join ',')
+    } finally {
+        $form.Dispose()
+    }
 }

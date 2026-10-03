@@ -1,4 +1,4 @@
-﻿# テスト用・記録用のウィンドウ (WPF) の XAML のテスト。WPF の無い環境 (Linux) でも、XAML と
+﻿# テスト用・記録用・書き込みツールのウィンドウ (WPF) の XAML のテスト。WPF の無い環境 (Linux) でも、XAML と
 # InputTestForm.cs の食い違い (要素の名前、テーマのキー) を見つける
 
 $script:UiDir = $script:KcLib
@@ -13,6 +13,16 @@ function Get-UiThemeKeys {
     return , (Get-UiMatches $script:UiTheme 'x:Key="([^"{]+)"')
 }
 
+# InputTestForm.cs のウィンドウ: KcUi.CreateWindow("<XAML>") を呼ぶクラスと、その XAML
+function Get-UiWindows {
+    $windows = @()
+    foreach ($m in [regex]::Matches($script:UiCs, 'KcUi\.CreateWindow\("(\w+\.xaml)"')) {
+        $classes = [regex]::Matches($script:UiCs.Substring(0, $m.Index), 'public sealed class (\w+)')
+        $windows += @{ Class = $classes[$classes.Count - 1].Groups[1].Value; Xaml = $m.Groups[1].Value }
+    }
+    return , $windows
+}
+
 # InputTestForm.cs のうち、ウィンドウのクラスの部分 (次の public なクラスの前まで)
 function Get-UiClassText([string]$ClassName) {
     $start = $script:UiCs.IndexOf('public sealed class ' + $ClassName)
@@ -24,8 +34,15 @@ function Get-UiClassText([string]$ClassName) {
     return $script:UiCs.Substring($start, $next - $start)
 }
 
+Test-Case 'ウィンドウ: どの XAML も、いずれかのクラスが読み込む' {
+    $windows = Get-UiWindows
+    Assert-Equal 'KcInputTestForm,KcInputMonitorForm,KcLayerTraceForm,KcFlashForm,KcHoldTapForm' (@($windows | ForEach-Object { $_.Class }) -join ',')
+    $files = @(Get-ChildItem -LiteralPath $script:UiDir -Filter '*.xaml' -File | Where-Object { $_.Name -ne 'Theme.xaml' } | ForEach-Object { $_.Name } | Sort-Object)
+    Assert-Equal ($files -join ',') (@($windows | ForEach-Object { $_.Xaml } | Sort-Object) -join ',')
+}
+
 Test-Case 'XAML は XML として読める' {
-    foreach ($f in @('Theme.xaml', 'InputTestWindow.xaml', 'InputMonitorWindow.xaml', 'LayerTraceWindow.xaml')) {
+    foreach ($f in @(Get-ChildItem -LiteralPath $script:UiDir -Filter '*.xaml' -File | ForEach-Object { $_.Name })) {
         $doc = New-Object System.Xml.XmlDocument
         $doc.Load((Join-Path $script:UiDir $f))
         Assert-True ($null -ne $doc.DocumentElement) $f
@@ -47,8 +64,7 @@ Test-Case 'Theme.xaml: キーが重複せず、StaticResource は定義の後で
 }
 
 Test-Case 'C# が探す要素が、ウィンドウの XAML にある' {
-    foreach ($w in @(@{ Class = 'KcInputTestForm'; Xaml = 'InputTestWindow.xaml' }, @{ Class = 'KcInputMonitorForm'; Xaml = 'InputMonitorWindow.xaml' },
-            @{ Class = 'KcLayerTraceForm'; Xaml = 'LayerTraceWindow.xaml' })) {
+    foreach ($w in (Get-UiWindows)) {
         $code = Get-UiClassText $w.Class
         Assert-True ($code.Contains(('KcUi.CreateWindow("{0}"' -f $w.Xaml))) ('{0} は {1} を読み込む' -f $w.Class, $w.Xaml)
         $xaml = [System.IO.File]::ReadAllText((Join-Path $script:UiDir $w.Xaml))
@@ -63,7 +79,7 @@ Test-Case 'C# が探す要素が、ウィンドウの XAML にある' {
 Test-Case 'XAML と C# が使うテーマのキーが、Theme.xaml にある' {
     $keys = Get-UiThemeKeys
     $missing = @()
-    foreach ($f in @('InputTestWindow.xaml', 'InputMonitorWindow.xaml', 'LayerTraceWindow.xaml')) {
+    foreach ($f in @(Get-UiWindows | ForEach-Object { $_.Xaml })) {
         $xaml = [System.IO.File]::ReadAllText((Join-Path $script:UiDir $f))
         foreach ($k in (Get-UiMatches $xaml '\{(?:Dynamic|Static)Resource (\w+)\}')) {
             if ($keys -notcontains $k) {

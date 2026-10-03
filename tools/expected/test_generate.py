@@ -122,6 +122,131 @@ class TestAmlThresholdParser(unittest.TestCase):
                 g.aml_threshold_nodes(Path(d), ['a.overlay'])
 
 
+class TestScrollAml(unittest.TestCase):
+    OVERLAY = '''
+&peripheral_listener {
+    input-processors = <&trackball_accel>, <&aml_threshold MOUS 10000>;
+    scroller {
+        layers = <SCRL>; // コメント
+        input-processors =
+            <&zip_temp_layer MOUS 10000>,   // スクロール中も MOUS を維持する
+            <&zip_xy_to_scroll_mapper>;
+    };
+};
+&central_listener {
+    scroller {
+        layers = <9>;
+        input-processors = <&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16>;
+    };
+    other {
+        layers = <3>;
+        input-processors = <&zip_xy_to_scroll_mapper>;
+    };
+};
+'''
+
+    def test_chains(self):
+        text = g.strip_c_comments(self.OVERLAY).replace('SCRL', '9').replace('MOUS', '8')
+        chains = g.scroll_chains(text, 9)
+        self.assertEqual([name for name, _ in chains], ['scroller', 'scroller'])
+        self.assertTrue(g.keeps_aml(chains[0][1], 8))
+        self.assertFalse(g.keeps_aml(chains[1][1], 8))
+        self.assertFalse(g.keeps_aml('<&zip_temp_layer 8 5000>', 8))
+        self.assertFalse(g.keeps_aml('<&zip_temp_layer 7 10000>', 8))
+
+    def test_consistency(self):
+        import tempfile
+        board = {'files': ['a/b.overlay'], 'scroll': {'scaler': [1, 16]}}
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, 'a').mkdir()
+            p = Path(d, 'a/b.overlay')
+            p.write_text(self.OVERLAY, encoding='utf-8')
+            r = g.scroll_aml_consistency(board, Path(d), 8, 9)
+            self.assertEqual(r['level'], 'warn')
+            self.assertIn('a/b.overlay の scroller', r['message'])
+            p.write_text(self.OVERLAY.replace('<&zip_xy_to_scroll_mapper>, <&zip_scroll_scaler 1 16>',
+                                              '<&zip_temp_layer 8 10000>, <&zip_xy_to_scroll_mapper>'),
+                         encoding='utf-8')
+            self.assertEqual(g.scroll_aml_consistency(board, Path(d), 8, 9)['level'], 'ok')
+            p.write_text('&x { input-processors = <&trackball_accel>; };', encoding='utf-8')
+            r = g.scroll_aml_consistency(board, Path(d), 8, 9)
+            self.assertEqual(r['level'], 'warn')
+            self.assertIn('見つかりません', r['message'])
+
+
+class TestHoldTapParser(unittest.TestCase):
+    class FakeKeymap:
+        def __init__(self, text: str, custom: dict | None = None):
+            self.text = text
+            self.custom = custom or {}
+
+    def test_builtin_and_override(self):
+        km = self.FakeKeymap('''
+&mt {
+    quick-tap-ms = <0>;
+    tapping-term-ms = <150>;
+    flavor = "balanced";
+};
+&zip_temp_layer { require-prior-idle-ms = <200>; };
+''')
+        hts = g.zmk_hold_tap_config(km)
+        self.assertEqual((hts['mt']['flavor'], hts['mt']['tapping_term_ms'], hts['mt']['quick_tap_ms']),
+                         ('balanced', 150, 0))
+        self.assertEqual(hts['mt']['require_prior_idle_ms'], -1)       # &zip_temp_layer の値は使わない
+        self.assertEqual((hts['lt']['flavor'], hts['lt']['tapping_term_ms']), ('tap-preferred', 200))  # ZMK の既定値
+        self.assertEqual(hts['lt']['bindings'], ['&mo', '&kp'])
+        self.assertIn('キーマップ', hts['mt']['source'])
+
+    def test_custom_node(self):
+        body = '''
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            flavor = "tap-unless-interrupted";
+            tapping-term-ms = <220>;
+            quick-tap-ms = <120>;
+            global-quick-tap;
+            retro-tap;
+            hold-while-undecided;
+            hold-trigger-key-positions = <1 2 0x10>;
+            hold-trigger-on-release;
+            bindings = <&kp>, <&sk>;
+        '''
+        km = self.FakeKeymap('''&hm { tapping-term-ms = <240>; };''',
+                             {'hm': {'node': 'homerow', 'body': body}, 'm1': {'node': 'macro', 'body': 'x'}})
+        h = g.zmk_hold_tap_config(km)['hm']
+        self.assertEqual(h['flavor'], 'tap-unless-interrupted')
+        self.assertEqual(h['tapping_term_ms'], 240)                    # ルートの上書き
+        self.assertEqual(h['require_prior_idle_ms'], 120)              # global-quick-tap = quick-tap-ms
+        self.assertTrue(h['retro_tap'] and h['hold_while_undecided'] and h['hold_trigger_on_release'])
+        self.assertFalse(h['hold_while_undecided_linger'])
+        self.assertEqual(h['hold_trigger_key_positions'], [1, 2, 16])
+        self.assertEqual(h['bindings'], ['&kp', '&sk'])
+        self.assertNotIn('m1', g.zmk_hold_tap_config(km))
+
+    def test_bad_flavor(self):
+        with self.assertRaises(g.GenError):
+            g.zmk_hold_tap_config(self.FakeKeymap('&mt { flavor = "fast"; };'))
+
+    def test_kq_chordal_hand(self):
+        # KQ-mini の列 = HID コード & 7。列 0〜3 は L、4 は '*'、5〜7 は R
+        self.assertEqual(g.kq_chordal_hand(0x04), '*')   # A
+        self.assertEqual(g.kq_chordal_hand(0x1D), 'R')   # Z
+        self.assertEqual(g.kq_chordal_hand(0x38), 'L')   # /
+        self.assertEqual(g.kq_chordal_hand(0x09), 'L')   # F
+        self.assertEqual(g.kq_chordal_hand(0x0D), 'R')   # J
+
+    def test_qmk_entry(self):
+        mt = g.qmk_entry(0x2104, {})                      # LCTL_T(KC_A)
+        self.assertEqual((mt['kind'], mt['hold']['mods'], mt['tap']['usage']), ('ht', 0x01, 0x04))
+        rmt = g.qmk_entry(0x3138, {})                     # RCTL_T(KC_SLSH)
+        self.assertEqual(rmt['hold']['mods'], 0x10)
+        lt = g.qmk_entry(0x422C, {2: 'VIM_BASE'})          # LT(2, KC_SPC)
+        self.assertEqual((lt['hold']['kind'], lt['hold']['layer'], lt['hold']['label']), ('mo', 2, 'VIM_BASE'))
+        self.assertEqual(g.qmk_entry(0x0101 | 0x1D, {})['mods'], 0x01)   # LCTL(KC_Z)
+        self.assertEqual(g.qmk_entry(0x5221, {})['layer'], 1)            # MO(1)
+        self.assertEqual(g.qmk_entry(0x0001, {})['kind'], 'trans')
+
+
 class TestTables(unittest.TestCase):
     def test_scan_codes(self):
         self.assertEqual(g.HID_SCAN[0x04][:2], (0x1E, 0))          # A
@@ -261,6 +386,12 @@ class TestGenerate(unittest.TestCase):
         self.assertEqual(kq[0]['accel'], kb)                 # KQ-mini 経由でも Keyball の加速
         self.assertIsNone(kq[1]['accel'])
 
+    def test_scroll_keeps_aml(self):
+        # LisM 基準: スクロール中も AML を延ばす (すべての ZMK の機種で ok)
+        for b in g.ZMK_BOARDS:
+            msgs = [c for c in self.data[f'{b["id"]}.json']['consistency'] if 'スクロール中' in c['message']]
+            self.assertEqual([c['level'] for c in msgs], ['ok'], b['id'])
+
     def test_products(self):
         products = {b['id']: self.data[f'{b["id"]}.json']['device']['product'] for b in g.ZMK_BOARDS}
         self.assertEqual(products['lism'], 'LisM')
@@ -318,6 +449,42 @@ class TestGenerate(unittest.TestCase):
         self.assertEqual(taps[10]['hold_usage'], 0xE0)
         skipped = {s['pos'] for s in d['interactive']['skipped']}
         self.assertIn(30, skipped)                           # FUNC (MO)
+
+    def test_zmk_hold_tap(self):
+        for name in [b['id'] for b in g.ZMK_BOARDS]:
+            d = self.data[f'{name}.json']
+            ht = d['interactive']['hold_tap']
+            self.assertEqual(ht['engine'], 'zmk', name)
+            for beh in ('mt', 'lt'):
+                b = ht['behaviors'][beh]
+                self.assertEqual((b['flavor'], b['tapping_term_ms'], b['quick_tap_ms']), ('balanced', 150, 0), name)
+            self.assertIn(0, ht['layers'])
+            keys = {k['pos']: k for k in ht['keys']}
+            self.assertEqual(len(keys), d['readout']['zmk']['key_count'], name)
+            a = [k for k in ht['keys'] if k['on']['0'].get('src', '').startswith('&mt LEFT_CONTROL A')]
+            self.assertEqual(len(a), 1, name)
+            e = a[0]['on']['0']
+            self.assertEqual((e['hold']['usage'], e['tap']['usage'], e['tap']['label']), (0xE0, 0x04, 'A'), name)
+            msgs = [c for c in d['consistency'] if c['message'].startswith('タップホールド &')]
+            self.assertEqual({c['level'] for c in msgs}, {'ok'}, name)
+        lism = {k['pos']: k for k in self.data['lism.json']['interactive']['hold_tap']['keys']}
+        space = lism[34]['on']['0']
+        self.assertEqual((space['behavior'], space['hold']['kind'], space['hold']['layer']), ('lt', 'mo', 2))
+        # &lt で入る VIM_BASE の H は ← (&trans は書かず、下のレイヤーに落ちる)
+        self.assertEqual(lism[15]['on']['2']['label'], '←')
+        self.assertTrue(all(e['kind'] != 'trans' for k in lism.values() for e in k['on'].values()))
+
+    def test_kq_hold_tap(self):
+        ht = self.data['kq-mini.json']['interactive']['hold_tap']
+        self.assertEqual(ht['engine'], 'qmk')
+        self.assertEqual(ht['settings'], {'tapping_term': 150, 'tap_code_delay': 0, 'permissive_hold': 1,
+                                          'hold_on_other_key_press': 0, 'retro_tapping': 0, 'quick_tap_term': 0,
+                                          'chordal_hold': 0, 'flow_tap_term': 0})
+        keys = {k['pos']: k for k in ht['keys']}
+        a = keys[10]
+        self.assertEqual((a['usage'], a['qmk_hand'], a['on']['0']['behavior']), (0x04, '*', 'MT'))
+        self.assertEqual(keys[33]['on']['0']['hold']['kind'], 'mo')     # Space (LT)
+        self.assertEqual([c['level'] for c in self.data['kq-mini.json']['consistency']], ['ok'])
 
     @unittest.skipUnless(KQ_VIL.exists(), 'vial-qmk-kq-mini の KEYMAP.vil がありません')
     def test_kq_mini_matches_firmware_vil(self):
