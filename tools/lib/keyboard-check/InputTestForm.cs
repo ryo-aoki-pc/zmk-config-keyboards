@@ -3380,7 +3380,7 @@ public sealed class KcTimelineView
         "KcKeyHoldEdge", "KcLayerOnEdge", "KcKeySkipEdge", "KcKeyComboEdge", "KcKeyHoldEdge", "KcKeySkipEdge" };
     static readonly string[] BarInk = { "KcKeyNormalInk", "KcWarnInk", "KcKeyComboInk", "KcKeyHoldInk", "KcKeyModInk",
         "KcKeyHoldInk", "KcLayerOnInk", "KcKeySkipInk", "KcKeyComboInk", "KcKeyHoldInk", "KcKeySkipInk" };
-    static readonly string[] MarkInk = { "KcAccentLight", "KcWarnMark", "KcInfoMark", "KcText" };
+    static readonly string[] MarkInk = { "KcAccentLight", "KcWarnMark", "KcNgMark", "KcText" };
     const string NowInk = "KcOkMark";
 
     const double Gutter = 196;
@@ -3393,6 +3393,7 @@ public sealed class KcTimelineView
     readonly Canvas canvas;
     readonly ScrollViewer scroll;
     readonly Action<string> enqueue;
+    readonly Panel legend;
     readonly DispatcherTimer timer;
     readonly Stopwatch liveClock = new Stopwatch();
 
@@ -3422,13 +3423,17 @@ public sealed class KcTimelineView
     double plotRight = 600;
     bool live;
     double liveBase;
+    string[] legendTexts = new string[0];
+    string legendSig = "";
     string nowFormat = "{0} ms";
 
-    public KcTimelineView(FrameworkElement owner, Canvas canvas, ScrollViewer scroll, Action<string> enqueue)
+    // legend: the panel under the chart for the texts of the numbered lines (may be null)
+    public KcTimelineView(FrameworkElement owner, Canvas canvas, ScrollViewer scroll, Panel legend, Action<string> enqueue)
     {
         this.owner = owner;
         this.canvas = canvas;
         this.scroll = scroll;
+        this.legend = legend;
         this.enqueue = enqueue;
         canvas.MouseLeftButtonDown += OnDown;
         canvas.MouseMove += OnMove;
@@ -3636,14 +3641,16 @@ public sealed class KcTimelineView
             to = Math.Ceiling((now + 100) / 50) * 50;
         }
 
-        // labels of the lines (and of "now"): in rows above the first lane they cross, so that labels close in
-        // time do not overlap
+        // the lines with a text get a number on top (the texts go to the legend under the chart); the numbers and
+        // the "now" chip are put in rows above the first lane each line crosses, so that close ones do not overlap
         List<Border> chips = new List<Border>();
         List<double> chipX = new List<double>();
+        List<int> chipLane = new List<int>();
         List<int> chipRow = new List<int>();
+        List<int> lineStyles = new List<int>();
+        List<string> lineTexts = new List<string>();
         int[] markChip = new int[markAt.Length];
         int nowChip = -1;
-        int labelLane = -1;
         for (int i = 0; i < markAt.Length; i++)
         {
             markChip[i] = -1;
@@ -3653,9 +3660,12 @@ public sealed class KcTimelineView
             double x = X(markAt[i]);
             if (x < plotLeft - 0.5 || x > plotRight + 0.5) continue;
             int style = KcDraw.Clamp(AtInt(markStyles, i, 0), 0, MarkInk.Length - 1);
-            markChip[i] = AddChip(chips, chipX, MakeChip(text, MarkInk[style]), x);
-            if (labelLane < 0 || lf < labelLane) labelLane = lf;
+            lineStyles.Add(style);
+            lineTexts.Add(text);
+            markChip[i] = AddChip(chips, chipX, MakeBadge(lineTexts.Count, MarkInk[style]), x, true);
+            chipLane.Add(lf);
         }
+        UpdateLegend(lineStyles, lineTexts);
         int firstKeyLane = -1;
         for (int i = 0; i < n; i++)
         {
@@ -3667,8 +3677,8 @@ public sealed class KcTimelineView
         }
         if (live && firstKeyLane >= 0)
         {
-            nowChip = AddChip(chips, chipX, MakeChip(string.Format(nowFormat, (long)Math.Floor(Math.Max(0, now))), NowInk), X(now));
-            if (labelLane < 0 || firstKeyLane < labelLane) labelLane = firstKeyLane;
+            nowChip = AddChip(chips, chipX, MakeChip(string.Format(nowFormat, (long)Math.Floor(Math.Max(0, now))), NowInk), X(now), false);
+            chipLane.Add(firstKeyLane);
         }
         List<int> order = new List<int>();
         for (int i = 0; i < chips.Count; i++)
@@ -3681,13 +3691,19 @@ public sealed class KcTimelineView
             int c = chipX[a].CompareTo(chipX[b]);
             return c != 0 ? c : a.CompareTo(b);
         });
-        List<double> rowEnds = new List<double>();
+        Dictionary<int, List<double>> rowEnds = new Dictionary<int, List<double>>();
         foreach (int i in order)
         {
+            List<double> ends;
+            if (!rowEnds.TryGetValue(chipLane[i], out ends))
+            {
+                ends = new List<double>();
+                rowEnds[chipLane[i]] = ends;
+            }
             int row = 0;
-            while (row < rowEnds.Count && rowEnds[row] + 4 > chipX[i]) row++;
-            if (row == rowEnds.Count) rowEnds.Add(0);
-            rowEnds[row] = chipX[i] + chips[i].DesiredSize.Width;
+            while (row < ends.Count && ends[row] + 3 > chipX[i]) row++;
+            if (row == ends.Count) ends.Add(0);
+            ends[row] = chipX[i] + chips[i].DesiredSize.Width;
             chipRow[i] = row;
         }
 
@@ -3696,7 +3712,8 @@ public sealed class KcTimelineView
         double y = AxisHeight;
         for (int i = 0; i < n; i++)
         {
-            if (i == labelLane && rowEnds.Count > 1) y += (rowEnds.Count - 1) * LabelRow;
+            List<double> rows;
+            if (rowEnds.TryGetValue(i, out rows) && rows.Count > 1) y += (rows.Count - 1) * LabelRow;
             laneTop[i] = y;
             laneHeight[i] = LaneHeightOf(laneKinds[i]);
             y += laneHeight[i];
@@ -3878,14 +3895,89 @@ public sealed class KcTimelineView
         return markAt[i] <= now;
     }
 
-    int AddChip(List<Border> chips, List<double> chipX, Border chip, double x)
+    // centered: on the line (a number); otherwise right of the line (left of it at the right end)
+    int AddChip(List<Border> chips, List<double> chipX, Border chip, double x, bool centered)
     {
-        double cx = x + 4;
-        if (cx + chip.DesiredSize.Width > plotRight) cx = x - 4 - chip.DesiredSize.Width;
+        double w = chip.DesiredSize.Width;
+        double cx;
+        if (centered)
+        {
+            cx = Math.Min(plotRight - w / 2, x) - w / 2;
+        }
+        else
+        {
+            cx = x + 4;
+            if (cx + w > plotRight) cx = x - 4 - w;
+        }
         chips.Add(chip);
         chipX.Add(cx);
         return chips.Count - 1;
     }
+
+    // The number of a line: a filled circle in the color of the line.
+    Border MakeBadge(int number, string ink)
+    {
+        Border b = new Border();
+        b.Width = 16;
+        b.Height = 16;
+        b.CornerRadius = new CornerRadius(8);
+        b.Background = Res(ink);
+        b.IsHitTestVisible = false;
+        TextBlock t = new TextBlock();
+        t.Text = number.ToString();
+        t.FontSize = 10.5;
+        t.FontWeight = FontWeights.Bold;
+        t.Foreground = Res("KcBg");
+        t.HorizontalAlignment = HorizontalAlignment.Center;
+        t.VerticalAlignment = VerticalAlignment.Center;
+        b.Child = t;
+        b.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return b;
+    }
+
+    // The legend under the chart: number, a sample of the line and the text, rebuilt only when it changes (while
+    // live the chart is redrawn every 33 ms).
+    void UpdateLegend(List<int> styles, List<string> texts)
+    {
+        legendTexts = texts.ToArray();
+        if (legend == null) return;
+        StringBuilder sig = new StringBuilder();
+        for (int i = 0; i < texts.Count; i++)
+        {
+            sig.Append(styles[i]).Append('|').Append(texts[i]).Append('\n');
+        }
+        if (sig.ToString() == legendSig) return;
+        legendSig = sig.ToString();
+        legend.Children.Clear();
+        for (int i = 0; i < texts.Count; i++)
+        {
+            string ink = MarkInk[styles[i]];
+            StackPanel item = new StackPanel();
+            item.Orientation = Orientation.Horizontal;
+            item.Margin = new Thickness(0, 0, 18, 4);
+            Border badge = MakeBadge(i + 1, ink);
+            badge.VerticalAlignment = VerticalAlignment.Center;
+            item.Children.Add(badge);
+            Line sample = new Line();
+            sample.X1 = 0;
+            sample.Y1 = 1;
+            sample.X2 = 20;
+            sample.Y2 = 1;
+            sample.Stroke = Res(ink);
+            sample.StrokeThickness = 2;
+            if (styles[i] == MarkTerm || styles[i] == MarkFirmware) sample.StrokeDashArray = new DoubleCollection(new double[] { 3, 2 });
+            sample.Margin = new Thickness(6, 0, 6, 0);
+            sample.VerticalAlignment = VerticalAlignment.Center;
+            item.Children.Add(sample);
+            TextBlock t = MakeText(texts[i], 12.5, FontWeights.SemiBold, ink);
+            t.VerticalAlignment = VerticalAlignment.Center;
+            item.Children.Add(t);
+            legend.Children.Add(item);
+        }
+    }
+
+    // The texts of the numbered lines now in the legend (for the tests).
+    public string[] LegendTexts { get { return legendTexts; } }
 
     void PlaceChip(Border chip, double cx, int row, double x, double y0, string ink)
     {
@@ -4019,10 +4111,11 @@ public sealed class KcHoldTapForm : IDisposable
         Canvas chartCanvas = KcUi.Find<Canvas>(root, "ChartCanvas");
         chartMessage = KcUi.Find<TextBlock>(root, "ChartMessage");
         legendPanel = KcUi.Find<Panel>(root, "LegendPanel");
+        Panel markLegend = KcUi.Find<Panel>(root, "MarkLegendPanel");
         statusText = KcUi.Find<TextBlock>(root, "StatusText");
         closeButton = KcUi.Find<Button>(root, "CloseButton");
 
-        timeline = new KcTimelineView(window, chartCanvas, chartScroll, Enqueue);
+        timeline = new KcTimelineView(window, chartCanvas, chartScroll, markLegend, Enqueue);
         termSlider.ValueChanged += delegate
         {
             int v = (int)Math.Round(termSlider.Value);

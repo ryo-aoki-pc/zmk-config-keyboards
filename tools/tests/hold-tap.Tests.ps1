@@ -221,6 +221,8 @@ Test-Case 'グラフのモデル: レーン・判定と tapping-term の線・�
     Assert-Equal 100 @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkDecision })[0].At
     Assert-Equal 0 @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkFirmware }).Count
     Assert-Equal 140 @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkCursor })[0].At '実際に離した時刻'
+    # 線の文と順 (ウィンドウはこの順に番号を振り、文をグラフの下に並べる)
+    Assert-Equal 'tapping-term (150 ms)|判定: ホールド (ほかのキー) (100 ms)|離した時刻 (140 ms)' (($ch.Marks | ForEach-Object { $_.Text }) -join '|')
     Assert-Equal 1 $ch.Arrows.Count 'H の押下は判定まで保留'
     $actions = @($ch.Lanes | Where-Object { $_.Action } | ForEach-Object { $_.Action })
     Assert-Equal 'flavor:hold-preferred,flavor:balanced,flavor:tap-preferred,flavor:tap-unless-interrupted' ($actions -join ',')
@@ -228,6 +230,7 @@ Test-Case 'グラフのモデル: レーン・判定と tapping-term の線・�
     $fw = New-HtEpisode 'p10@0 p15@50 r15@100 r10@140' $false @(@{ Pos = 10; Status = 'tap'; Moment = 'key-up'; Flavor = 'balanced'; T = 140 })
     $ch2 = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $fw $x.Result $x.Sweeps $x.Range
     Assert-Equal 140 @($ch2.Marks | Where-Object { $_.Style -eq $script:KcHtMarkFirmware })[0].At
+    Assert-Equal 'ファームの判定: タップ (140 ms)' $ch2.Marks[2].Text '3 番目はファームの判定'
     # 押している最中: 離していないキーは開いたまま、帯のカーソルは無い
     $live = New-HtEpisode 'p10@0 p15@50' $true
     $y = Invoke-HtEpisode $live $null 70

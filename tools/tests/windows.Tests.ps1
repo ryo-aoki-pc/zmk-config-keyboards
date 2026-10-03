@@ -707,6 +707,8 @@ Test-Case 'タップホールドのウィンドウを描画できる (押す前�
         [KcUi]::DoEvents()
         Assert-True ($form.Timeline.Now -ge 87) $form.Timeline.Now
         Save-UiSnapshot $form 'keyboard-check-10-holdtap-live'
+        Assert-Equal 'tapping-term (150 ms)' ($form.Timeline.LegendTexts -join '|') '押している最中: 判定はまだ出ない'
+        Assert-Equal 1 $root.FindName('MarkLegendPanel').Children.Count
         Assert-UiChartLabelsApart $root
         $nowX = $form.Timeline.XOf($form.Timeline.Now)
         foreach ($r in @($root.FindName('ChartCanvas').Children | Where-Object { $_ -is [System.Windows.Shapes.Rectangle] -and [string]$_.ToolTip -eq '判定待ち' })) {
@@ -737,6 +739,8 @@ Test-Case 'タップホールドのウィンドウを描画できる (押す前�
         Assert-True (-not $form.Timeline.IsLive) '終わった回'
         Assert-True ($root.FindName('SummaryTitle').Text -like 'ホールド (ほかのキー):*') $root.FindName('SummaryTitle').Text
         Save-UiSnapshot $form 'keyboard-check-11-holdtap-done'
+        Assert-Equal 'tapping-term (150 ms)|判定: ホールド (ほかのキー) (100 ms)|離した時刻 (140 ms)' ($form.Timeline.LegendTexts -join '|')
+        Assert-Equal 3 $root.FindName('MarkLegendPanel').Children.Count
         Assert-UiChartLabelsApart $root
 
         # 設定を変えると、ファームの判定と違う線が出る。最小の大きさ
@@ -747,6 +751,7 @@ Test-Case 'タップホールドのウィンドウを描画できる (押す前�
         $w.Height = $w.MinHeight
         [KcUi]::DoEvents()
         Save-UiSnapshot $form 'keyboard-check-12-holdtap-min'
+        Assert-True (@($form.Timeline.LegendTexts) -contains 'ファームの判定: ホールド (ほかのキー) (100 ms)') ($form.Timeline.LegendTexts -join ' / ')
         Assert-UiAboveFooter $root @('ChartCard', 'SummaryBanner', 'SideCard')
         Assert-UiTextNotClipped $root.FindName('SideCard')
         Assert-UiChartLabelsApart $root
