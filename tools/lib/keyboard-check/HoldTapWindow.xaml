@@ -1,7 +1,8 @@
 <!--
   Content of the tap-hold timing window of tools/scripts/keyboard-check.ps1 -Mode HoldTap (KcHoldTapForm in
   InputTestForm.cs): the settings (flavor and tapping term) on the left; the result and the timeline
-  (KcTimelineView draws ChartCanvas) of the last hold-tap press on the right.
+  (KcTimelineView draws ChartCanvas, and the texts of its numbered lines in MarkLegendPanel) of the last
+  hold-tap press on the right.
   Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
   Theme keys (Theme.xaml) are referenced with DynamicResource because the theme is merged into the
   window after this content is parsed. ASCII only: texts are set from PowerShell.
@@ -75,6 +76,7 @@
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
         <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
       <Border x:Name="SummaryBanner" Grid.Row="0" CornerRadius="12" BorderThickness="1" Padding="16,12" Margin="0,0,0,12">
         <DockPanel>
@@ -98,7 +100,9 @@
                      VerticalAlignment="Center" Margin="24" Foreground="{DynamicResource KcTextMuted}" Visibility="Collapsed"/>
         </Grid>
       </Border>
-      <WrapPanel x:Name="LegendPanel" Grid.Row="2" Margin="4,10,0,0"/>
+      <!-- the texts of the numbered lines of the chart (KcTimelineView fills it) -->
+      <WrapPanel x:Name="MarkLegendPanel" Grid.Row="2" Margin="4,10,0,0"/>
+      <WrapPanel x:Name="LegendPanel" Grid.Row="3" Margin="4,6,0,0"/>
     </Grid>
   </Grid>
 

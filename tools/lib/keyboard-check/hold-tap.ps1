@@ -715,16 +715,16 @@ function Get-KcHoldTapChart($Model, $Config, $Episode, $Result, $Sweeps, $Range)
         }
         $chart.Arrows.Add(@{ FromLane = $keyLane[[int]$in.Pos]; FromAt = [double]$in.At; ToLane = $toLane; ToAt = [double]$in.ReplayAt; Style = $script:KcHtArrowCapture })
     }
-    # tapping-term、判定、ファームの判定 (計算と違うときだけ)
-    Add-KcHtMark $chart $firstKeyLane $lastLane ([double]($pressT + $setting.Term)) $script:KcHtMarkTerm ('tapping-term {0} ms' -f $setting.Term)
+    # tapping-term、判定、ファームの判定 (計算と違うときだけ)。ウィンドウはこの順に番号を振り、文はグラフの下に並べる
+    Add-KcHtMark $chart $firstKeyLane $lastLane ([double]($pressT + $setting.Term)) $script:KcHtMarkTerm ('tapping-term ({0} ms)' -f $setting.Term)
     $d = [KcHtText]::DecisionFor($Result, $ti)
     if ($null -ne $d) {
-        Add-KcHtMark $chart $firstKeyLane $lastLane ([double]$d.DecideT) $script:KcHtMarkDecision (Format-KcHtDecided $d.Status)
+        Add-KcHtMark $chart $firstKeyLane $lastLane ([double]$d.DecideT) $script:KcHtMarkDecision ('判定: {0} ({1} ms)' -f (Format-KcHtStatus $d.Status), $d.DecideT)
     }
     foreach ($fd in @($Episode.Decisions)) {
         if ($fd.Pos -ne $target) { continue }
         if ($null -eq $d -or $fd.Status -ne $d.Status -or [Math]::Abs($fd.T - $d.DecideT) -gt 1) {
-            Add-KcHtMark $chart $firstKeyLane $lastLane ([double]$fd.T) $script:KcHtMarkFirmware ('ファーム: {0}' -f (Format-KcHtStatus $fd.Status))
+            Add-KcHtMark $chart $firstKeyLane $lastLane ([double]$fd.T) $script:KcHtMarkFirmware ('ファームの判定: {0} ({1} ms)' -f (Format-KcHtStatus $fd.Status), $fd.T)
         }
         break
     }
@@ -743,7 +743,7 @@ function Get-KcHoldTapChart($Model, $Config, $Episode, $Result, $Sweeps, $Range)
             Add-KcHtStripBars $chart $lane $f.Segments
         }
         if ($null -ne $Sweeps.Release) {
-            Add-KcHtMark $chart $first ($chart.Lanes.Count - 1) ([double]$Sweeps.Release) $script:KcHtMarkCursor ''
+            Add-KcHtMark $chart $first ($chart.Lanes.Count - 1) ([double]$Sweeps.Release) $script:KcHtMarkCursor ('離した時刻 ({0} ms)' -f $Sweeps.Release)
         }
     }
     return $chart
