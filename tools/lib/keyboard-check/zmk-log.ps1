@@ -17,6 +17,9 @@
 #   on_tap_dance_binding_pressed: 12 created new tap dance / 12 tap dance pressed
 #   tap_dance_timer_handler: Tap dance has been decided via timer. Counter reached: 1
 #   tap_dance_position_state_changed_listener: Tap dance interrupted, activating tap-dance at 12
+#   position_state_changed_listener: 34 capturing 15 down event / 34 bubbling 15 up event  (hold-tap の判定待ちの間)
+#   release_captured_events: Releasing key position event for position 15 pressed
+#   on_hold_tap_binding_released: 34 cleaning up hold-tap / decide_retro_tap: 34 retro tap
 #   --- 5 messages dropped ---
 
 $script:KcLogLinePattern = '^\[(\d+):(\d+):(\d+)\.(\d+),(\d+)\]\s*<(\w+)>\s*([\w-]+):\s*(?:(\w+):\s*)?(.*)$'
@@ -79,6 +82,21 @@ function ConvertFrom-KcZmkLogLine([string]$Line) {
         $r.Type = 'td_interrupt'; $r.Pos = [int]$mm.Groups[1].Value
     } elseif (($mm = [regex]::Match($msg, '^combo: capturing position event (\d+)')).Success) {
         $r.Type = 'combo'; $r.Pos = [int]$mm.Groups[1].Value
+    } elseif (($mm = [regex]::Match($msg, '^(\d+) (capturing|bubbling) (\d+) (down|up) event')).Success) {
+        # hold-tap の判定待ちの間のほかのキー (capturing = 判定まで保留、bubbling = そのまま通す)。
+        # 修飾キーの保留 ('34 capturing 0xE1 down event') は位置ではないので当たらない
+        $r.Type = 'ht_' + $mm.Groups[2].Value.Replace('capturing', 'capture').Replace('bubbling', 'bubble')
+        $r.Pos = [int]$mm.Groups[1].Value; $r.Other = [int]$mm.Groups[3].Value; $r.Pressed = ($mm.Groups[4].Value -eq 'down')
+    } elseif (($mm = [regex]::Match($msg, '^Releasing key position event for position (\d+) (pressed|released)')).Success) {
+        $r.Type = 'ht_replay'; $r.Pos = [int]$mm.Groups[1].Value; $r.Pressed = ($mm.Groups[2].Value -eq 'pressed')
+    } elseif (($mm = [regex]::Match($msg, '^(\d+) cleaning up hold-tap')).Success) {
+        $r.Type = 'ht_cleanup'; $r.Pos = [int]$mm.Groups[1].Value
+    } elseif (($mm = [regex]::Match($msg, '^(\d+) retro tap')).Success) {
+        $r.Type = 'ht_retro'; $r.Pos = [int]$mm.Groups[1].Value
+    } elseif (($mm = [regex]::Match($msg, '^Update hold tap (\d+) status to hold-interrupt')).Success) {
+        $r.Type = 'ht_retro_hold'; $r.Pos = [int]$mm.Groups[1].Value
+    } elseif (($mm = [regex]::Match($msg, '^(\d+) hold behavior pressed while undecided')).Success) {
+        $r.Type = 'ht_hwu'; $r.Pos = [int]$mm.Groups[1].Value
     }
     return [pscustomobject]$r
 }

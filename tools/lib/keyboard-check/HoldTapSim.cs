@@ -1658,6 +1658,11 @@ public sealed class KcQmkTapHoldSim
     void ProcessRecord(Rec record)
     {
         if (record.Tick) return;
+        if (record.Index >= 0 && record.Index < result.Inputs.Count)
+        {
+            KcHtInput info = result.Inputs[record.Index];
+            if (info.Captured && info.ReplayAt < 0) info.ReplayAt = clock;
+        }
         if (st.FlowCompiled) FlowTapUpdateLastEvent(record);
         int layer;
         if (record.Pressed)
@@ -2081,7 +2086,7 @@ public static class KcHtText
     public static string Outcome(KcHtResult r, int index)
     {
         KcHtDecision d = DecisionFor(r, index);
-        string status = d == null ? "" : (d.Status.StartsWith("hold") ? "hold" : d.Status);
+        string status = d == null ? "" : d.Status;
         return status + "|" + Strokes(r);
     }
 }
