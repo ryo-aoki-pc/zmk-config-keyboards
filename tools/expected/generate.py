@@ -1211,10 +1211,11 @@ def zmk_hold_tap(km: ZmkKeymap, zv, keys: list[dict], baseline: dict[str, dict] 
     return data, consistency
 
 
-# KQ-mini (vial-qmk) の QMK の設定 (Vial の QSID)。tap_code_delay は vial-qmk の quantum/qmk_settings.h の既定値 10
+# KQ-mini (vial-qmk) の QMK の設定 (Vial の QSID)。書かれていないものは既定値。tap_code_delay の既定値は TAP_CODE_DELAY で、
+# vial-qmk の quantum/qmk_settings.h は先に quantum/action.h (TAP_CODE_DELAY 0) を読み込むので 0
 KQ_HT_SETTINGS = {7: 'tapping_term', 18: 'tap_code_delay', 22: 'permissive_hold', 23: 'hold_on_other_key_press',
                   24: 'retro_tapping', 25: 'quick_tap_term', 26: 'chordal_hold', 27: 'flow_tap_term'}
-KQ_HT_DEFAULTS = {'tapping_term': 200, 'tap_code_delay': 10, 'permissive_hold': 0, 'hold_on_other_key_press': 0,
+KQ_HT_DEFAULTS = {'tapping_term': 200, 'tap_code_delay': 0, 'permissive_hold': 0, 'hold_on_other_key_press': 0,
                   'retro_tapping': 0, 'quick_tap_term': 200, 'chordal_hold': 0, 'flow_tap_term': 0}
 
 

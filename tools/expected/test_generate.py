@@ -477,7 +477,7 @@ class TestGenerate(unittest.TestCase):
     def test_kq_hold_tap(self):
         ht = self.data['kq-mini.json']['interactive']['hold_tap']
         self.assertEqual(ht['engine'], 'qmk')
-        self.assertEqual(ht['settings'], {'tapping_term': 150, 'tap_code_delay': 10, 'permissive_hold': 1,
+        self.assertEqual(ht['settings'], {'tapping_term': 150, 'tap_code_delay': 0, 'permissive_hold': 1,
                                           'hold_on_other_key_press': 0, 'retro_tapping': 0, 'quick_tap_term': 0,
                                           'chordal_hold': 0, 'flow_tap_term': 0})
         keys = {k['pos']: k for k in ht['keys']}
