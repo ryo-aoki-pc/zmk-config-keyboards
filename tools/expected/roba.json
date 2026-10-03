@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-roBa",
-      "commit": "27b8e8eff7a4766fca768d9157621cd6575d0cd4",
+      "commit": "8d8a3e7bde5cf95f3ec642c15e0f0ca4789715f6",
       "files": ["config/roBa.keymap", "config/roBa.json", "boards/shields/roBa/roBa.dtsi", "boards/shields/roBa/roBa_R.overlay", "boards/shields/roBa/roBa_R.conf", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
