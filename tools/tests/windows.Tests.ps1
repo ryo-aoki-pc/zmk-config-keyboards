@@ -681,7 +681,7 @@ function Step-Wht($Ctx, [double]$Pc, [string[]]$Lines = @()) {
     [KcUi]::DoEvents()
 }
 
-Test-Case 'タップホールドのウィンドウを描画できる (押す前・押している最中・終わった回・最小の大きさ)' -WindowsOnly {
+Test-Case 'タップホールドのウィンドウを描画できる (組み合わせを選ぶ前・押している最中・終わった回・最小の大きさ)' -WindowsOnly {
     Import-KcInputForm
     $form = New-Object KcHoldTapForm('タップホールドのタイミング')
     try {
@@ -691,11 +691,29 @@ Test-Case 'タップホールドのウィンドウを描画できる (押す前�
         $ctx = New-KcHoldTapContext -Form $form -Model (New-KcHtModel (Get-KcExpected 'lism' $script:ExpectedDir))
         Initialize-KcHoldTapUi $ctx
         [KcUi]::DoEvents()
-        Assert-True $root.FindName('ChartMessage').IsVisible '押す前は準備の案内'
+        Assert-True $root.FindName('ChartMessage').IsVisible '組み合わせを選ぶ前は ① の案内'
+        Assert-True ($root.FindName('ChartMessage').Text -like '① *') $root.FindName('ChartMessage').Text
+        Assert-Equal '? + ?' $root.FindName('ComboText').Text
+        Assert-True $root.FindName('ComboHint').IsVisible '選んでいる途中の案内'
+        Assert-True (-not $root.FindName('PickButton').IsVisible) 'はじめは「やめる」が無い'
         Assert-Equal 4 $root.FindName('FlavorPanel').Children[0].Child.Children.Count 'flavor の 4 つ'
         Assert-Equal 0 @($form.TakeActions()).Count '表示しただけでは操作にならない'
         Save-UiSnapshot $form 'keyboard-check-9-holdtap-wait'
         Assert-UiTextNotClipped $root.FindName('SideCard')
+
+        # 組み合わせを選ぶ: A を押して離し、H を押して離す
+        Step-Wht $ctx 100 @((New-WhtLog 4100.2 'peripheral_event_work_callback' 'Trigger key position state change for 10'),
+            (New-WhtLog 4100.4 'on_hold_tap_binding_pressed' '10 new undecided hold_tap'))
+        Assert-Equal 'A (Ctrl) + ?' $root.FindName('ComboText').Text
+        Step-Wht $ctx 150 @((New-WhtLog 4150.0 'peripheral_event_work_callback' 'Trigger key position state change for 10'),
+            (New-WhtLog 4150.2 'on_hold_tap_binding_released' '10 cleaning up hold-tap'))
+        Step-Wht $ctx 200 @((New-WhtLog 4200.3 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: true'))
+        Step-Wht $ctx 250 @((New-WhtLog 4250.3 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: false'))
+        Assert-Equal 'A (Ctrl) + H' $root.FindName('ComboText').Text
+        Assert-True (-not $root.FindName('ComboHint').IsVisible) '決まったら案内を消す'
+        Assert-True $root.FindName('PickButton').IsVisible '押して選び直す'
+        $root.FindName('PickButton').RaiseEvent((New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
+        Assert-Equal 'pick' (@($form.TakeActions()) -join ',')
 
         # A を押したまま H を押した (押している最中)
         Step-Wht $ctx 1000 @((New-WhtLog 5000.2 'peripheral_event_work_callback' 'Trigger key position state change for 10'),
@@ -725,7 +743,7 @@ Test-Case 'タップホールドのウィンドウを描画できる (押す前�
         $form.Timeline.SimulateLaneClick($lane)
         Assert-Equal 'flavor:hold-preferred' (@($form.TakeActions()) -join ',')
 
-        # H を離してホールドに決まり、A を離して 400 ms たつと、その回が残る
+        # H を離してホールドに決まり、A を離して 300 ms たつと、その回が残る
         Step-Wht $ctx 1100 @((New-WhtLog 5100.1 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: false'),
             (New-WhtLog 5100.2 'position_state_changed_listener' '10 capturing 15 up event'),
             (New-WhtLog 5100.3 'decide_hold_tap' '10 decided hold-interrupt (balanced decision moment other-key-up)'),
