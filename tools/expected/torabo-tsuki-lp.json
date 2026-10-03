@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-keyboard-torabo-tsuki-lp",
-      "commit": "0529464c98a2219024675806f65dea85b4ff75c5",
+      "commit": "40f0fa2a0e510c0fba0d4573bf31bdef34c0b627",
       "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}

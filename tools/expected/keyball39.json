@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "keyball",
-      "commit": "55e7962b0f0cc26ca67b635488232aa1437fed4a",
+      "commit": "48ebdda8992e9fe98ac09cd6b356ae4b6de4196f",
       "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/keyboard.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["vial_keymap_docgen.py"]}
