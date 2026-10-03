@@ -46,7 +46,7 @@
 | スクロール | 右へ転がすと右へ、手前へ転がすと下へスクロールする (全機種・左右のボールで同じ向き)。速さは `zip_scroll_scaler 1 16` (1/16)。例外: AroundFortyRB / roBa は CPI 800 なので `zip_scroll_scaler 1 32` (CPI 400 のときの 1/16 と同じ速さ)、KUKEY42 はドライバの `CONFIG_PMW3610_SCROLL_TICK=32`、torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
 | スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
 | BLE | ZMK の既定値のまま (送信出力・PHY・接続間隔・スタックなどを機種ごとに変えない)。例外: torabo-tsuki-lp は BMP の上流に合わせて送信出力 +8dBm (`CONFIG_BT_CTLR_TX_PWR_PLUS_8`) |
-| LED | XIAO の 5 台は RGB LED ウィジェット ([zmk-rgbled-widget](https://github.com/caksoylar/zmk-rgbled-widget) の `rgbled_adapter`、`CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH=30` / `CRITICAL=10`) でバッテリー残量と接続状態を表示する。充電中の表示 (`CONFIG_CHARGE_INDICATOR`) は LisM だけ。torabo-tsuki-lp は BMP のステータス LED (`CONFIG_ZMK_STATUS_LED`) |
+| LED | XIAO の 5 台は RGB LED ウィジェット ([zmk-rgbled-widget](https://github.com/caksoylar/zmk-rgbled-widget) の `rgbled_adapter`、`CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH=30` / `CRITICAL=10`) でバッテリー残量と接続状態を表示する。充電中の表示 (`CONFIG_CHARGE_INDICATOR`) は LisM だけ (LisM の `src/charge_indicator.c`。[4mplelab/zmk-feature-charge-indicator](https://github.com/4mplelab/zmk-feature-charge-indicator) を取り込んで、[USB を挿すと止まる不具合](#lism-を-usb-でつなぐと操作できなくなる場合) を直したもの)。torabo-tsuki-lp は BMP のステータス LED (`CONFIG_ZMK_STATUS_LED`) |
 | ブートローダ | 左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿すと、その側がブートローダになる (Keyball の Bootmagic と同じ操作)。各リポジトリの `src/usb_bootmagic.c` (`zmk,usb-bootmagic`) で、キーは左右の overlay の `row` / `column` で指定する。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照 |
 
 ### カーソルの加速の調整
@@ -752,6 +752,24 @@ ZMK は、トラックボールのセンサーが報告するたびに、マウ�
 - 使っていないキーボードの電源を切る
 - KUKEY42 / roBa / AroundFortyRB は、右手側の overlay の `<&trackball_rate_limit 15>` を `30` (32ms ごと) に上げる。
   カーソルの動きは粗くなるが、送る量が半分になる
+
+## LisM を USB でつなぐと操作できなくなる場合
+
+動いている LisM に USB ケーブルを挿したとき、次のようになるなら、ファームウェアが止まっています。
+
+- キーもトラックボールも入力できなくなる
+- USB を抜いても戻らない (USB を抜いて電源を入れ直すと、Bluetooth で使えるようになる)
+
+原因は、充電中の LED 表示 ([4mplelab/zmk-feature-charge-indicator](https://github.com/4mplelab/zmk-feature-charge-indicator)) です。
+充電状態のピン (STAT) の割り込みの中で `k_sleep` していました。USB を挿す・抜くときは充電状態が続けて変わるので、
+カーネルのタイムアウトの一覧が壊れ、ファームウェア全体が止まります (USB を抜いたときに止まることもあります)。
+
+- [ryo-aoki-pc/zmk-config-LisM#26](https://github.com/ryo-aoki-pc/zmk-config-LisM/pull/26) で直した
+  (充電中の LED 表示は、LisM の `src/charge_indicator.c` に取り込んだ)
+- それより前のビルドには、この不具合がある (書き込みツールで選べる過去の custom のビルドも含む)。
+  [書き込みツール](#書き込みツール-toolsflashcmd) で、左右とも最新を書き込む
+- 書き込みの直後のように、USB をつないだまま起動したときは、起動の時点では充電状態が変わらないので止まらない
+  (古いファームウェアでは、書き込み直後は USB で使えても、挿し直すと止まる)
 
 ## Keyball39 のトラックボールが動かない場合
 
