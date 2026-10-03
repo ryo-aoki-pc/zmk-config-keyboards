@@ -5,7 +5,7 @@
   "name": "Keyboard Quantizer Mini (+ Keyball39)",
   "kind": "vial",
   "sources": [
-    {"submodule": "zmk-config-LisM", "commit": "4452ae578cd9f72cbdcd1872db92225c82bdfa7a", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
+    {"submodule": "zmk-config-LisM", "commit": "57e5e8aa1ef90254bbe2e7ce9017769c784a806b", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["zmk_to_vial.py"]},
     {"submodule": "keyball", "commit": "48ebdda8992e9fe98ac09cd6b356ae4b6de4196f", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
   ],
