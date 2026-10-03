@@ -882,7 +882,7 @@ def zmk_product(board: dict, base: Path) -> str:
 
 
 def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
-            baseline_aml: dict | None) -> dict:
+            baseline_aml: dict | None, baseline_ht: dict[str, dict] | None) -> dict:
     base = sources.path(board['sub'])
     km = ZmkKeymap(kd, zv, base / board['keymap'])
     n_layers = len(km.layer_names)
@@ -1006,6 +1006,7 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
     firmware, amls = zmk_trackball_firmware(board, base)
     # AML の発動に要る動きの量 (実動作テスト用)。ボールごとに違えば小さいほう、入っていないボールがあれば 0
     aml_threshold = min((g['threshold'] if g else 0) for g in amls) if amls else 0
+    hold_tap, ht_consistency = zmk_hold_tap(km, zv, keys, baseline_ht)
     return {
         'schema': SCHEMA, 'generator': GENERATOR, 'id': board['id'], 'name': board['name'], 'kind': 'zmk',
         'sources': [sources.source_entry(board['sub'], files),
@@ -1026,8 +1027,10 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
             },
             'output_switch': output_switch,
             'behaviors': zmk_behaviors(board, km, zv, keys, mous, scrl),
+            'hold_tap': hold_tap,
         },
-        'consistency': zmk_consistency(board, base, km, mous, scrl, firmware, amls, baseline_accel, baseline_aml),
+        'consistency': (zmk_consistency(board, base, km, mous, scrl, firmware, amls, baseline_accel, baseline_aml)
+                        + ht_consistency),
     }
 
 
@@ -1049,6 +1052,263 @@ def zmk_behaviors(board: dict, km: ZmkKeymap, zv, keys: list[dict], mous: int, s
     data = b.to_json()
     data['devices'] = behaviors.devices(model)
     return data
+
+
+# ============================================================================
+# タップホールドの設定 (keyboard-check の「タップホールドのタイミングを見る」のシミュレータに渡す)
+# ============================================================================
+
+# ZMK v0.3.0 の組み込みの hold-tap (app/dts/behaviors/mod_tap.dtsi / layer_tap.dtsi)。
+# 書かれていない項目の既定値は app/dts/bindings/behaviors/zmk,behavior-hold-tap.yaml
+ZMK_HT_DEFAULTS = {
+    'flavor': 'hold-preferred', 'tapping_term_ms': None, 'quick_tap_ms': -1, 'require_prior_idle_ms': -1,
+    'retro_tap': False, 'hold_while_undecided': False, 'hold_while_undecided_linger': False,
+    'hold_trigger_on_release': False, 'hold_trigger_key_positions': [], 'bindings': ['&kp', '&kp'],
+}
+ZMK_HT_BUILTIN = {
+    'mt': {'flavor': 'hold-preferred', 'tapping_term_ms': 200, 'bindings': ['&kp', '&kp']},
+    'lt': {'flavor': 'tap-preferred', 'tapping_term_ms': 200, 'bindings': ['&mo', '&kp']},
+}
+ZMK_HT_FLAVORS = ('hold-preferred', 'balanced', 'tap-preferred', 'tap-unless-interrupted')
+
+
+def ht_props(body: str, base: dict) -> dict:
+    """hold-tap のノード (または &mt { ... } の上書き) の本体 → 設定。書かれていない項目は base のまま。"""
+    d = {k: (list(v) if isinstance(v, list) else v) for k, v in base.items()}
+    fm = re.search(r'(?<![\w-])flavor\s*=\s*"([\w-]+)"', body)
+    if fm:
+        if fm.group(1) not in ZMK_HT_FLAVORS:
+            raise GenError(f'知らない flavor です: {fm.group(1)}')
+        d['flavor'] = fm.group(1)
+    for prop, key in (('tapping-term-ms', 'tapping_term_ms'), ('tapping_term_ms', 'tapping_term_ms'),
+                      ('quick-tap-ms', 'quick_tap_ms'), ('quick_tap_ms', 'quick_tap_ms'),
+                      ('require-prior-idle-ms', 'require_prior_idle_ms')):
+        v = behaviors.parse_int_prop(body, prop)
+        if v is not None:
+            d[key] = v
+    for prop, key in (('retro-tap', 'retro_tap'), ('hold-while-undecided', 'hold_while_undecided'),
+                      ('hold-while-undecided-linger', 'hold_while_undecided_linger'),
+                      ('hold-trigger-on-release', 'hold_trigger_on_release')):
+        if re.search(r'(?<![\w-])' + re.escape(prop) + r'\s*;', body):
+            d[key] = True
+    pm = re.search(r'(?<![\w-])hold-trigger-key-positions\s*=\s*<([^>]*)>', body)
+    if pm:
+        d['hold_trigger_key_positions'] = [int(x, 0) for x in pm.group(1).split()]
+    bm = re.search(r'(?<![\w-])bindings\s*=\s*<\s*(&\w+)\s*>\s*,\s*<\s*(&\w+)\s*>', body)
+    if bm:
+        d['bindings'] = [bm.group(1), bm.group(2)]
+    if re.search(r'(?<![\w-])global-quick-tap\s*;', body):
+        # 古い書き方: quick-tap-ms をすべてのキーに対して使う (= require-prior-idle-ms)
+        d['require_prior_idle_ms'] = d['quick_tap_ms']
+    return d
+
+
+def zmk_hold_tap_config(km: ZmkKeymap) -> dict[str, dict]:
+    """キーマップで使える hold-tap (組み込みの mt / lt と behaviors の中の hold-tap) と、その設定。
+    ルートの '&mt { ... };' の上書きを反映する。"""
+    out: dict[str, dict] = {}
+    for name, b in ZMK_HT_BUILTIN.items():
+        out[name] = {**ZMK_HT_DEFAULTS, **b, 'source': 'ZMK の既定値'}
+    for name, node in km.custom.items():
+        if re.search(r'compatible\s*=\s*"zmk,behavior-hold-tap"', node['body']):
+            out[name] = {**ht_props(node['body'], ZMK_HT_DEFAULTS), 'source': f'behaviors の {node["node"]}'}
+    for m in re.finditer(r'(?<![\w-])&(\w+)\s*\{(.*?)\};', km.text, re.DOTALL):
+        if m.group(1) in out:
+            out[m.group(1)] = {**ht_props(m.group(2), out[m.group(1)]), 'source': f'キーマップの &{m.group(1)} {{ }}'}
+    for name, d in out.items():
+        if d['tapping_term_ms'] is None:
+            raise GenError(f'hold-tap {name} に tapping-term-ms がありません')
+    return out
+
+
+def ht_text(cfg: dict) -> str:
+    parts = [cfg['flavor'], f'tapping-term {cfg["tapping_term_ms"]}', f'quick-tap {cfg["quick_tap_ms"]}']
+    if cfg['require_prior_idle_ms'] >= 0:
+        parts.append(f'require-prior-idle {cfg["require_prior_idle_ms"]}')
+    for key, label in (('retro_tap', 'retro-tap'), ('hold_while_undecided', 'hold-while-undecided'),
+                       ('hold_trigger_on_release', 'hold-trigger-on-release')):
+        if cfg[key]:
+            parts.append(label)
+    if cfg['hold_trigger_key_positions']:
+        parts.append('hold-trigger-key-positions ' + ' '.join(map(str, cfg['hold_trigger_key_positions'])))
+    return ' / '.join(parts)
+
+
+def ht_same(a: dict, b: dict) -> bool:
+    keys = [k for k in ZMK_HT_DEFAULTS if k != 'bindings']
+    return all(a.get(k) == b.get(k) for k in keys)
+
+
+def zmk_kp_entry(zv, token: str) -> dict:
+    v = zmk_keycode(zv, token)
+    usage, mods = v & 0xFFFF, (v >> 24) & 0xFF
+    label = hid_label(usage)
+    if mods:
+        label = behaviors.mods_label(mods) + '+' + label
+    return {'kind': 'kp', 'usage': usage, 'mods': mods, 'label': label}
+
+
+def zmk_ht_entry(km: ZmkKeymap, zv, binding: str, hts: dict[str, dict]) -> dict:
+    """キーのバインディング → シミュレータが使う形 (kind: ht / kp / mo / none / trans / other)。"""
+    head, args = behaviors.split_binding(binding)
+
+    def sub(dev: str, arg: str) -> dict:
+        if dev == '&kp':
+            return zmk_kp_entry(zv, arg)
+        if dev == '&mo':
+            return {'kind': 'mo', 'layer': int(arg), 'label': km.layer_name(int(arg))}
+        return {'kind': 'other', 'label': f'{dev} {arg}'}
+
+    if head in hts:
+        if len(args) != 2:
+            raise GenError(f'hold-tap の引数の数が違います: {binding}')
+        cfg = hts[head]
+        return {'kind': 'ht', 'behavior': head, 'src': binding,
+                'hold': sub(cfg['bindings'][0], args[0]), 'tap': sub(cfg['bindings'][1], args[1])}
+    if head == 'kp':
+        return zmk_kp_entry(zv, args[0])
+    if head == 'mo':
+        return {'kind': 'mo', 'layer': int(args[0]), 'label': km.layer_name(int(args[0]))}
+    if head in ('none', 'trans'):
+        return {'kind': head}
+    return {'kind': 'other', 'label': km.legend(binding) or head, 'src': binding}
+
+
+def zmk_hold_tap(km: ZmkKeymap, zv, keys: list[dict], baseline: dict[str, dict] | None) -> tuple[dict, list[dict]]:
+    """「タップホールドのタイミングを見る」に渡すもの と 整合チェック。
+    keys: キーごとに、BASE と、BASE から &mo / hold-tap のホールドで入れるレイヤーのバインディング
+    (&trans は書かない。下のレイヤーに落ちる)。"""
+    hts = zmk_hold_tap_config(km)
+    reach = [0]
+    i = 0
+    while i < len(reach):
+        for b in km.layers[reach[i]]:
+            e = zmk_ht_entry(km, zv, b, hts)
+            nxt = e['layer'] if e['kind'] == 'mo' else e['hold'].get('layer') if e['kind'] == 'ht' else None
+            if nxt is not None and nxt not in reach and 0 <= nxt < len(km.layers):
+                reach.append(nxt)
+        i += 1
+    layers = sorted(reach)
+    out_keys = []
+    for k in keys:
+        on = {}
+        for li in layers:
+            e = zmk_ht_entry(km, zv, km.layers[li][k['pos']], hts)
+            if e['kind'] != 'trans':
+                on[str(li)] = e
+        out_keys.append({'pos': k['pos'], 'on': on})
+    used = sorted({e['behavior'] for k in out_keys for e in k['on'].values() if e['kind'] == 'ht'})
+    behaviors_out = {name: {k: v for k, v in hts[name].items()} for name in used}
+    consistency = []
+    for name in used:
+        cfg = hts[name]
+        if baseline is None or name not in baseline:
+            continue
+        same = ht_same(cfg, baseline[name])
+        consistency.append({'level': 'ok' if same else 'warn',
+                            'message': f'タップホールド &{name}: {ht_text(cfg)} (LisM 基準: {ht_text(baseline[name])})'})
+    data = {'engine': 'zmk', 'behaviors': behaviors_out, 'layers': layers, 'keys': out_keys}
+    return data, consistency
+
+
+# KQ-mini (vial-qmk) の QMK の設定 (Vial の QSID)。書かれていないものは既定値。tap_code_delay の既定値は TAP_CODE_DELAY で、
+# vial-qmk の quantum/qmk_settings.h は先に quantum/action.h (TAP_CODE_DELAY 0) を読み込むので 0
+KQ_HT_SETTINGS = {7: 'tapping_term', 18: 'tap_code_delay', 22: 'permissive_hold', 23: 'hold_on_other_key_press',
+                  24: 'retro_tapping', 25: 'quick_tap_term', 26: 'chordal_hold', 27: 'flow_tap_term'}
+KQ_HT_DEFAULTS = {'tapping_term': 200, 'tap_code_delay': 0, 'permissive_hold': 0, 'hold_on_other_key_press': 0,
+                  'retro_tapping': 0, 'quick_tap_term': 200, 'chordal_hold': 0, 'flow_tap_term': 0}
+
+
+def kq_chordal_hand(code: int) -> str:
+    """KQ-mini の chordal hold の左右 (QMK が info.json から作る chordal_hold_layout)。
+    KQ-mini の info.json の LAYOUT は 32 行 x 8 列 (x = 列、幅 1) の左右対称な格子なので、vial-qmk の
+    lib/python/qmk/cli/generate/keyboard_c.py の _gen_chordal_hold_layout は x - 4.0 の符号で左右を決める
+    (列 0〜3 は L、4 は '*'、5〜7 は R)。列は HID コード & 7 (zmk_to_vial.hid_to_matrix) なので、
+    物理的な手とは関係なく、キーのコードで決まる。"""
+    col = code & 7
+    return 'L' if col < 4 else '*' if col == 4 else 'R'
+
+
+def qmk_entry(value: int, layer_names: dict[int, str]) -> dict:
+    """KQ-mini のキーコード → シミュレータが使う形。"""
+    if value == 0x0001:
+        return {'kind': 'trans'}
+    if value == 0x0000:
+        return {'kind': 'none'}
+    if 0x0004 <= value <= 0x00E7:
+        return {'kind': 'kp', 'usage': value, 'mods': 0, 'label': QMK_LABEL_OVERRIDES.get(value, hid_label(value))}
+    if 0x0100 <= value < 0x2000 and 0x04 <= (value & 0xFF) <= 0xE7:
+        # LCTL(KC_X) など。QMK の 5 ビットの修飾 → HID の修飾のバイト
+        mod5 = (value >> 8) & 0x1F
+        mods = (mod5 & 0x0F) << (4 if mod5 & 0x10 else 0)
+        usage = value & 0xFF
+        return {'kind': 'kp', 'usage': usage, 'mods': mods,
+                'label': behaviors.mods_label(mods) + '+' + hid_label(usage)}
+    if 0x2000 <= value < 0x4000:
+        mod5 = (value >> 8) & 0x1F
+        mods = (mod5 & 0x0F) << (4 if mod5 & 0x10 else 0)
+        tap = qmk_entry(value & 0xFF, layer_names)
+        return {'kind': 'ht', 'behavior': 'MT', 'src': f'MT(0x{mod5:02X}, {tap.get("label", "")})',
+                'hold': {'kind': 'mods', 'mods': mods, 'label': behaviors.mods_label(mods)}, 'tap': tap}
+    if 0x4000 <= value < 0x5000:
+        layer = (value >> 8) & 0x0F
+        tap = qmk_entry(value & 0xFF, layer_names)
+        name = layer_names.get(layer, f'L{layer}')
+        return {'kind': 'ht', 'behavior': 'LT', 'src': f'LT({layer}, {tap.get("label", "")})',
+                'hold': {'kind': 'mo', 'layer': layer, 'label': name}, 'tap': tap}
+    if 0x5220 <= value < 0x5240:
+        layer = value & 0x1F
+        return {'kind': 'mo', 'layer': layer, 'label': layer_names.get(layer, f'L{layer}')}
+    return {'kind': 'other', 'label': f'0x{value:04X}'}
+
+
+def kq_hold_tap(conv, zv, kb: Keyball, keys: list[dict], settings: list[dict],
+                layer_names: dict[int, str]) -> tuple[dict, list[dict]]:
+    by_name = {s['name']: s['value'] for s in settings}
+    st = {name: by_name.get(name, KQ_HT_DEFAULTS[name]) for name in KQ_HT_SETTINGS.values()}
+    cells = {}
+    for k in keys:
+        code = kb.cell(0, k['pos'])
+        if k['present'] and 0x04 <= code <= 0xE7:
+            cells[k['pos']] = (code, tuple(zv.hid_to_matrix(code)))
+    reach = [0]
+    i = 0
+    while i < len(reach):
+        for code, (r, c) in cells.values():
+            e = qmk_entry(conv.matrix[reach[i]][r][c], layer_names)
+            nxt = e['layer'] if e['kind'] == 'mo' else e['hold'].get('layer') if e['kind'] == 'ht' else None
+            if nxt is not None and nxt not in reach and nxt < len(conv.matrix):
+                reach.append(nxt)
+        i += 1
+    layers = sorted(reach)
+    out_keys = []
+    for k in keys:
+        if k['pos'] not in cells:
+            continue
+        code, (r, c) = cells[k['pos']]
+        on = {}
+        for li in layers:
+            e = qmk_entry(conv.matrix[li][r][c], layer_names)
+            if e['kind'] != 'trans':
+                on[str(li)] = e
+        out_keys.append({'pos': k['pos'], 'usage': code, 'qmk_hand': kq_chordal_hand(code), 'on': on})
+    consistency = []
+    same = (st['tapping_term'] == 150 and st['permissive_hold'] == 1 and st['hold_on_other_key_press'] == 0
+            and st['quick_tap_term'] == 0)
+    consistency.append({'level': 'ok' if same else 'warn', 'message': (
+        f'タップホールド: tapping_term {st["tapping_term"]} / permissive_hold {st["permissive_hold"]} / '
+        f'hold_on_other_key_press {st["hold_on_other_key_press"]} / quick_tap_term {st["quick_tap_term"]} '
+        '(LisM の balanced / tapping-term 150 / quick-tap 0 に相当するのは 150 / 1 / 0 / 0)')})
+    if st['chordal_hold']:
+        hand_map = {'left': 'L', 'right': 'R'}
+        diff = [k for k in out_keys
+                if any(e['kind'] == 'ht' for e in k['on'].values())
+                and k['qmk_hand'] != hand_map[next(x for x in keys if x['pos'] == k['pos'])['hand']]]
+        if diff:
+            consistency.append({'level': 'warn', 'message': (
+                'chordal hold の左右が物理的な手と違うキーがあります (KQ-mini の左右はキーのコードで決まる): '
+                + ', '.join(next(x for x in keys if x['pos'] == k['pos'])['legend'] or str(k['pos']) for k in diff))})
+    return {'engine': 'qmk', 'settings': st, 'layers': layers, 'keys': out_keys}, consistency
 
 
 # ============================================================================
@@ -1445,6 +1705,7 @@ def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball, lism_behaviors: dict) -> 
         for v in hand.values():
             v['legend'] = keys[v['pos']]['legend']
     st = kb.status
+    hold_tap, ht_consistency = kq_hold_tap(conv, zv, kb, keys, settings, layer_names)
 
     return {
         'schema': SCHEMA, 'generator': GENERATOR, 'id': 'kq-mini', 'name': 'Keyboard Quantizer Mini (+ Keyball39)',
@@ -1489,8 +1750,9 @@ def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball, lism_behaviors: dict) -> 
             },
             'output_switch': None,
             'behaviors': kq_behaviors(conv, zv, kb, keys, lism_behaviors),
+            'hold_tap': hold_tap,
         },
-        'consistency': [],
+        'consistency': ht_consistency,
     }
 
 
@@ -1561,8 +1823,10 @@ def generate(sources: Sources) -> dict[str, str]:
         raise GenError(f'{lism_board["dtsi"]} に trackball_accel がありません')
     # AML の発動条件の基準: LisM の aml_threshold
     baseline_aml = aml_threshold_nodes(sources.path(lism_board['sub']), [lism_board['dtsi']]).get('aml_threshold')
+    # タップホールドの基準: LisM の &mt / &lt
+    baseline_ht = zmk_hold_tap_config(ZmkKeymap(kd, zv, sources.path(lism_board['sub']) / lism_board['keymap']))
     for board in ZMK_BOARDS:
-        data = gen_zmk(board, sources, kd, zv, baseline, baseline_aml)
+        data = gen_zmk(board, sources, kd, zv, baseline, baseline_aml, baseline_ht)
         out[f'{board["id"]}.json'] = data
         if board['id'] == 'lism':
             lism = data

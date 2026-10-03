@@ -9,6 +9,9 @@
 . (Join-Path $script:KcLib 'input-test.ps1')
 . (Join-Path $script:KcLib 'behavior-test.ps1')
 . (Join-Path $script:KcLib 'layer-trace.ps1')
+. (Join-Path $script:KcLib 'hold-tap-sim.ps1')
+. (Join-Path $script:KcLib 'hold-tap.ps1')
+. (Join-Path $script:KcLib 'hold-tap-ui.ps1')
 . (Join-Path $script:ToolsDir 'lib\firmware-release.ps1')
 . (Join-Path $script:ToolsDir 'lib\flash-plan.ps1')
 . (Join-Path $script:ToolsDir 'lib\flash-ui.ps1')
@@ -603,6 +606,169 @@ Test-Case '書き込みツールのウィンドウ: 専用のスレッドで開�
         Assert-True (-not $form.IsClosed) '開いている'
         $form.RequestClose()
         Assert-True ($form.WaitClosed(5000)) '閉じた'
+    } finally {
+        $form.Dispose()
+    }
+}
+
+Test-Case 'タップホールドのウィンドウ: 定数がグラフのモデル (hold-tap.ps1) と同じ' -WindowsOnly {
+    Import-KcInputForm
+    Assert-Equal ([KcTimelineView]::LaneCaption) $script:KcHtLaneCaption
+    Assert-Equal ([KcTimelineView]::LaneKey) $script:KcHtLaneKey
+    Assert-Equal ([KcTimelineView]::LaneOutput) $script:KcHtLaneOutput
+    Assert-Equal ([KcTimelineView]::LaneStrip) $script:KcHtLaneStrip
+    Assert-Equal ([KcTimelineView]::BarPlain) $script:KcHtBarPlain
+    Assert-Equal ([KcTimelineView]::BarUndecided) $script:KcHtBarUndecided
+    Assert-Equal ([KcTimelineView]::BarTap) $script:KcHtBarTap
+    Assert-Equal ([KcTimelineView]::BarHold) $script:KcHtBarHold
+    Assert-Equal ([KcTimelineView]::BarMod) $script:KcHtBarMod
+    Assert-Equal ([KcTimelineView]::BarLayer) $script:KcHtBarLayer
+    Assert-Equal ([KcTimelineView]::BarKey) $script:KcHtBarKey
+    Assert-Equal ([KcTimelineView]::BarOther) $script:KcHtBarOther
+    Assert-Equal ([KcTimelineView]::BarBaseline) $script:KcHtBarBaseline
+    Assert-Equal ([KcTimelineView]::BarFirmware) $script:KcHtBarFirmware
+    Assert-Equal ([KcTimelineView]::BarStripTap) $script:KcHtBarStripTap
+    Assert-Equal ([KcTimelineView]::BarStripHold) $script:KcHtBarStripHold
+    Assert-Equal ([KcTimelineView]::BarStripNone) $script:KcHtBarStripNone
+    Assert-Equal ([KcTimelineView]::SpanWindow) $script:KcHtSpanWindow
+    Assert-Equal ([KcTimelineView]::MarkDecision) $script:KcHtMarkDecision
+    Assert-Equal ([KcTimelineView]::MarkTerm) $script:KcHtMarkTerm
+    Assert-Equal ([KcTimelineView]::MarkFirmware) $script:KcHtMarkFirmware
+    Assert-Equal ([KcTimelineView]::MarkCursor) $script:KcHtMarkCursor
+    Assert-Equal ([KcTimelineView]::MarkBaseline) $script:KcHtMarkBaseline
+    Assert-Equal ([KcTimelineView]::ArrowCapture) $script:KcHtArrowCapture
+    Assert-Equal ([KcTimelineView]::HandleTerm) $script:KcHtHandleTerm
+    Assert-Equal ([KcTimelineView]::HandleNone) $script:KcHtHandleNone
+    Assert-Equal ([KcHoldTapForm]::SummaryTap) 1
+    Assert-Equal ([KcHoldTapForm]::SummaryHold) 2
+}
+
+# グラフの線のラベル (Canvas の Border) が重ならない
+function Assert-UiChartLabelsApart($Root) {
+    $chips = @($Root.FindName('ChartCanvas').Children | Where-Object { $_ -is [System.Windows.Controls.Border] } | ForEach-Object {
+            $x = [System.Windows.Controls.Canvas]::GetLeft($_)
+            $y = [System.Windows.Controls.Canvas]::GetTop($_)
+            [pscustomobject]@{ Text = $_.Child.Text; L = $x; T = $y; R = $x + $_.DesiredSize.Width; B = $y + $_.DesiredSize.Height }
+        })
+    Assert-True ($chips.Count -ge 2) 'ラベルがある'
+    for ($i = 0; $i -lt $chips.Count; $i++) {
+        for ($j = $i + 1; $j -lt $chips.Count; $j++) {
+            $a = $chips[$i]
+            $b = $chips[$j]
+            $apart = $a.R -le $b.L + 0.5 -or $b.R -le $a.L + 0.5 -or $a.B -le $b.T + 0.5 -or $b.B -le $a.T + 0.5
+            Assert-True $apart ('「{0}」と「{1}」が重ならない' -f $a.Text, $b.Text)
+        }
+    }
+}
+
+# 本物の KcHoldTapForm と画面の流れ (hold-tap-ui.ps1)
+function Invoke-WhtActions($Ctx) {
+    foreach ($a in (Get-KcHoldTapCoalescedActions $Ctx.Form.TakeActions())) {
+        [void](Invoke-KcHoldTapAction $Ctx $a)
+    }
+    [KcUi]::DoEvents()
+}
+
+Test-Case 'タップホールドのウィンドウを描画できる (LisM のロール・ドラッグ・実測、最小の大きさ、KQ-mini)' -WindowsOnly {
+    Import-KcInputForm
+    $form = New-Object KcHoldTapForm('タップホールドのタイミング')
+    try {
+        $w = $form.Window
+        Show-UiOffscreen $w
+        $root = $w.Content
+        $model = New-KcHtModel (Get-KcExpected 'lism' $script:ExpectedDir)
+        $ctx = New-KcHoldTapContext -Form $form -Model $model -CacheDir ''
+        Initialize-KcHoldTapUi $ctx
+        [KcUi]::DoEvents()
+        Assert-True ($root.FindName('ChartCanvas').Children.Count -gt 20) 'グラフを描いた'
+        Assert-True ($root.FindName('SummaryTitle').Text -like 'タップ*') $root.FindName('SummaryTitle').Text
+        Assert-Equal 0 @($form.TakeActions()).Count '表示しただけでは操作にならない'
+        Save-UiSnapshot $form 'keyboard-check-9-holdtap'
+        Assert-UiAboveFooter $root @('ChartCard', 'SummaryBanner')
+        Assert-UiTextNotClipped $root.FindName('PresetPanel')
+        Assert-UiTextNotClipped $root.FindName('ParamPanel')
+
+        # 対象のキーを離す時刻をドラッグ → 離したところで drop の操作 (途中の drag はまとめる)
+        $form.Timeline.SimulateDrag(2, 140, $false)
+        $form.Timeline.SimulateDrag(2, 160, $true)
+        $acts = Get-KcHoldTapCoalescedActions $form.TakeActions()
+        Assert-Equal 'drop:2:160' ($acts -join ',')
+        foreach ($a in $acts) { [void](Invoke-KcHoldTapAction $ctx $a) }
+        [KcUi]::DoEvents()
+        Assert-True ($root.FindName('SummaryTitle').Text -like 'ホールド*') $root.FindName('SummaryTitle').Text
+        # tapping-term の線をドラッグ
+        $form.Timeline.SimulateDrag($script:KcHtHandleTerm, 200, $true)
+        Invoke-WhtActions $ctx
+        Assert-Equal 200 $ctx.State.Config.Zmk['mt'].Term
+        Save-UiSnapshot $form 'keyboard-check-10-holdtap-term'
+
+        # ログ版ファームで押したもの (ファームの判定を重ねる)
+        $ep = @{
+            Seq = 1; Target = 10; Start = 5000.2; TargetIndex = 0; Dropped = $false; Uncertain = $true
+            Events = @(@{ Pos = 10; Down = $true; T = 0; Role = 'target' }, @{ Pos = 15; Down = $true; T = 60; Role = 'partner' },
+                @{ Pos = 15; Down = $false; T = 100; Role = 'partner' }, @{ Pos = 10; Down = $false; T = 150; Role = 'target' })
+            Decisions = @(@{ Pos = 10; Status = 'hold-interrupt'; Moment = 'other-key-up'; Flavor = 'balanced'; T = 100 })
+            Hid = @(@{ T = 100; Usage = 0xE0; Pressed = $true }, @{ T = 100; Usage = 0x0B; Pressed = $true },
+                @{ T = 100; Usage = 0x0B; Pressed = $false }, @{ T = 150; Usage = 0xE0; Pressed = $false })
+        }
+        Invoke-KcHoldTapAction $ctx 'reset' | Out-Null
+        Add-KcHtEpisode $ctx $ep
+        [KcUi]::DoEvents()
+        Assert-Equal 1 $root.FindName('EpisodeList').Children.Count
+        Save-UiSnapshot $form 'keyboard-check-11-holdtap-live'
+        Assert-UiChartLabelsApart $root
+
+        # 比較の行を押すと flavor が変わる。最小の大きさ
+        [void](Invoke-KcHoldTapAction $ctx 'param:flavor:tap-preferred')
+        $w.Width = $w.MinWidth
+        $w.Height = $w.MinHeight
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'keyboard-check-12-holdtap-min'
+        Assert-UiAboveFooter $root @('ChartCard', 'SummaryBanner')
+        Assert-UiChartLabelsApart $root
+        Assert-UiTextNotClipped $root.FindName('ParamPanel')
+        $spans = @(@('CloseButton', 'SaveButton', 'ClearButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
+        for ($i = 1; $i -lt $spans.Count; $i++) {
+            Assert-True ($spans[$i - 1].Right -le $spans[$i].Left) 'ボタンが重ならない'
+        }
+    } finally {
+        $form.Dispose()
+    }
+    Assert-True $form.IsClosed '閉じた'
+
+    $form = New-Object KcHoldTapForm('タップホールドのタイミング')
+    try {
+        Show-UiOffscreen $form.Window
+        $root = $form.Window.Content
+        $ctx = New-KcHoldTapContext -Form $form -Model (New-KcHtModel (Get-KcExpected 'kq-mini' $script:ExpectedDir)) -CacheDir ''
+        Initialize-KcHoldTapUi $ctx
+        [void](Invoke-KcHoldTapAction $ctx 'preset:nest')
+        [KcUi]::DoEvents()
+        Assert-True ($root.FindName('EpisodesBox').Visibility -ne [System.Windows.Visibility]::Visible) 'KQ-mini はログを読まない'
+        Save-UiSnapshot $form 'keyboard-check-13-holdtap-kq'
+        Assert-UiTextNotClipped $root.FindName('ParamPanel')
+    } finally {
+        $form.Dispose()
+    }
+}
+
+Test-Case 'タップホールドのウィンドウ: 専用のスレッドで開き、別のスレッドから操作して閉じられる' -WindowsOnly {
+    Import-KcInputForm
+    $form = [KcHoldTapForm]::Launch('タップホールドのタイミング (テスト)')
+    try {
+        $form.SetTexts('HOLD-TAP', 't')
+        $form.SetKeyChoices([string[]]@('10'), [string[]]@('A'), '10')
+        $form.AddSliderParam('term', 'tapping-term-ms', 50, 500, 150, '', '')
+        $form.SetParamValue('term', '180', 'x')
+        $form.SetStatus('s', 0)
+        $form.MaskWinKey($true)
+        Start-Sleep -Milliseconds 200
+        Assert-Equal 0 @($form.TakeActions()).Count 'PowerShell からの値は操作にならない'
+        Assert-True (-not $form.IsClosed) '開いている'
+        $form.MaskWinKey($false)
+        $form.RequestClose()
+        Assert-True ($form.WaitClosed(5000)) '閉じた'
+        Assert-Equal 'close' (@($form.TakeActions()) -join ',')
     } finally {
         $form.Dispose()
     }

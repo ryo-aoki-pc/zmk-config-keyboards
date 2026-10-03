@@ -500,6 +500,7 @@ powershell -ExecutionPolicy Bypass -File tools\scripts\flash-uf2.ps1 <ファイ�
   (ビヘイビアの中身はファームに焼き込まれていて、読み出し検査では確かめられない)
 
 ZMK のキーボードでは、自由に押したキーのレイヤーの遷移と解決を見ることもできます ([レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム))。
+`&mt` / `&lt` がいつタップになり、いつホールドになるかは、時刻を横軸にしたグラフで確かめられます ([タップホールドのタイミングを見る](#タップホールドのタイミングを見る))。
 
 ### 使い方
 
@@ -513,6 +514,7 @@ ZMK のキーボードでは、自由に押したキーのレイヤーの遷移�
    | 4 | トラックボールの正規化だけ (楕円・速さ) |
    | 5 | レイヤー・タップダンス・モッドモーフ・コンボだけ |
    | 6 | [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) (ZMK のログ版ファーム。合否は出さない) |
+   | 7 | [タップホールドのタイミングを見る](#タップホールドのタイミングを見る) (押す・離す時刻のグラフ。合否は出さない) |
 
 2. 読み出し検査のあと、テスト用のウィンドウが開く。ウィンドウの指示に従って、キーを押したりボールを転がしたりする
 3. 最後に PASS / FAIL / WARN / SKIP の一覧が出る。結果は `tools/.cache/keyboard-check/reports/` にも保存される
@@ -624,6 +626,84 @@ PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans
 - ボールを動かすとログが増えて欠けることがある。欠けたら下の行に件数が出るので、ボールに触れずに押し直す
 - 左手側 (ペリフェラル) のキーは、ログに押す / 離すの区別が出ないので、交互に数える。ログが欠けて押す / 離すが逆になったら、キーを全部離して「クリア」を押す
 
+### タップホールドのタイミングを見る
+
+`&mt` / `&lt` (KQ-mini は mod-tap / layer-tap) が、押す・離す時刻によってタップになるかホールドになるかを、時刻を横軸にしたグラフで
+表示します (メニューの 7、または `-Mode HoldTap`)。flavor (`balanced` など) や `tapping-term-ms` を変えたときに判定がどう変わるかも、
+その場で比べられます。合否は出しません。ウィンドウで変えた設定はこのウィンドウの中だけで使い、キーボードには書き込みません。
+
+- 計算は、ZMK v0.3.0 の `behavior_hold_tap.c` と、KQ-mini がビルドする vial-qmk の `action_tapping.c` を移植したシミュレータで行います。
+  ZMK の `app/tests/hold-tap` と QMK の `tests/tap_hold_configurations` のテストと同じ結果になることを確かめています
+- 設定の初期値は、選んだ機種のキーマップの値です (ZMK は `&mt` / `&lt` の設定、KQ-mini は Vial の QMK Settings の Tap-Hold)。
+  キーマップの値と違う設定には「変更」と出し、グラフにはキーマップの値で計算した結果も枠だけで重ねます
+- Keyball39 (PC に直結) はタップホールドを持たない (KQ-mini 側にある) ので、「Keyboard Quantizer Mini + Keyball39」を選びます
+
+ウィンドウの見方:
+
+- **左の欄**: 対象のキー (BASE の hold-tap のキー)・押し方 (下の表)・設定。ZMK の設定は、`&mt` なら `&mt` のキーすべてに効きます
+- **上の結果**: タップかホールドか、PC に届く入力、決め手 (「100 ms に H を離した (押している間に、ほかのキーを押して離した)」など)、
+  判定まで保留されて遅れて送られたキー
+- **押したキー**: キーごとの帯 (押す → 離す)。hold-tap のキーは、判定までを「判定待ち」(斜線)、そのあとをタップ (青緑) / ホールド (紫) で塗ります。
+  帯の端の丸 (押す・離す時刻) と、tapping-term の縦線はドラッグで動かせます。quick-tap / require-prior-idle などが効く区間は網掛けです
+- **PC に届く入力**: 届いたキー・修飾キー・レイヤーの帯。判定まで保留されたキーには、押した時刻から送られた時刻へ矢印を引きます
+- **「(選んだ入力) の時刻を変えると」**: 選んだ丸の時刻を 1 ms ずつ動かしたときの結果を、同じ結果の区間ごとに色分けした帯です
+  (例: `〜130 ms: タップ → A H / 131 ms〜: ホールド (ほかのキー) → Ctrl+H`)。どこが境目かが分かります
+- **flavor ごとの比較** (KQ-mini は「既定 / PERMISSIVE_HOLD / HOLD_ON_OTHER_KEY_PRESS」): 同じ帯を設定ごとに並べます。行を押すと、その設定に切り替わります
+- **tapping-term を変えると**: tapping-term を 50〜500 ms で変えたときの結果の帯
+- 「保存」で、入力・設定・結果 (と実際に押したもの) を `tools/.cache/keyboard-check/hold-tap/` に保存します
+
+押し方 (プリセット)。相手のキーは、対象と反対の手 (「相手は同じ手」を選ぶと同じ手) の文字キーです:
+
+| 押し方 | 入力の例 (対象が `A`、相手が `H`) | 確かめること |
+| --- | --- | --- |
+| 単独 | `A`↓ … `A`↑ | tapping-term を過ぎて離すとホールド (修飾キーだけが届く) |
+| ロール | `A`↓ `H`↓ `A`↑ `H`↑ | 速く打つときの重なり。balanced では、`A` を先に離せばタップ |
+| 包む | `A`↓ `H`↓ `H`↑ `A`↑ | 修飾キーとして使うとき。balanced では、`H` を離した時点でホールド |
+| 先に押す | `H`↓ `A`↓ `H`↑ `A`↑ | 対象より前に押したキーは、判定に関係しない |
+| 連打 | `A`↓ `A`↑ `A`↓ … `A`↑ | quick-tap (QUICK_TAP_TERM) 以内に押し直すと、長押ししてもタップのまま (キーリピート) |
+| 直前に別のキー | 別のキーを打った直後に、包む | require-prior-idle (FLOW_TAP_TERM) 以内に押すと、すぐタップに決まる |
+| 2 つの hold-tap | `A`↓ `Z`↓ `H`↓ `H`↑ `Z`↑ `A`↑ | 判定待ちの hold-tap が重なったとき (`Ctrl+Shift+H` になるか) |
+
+flavor (ZMK) と、KQ-mini の設定:
+
+| 設定 | ホールドになるとき |
+| --- | --- |
+| `hold-preferred` | ほかのキーを押したとき、または tapping-term が過ぎたとき |
+| `balanced` (LisM 基準) | ほかのキーを押して離したとき (包んだとき)、または tapping-term が過ぎたとき |
+| `tap-preferred` | tapping-term が過ぎたときだけ |
+| `tap-unless-interrupted` | ほかのキーを押したときだけ (tapping-term が過ぎるとタップ) |
+| KQ-mini: 既定 | TAPPING_TERM が過ぎたとき |
+| KQ-mini: `PERMISSIVE_HOLD` (KQ-mini の値) | 加えて、ほかのキーを押して離したとき (包んだとき)。ZMK の `balanced` に当たる |
+| KQ-mini: `HOLD_ON_OTHER_KEY_PRESS` | 加えて、ほかのキーを押したとき。ZMK の `hold-preferred` に当たる |
+
+そのほかの設定: ZMK は `quick-tap-ms`・`require-prior-idle-ms`・`hold-trigger-key-positions` (「反対の手」を選ぶと、同じ手のキーではホールドにしない)・
+`hold-trigger-on-release`・`retro-tap`・`hold-while-undecided`。KQ-mini は `QUICK_TAP_TERM`・`RETRO_TAPPING`・`CHORDAL_HOLD`・`FLOW_TAP_TERM`。
+
+境目の扱い:
+
+- ちょうど tapping-term の時刻に離すと、ZMK・KQ-mini ともホールドになります (ZMK はタイマーが同じ時刻の入力より先に処理され、
+  QMK は TAPPING_TERM 未満をタップとするため)。帯の境目の前後 1 ms は、実機ではどちらにもなり得ます
+- 同じ時刻の入力は、並びの順 (押し方の表の順) に処理します
+
+**実際に押したもの (ZMK のログ版ファーム)**: [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) と同じ準備
+(右手側にログ版を書き込み、USB でつなぐ) をすると、hold-tap のキーを押すたびに 1 回分が左の一覧に並びます。
+
+- 「新しいものを表示する」を選んでいると、押した回をそのままグラフに出します。一覧から選ぶとその回を、押し方を選ぶとプリセットを表示します
+- ファームが送ったキーと、ファームが判定した時刻の線を重ねます。一覧には、ファームの判定とキーマップの値での計算を比べた結果
+  (同じ / 境目の ±2 ms 以内 / 違う) が出ます。違うときは、ファームのキーマップが期待値と違うか、左手側のキーの押す / 離すを数え違えています
+- 時刻は、右手側 (セントラル) がキーの入力を受け取った時刻です。左手側 (ペリフェラル) のキーは BLE で届くまでの分だけ遅れますが、
+  hold-tap の判定もこの時刻で行われます
+- グラフの丸をドラッグすると、「もう少し早く離していたら」の結果を確かめられます
+- ログが欠けた回は比べません。左手側のキーの押す / 離すがずれたら、キーを全部離して「クリア」を押します
+
+**KQ-mini の注意**:
+
+- 設定の初期値は、期待値の Vial の設定 (`lism.vialmap.json` から作った EEPROM の既定値) です。KQ-mini の今の設定は読みません
+  (Vial で変えた値が残っていないかは、[読み出し検査](#読み出し検査) で確かめます)。KQ-mini はログを出さないので、計算だけを表示します
+- KQ-mini は、Keyball39 から届いたキーの HID コードをマトリクスの位置にしているので、`CHORDAL_HOLD` の左右は、キーの物理的な手ではなく
+  コードで決まります (`Z` (Shift) は右、`/` (Shift) は左、`A` (Ctrl) は対象外)。押し方の「反対の手」は物理的な手で選ぶので、
+  `CHORDAL_HOLD` をオンにすると、反対の手のキーでもタップになることがあります
+
 ### トラックボールの正規化 (楕円補正・速さ)
 
 検査の内容で「4. トラックボールの正規化だけ」(または 1 / 3) を選ぶと、次の 2 つを測って、補正の推奨値を出します。
@@ -672,7 +752,7 @@ PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans
 | レイヤー・ビヘイビアのテストが FAIL (ZMK) | ファームが古いか、キーマップのビヘイビア (mod-morph の mods、tap-dance、マクロ) が意図と違う。`tools/flash.cmd` で最新のファームを書き込む。どこで違うかは [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) で確かめられる |
 | レイヤー・ビヘイビアのテストが FAIL (KQ-mini) | Vial で変えたタップダンス・キーオーバーライド・マクロが残っている。Vial の「File → Load saved layout」で `KEYMAP.vil` を読み込む。モッドモーフの手順は、修飾キーより先にタップしたキーを離してやり直す |
 | AML の Ctrl / Shift での解除が FAIL (修飾キーだけが入力された) | Ctrl / Shift で AML を解除しない古いファームが書き込まれている。`tools/flash.cmd` で最新のファームを書き込む。長押しになった場合 (Ctrl / Shift になる) は、短く押してやり直す |
-| 読み出し検査は PASS なのに、タップホールドや AML の動作が意図と違う | [入力イベントを記録して調べる](#入力イベントを記録して調べる-toolsinput-monitorcmd) で、PC に届いたキーとタイミング (押下時間、修飾キーが出た時刻、ボールの移動からの経過) を見る |
+| 読み出し検査は PASS なのに、タップホールドや AML の動作が意図と違う | [入力イベントを記録して調べる](#入力イベントを記録して調べる-toolsinput-monitorcmd) で、PC に届いたキーとタイミング (押下時間、修飾キーが出た時刻、ボールの移動からの経過) を見る。タップホールドが、どの時刻に何で決まるか (離す時刻や設定を変えるとどうなるか) は、[タップホールドのタイミングを見る](#タップホールドのタイミングを見る) で確かめられる |
 
 - 一覧の最後の「設定ファイル (参考)」は、submodule の設定ファイルどうしの整合です (キーボードは見ていない)。
   例: LisM は、左ボールのスクロールの処理が右手側の版 (trackball / non_trackball) で違うため、WARN になります
@@ -685,10 +765,10 @@ PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans
 `-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに検査します。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive|Trace] [-Section All|Keys|Behaviors|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive|Trace|HoldTap] [-Section All|Keys|Behaviors|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
 ```
 
-終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です (`-Mode Trace` は合否を出さないので 0)。
+終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です (`-Mode Trace` / `-Mode HoldTap` は合否を出さないので 0)。
 
 ## 入力イベントを記録して調べる (`tools/input-monitor.cmd`)
 

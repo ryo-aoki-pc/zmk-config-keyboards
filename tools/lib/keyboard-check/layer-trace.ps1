@@ -32,6 +32,79 @@ function Read-KcLogPort($Port) {
     return ''
 }
 
+# ログ版のキーボードの COM ポートを探して読む (-Mode Trace と -Mode HoldTap で使う)。ログの行が届くまで ZMK の
+# COM ポートをすべて開いて読み、ログの行が届いたポートだけを残す ($Port を指定したらそのポートだけ)
+function New-KcLogPortReader([string]$Port = '') {
+    return @{ Port = $Port; Ports = @{}; Buffers = @{}; Active = $null; ActiveName = ''; NextScan = [DateTime]::MinValue }
+}
+
+# 読めた行 (Lines) と、ポートの状態の表示 (変わったときだけ Status と Level。Status が $null なら変わらない)
+function Read-KcLogPortLines($Reader) {
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $status = $null
+    $level = 0
+    if ($null -eq $Reader.Active -and [DateTime]::Now -ge $Reader.NextScan) {
+        $Reader.NextScan = [DateTime]::Now.AddSeconds(2)
+        $cands = @()
+        if ($Reader.Port) { $cands = @($Reader.Port) } else { $cands = @(Find-KcStudioPort | ForEach-Object { $_.Port }) }
+        foreach ($c in $cands) {
+            if (-not $Reader.Ports.ContainsKey($c)) {
+                try { $Reader.Ports[$c] = Open-KcLogPort $c; $Reader.Buffers[$c] = '' } catch { }
+            }
+        }
+        if ($Reader.Ports.Count -eq 0) {
+            $status = 'ログ版のキーボードが見つかりません'
+            $level = 2
+        } else {
+            $status = '{0} を待っています (キーを押してください)' -f (@($Reader.Ports.Keys) -join ', ')
+            $level = 3
+        }
+    }
+    foreach ($name in @($Reader.Ports.Keys)) {
+        if ($null -ne $Reader.Active -and $name -ne $Reader.ActiveName) { continue }
+        $chunk = Read-KcLogPort $Reader.Ports[$name]
+        if ($null -eq $chunk) {
+            # 抜かれた
+            Close-KcLogPort $Reader.Ports[$name]
+            $Reader.Ports.Remove($name)
+            if ($name -eq $Reader.ActiveName) {
+                $Reader.Active = $null
+                $Reader.ActiveName = ''
+                $status = '{0} が切れました。つなぎ直してください' -f $name
+                $level = 2
+            }
+            continue
+        }
+        if (-not $chunk) { continue }
+        $buf = $Reader.Buffers[$name]
+        $lines = Split-KcLogChunk ([ref]$buf) $chunk
+        $Reader.Buffers[$name] = $buf
+        foreach ($line in $lines) {
+            if ($null -eq $Reader.Active) {
+                $rec = ConvertFrom-KcZmkLogLine $line
+                if ($null -eq $rec -or ($rec.Type -eq 'other' -and $rec.Time -lt 0)) { continue }
+                # ログの行が届いたポートを使い、ほかのポートは閉じる
+                $Reader.Active = $Reader.Ports[$name]
+                $Reader.ActiveName = $name
+                foreach ($o in @($Reader.Ports.Keys)) {
+                    if ($o -ne $name) { Close-KcLogPort $Reader.Ports[$o]; $Reader.Ports.Remove($o) }
+                }
+                $status = '{0} ログ受信中' -f $name
+                $level = 1
+            }
+            $out.Add($line)
+        }
+    }
+    return @{ Lines = $out.ToArray(); Status = $status; Level = $level }
+}
+
+function Close-KcLogPortReader($Reader) {
+    foreach ($p in @($Reader.Ports.Values)) { Close-KcLogPort $p }
+    $Reader.Ports.Clear()
+    $Reader.Active = $null
+    $Reader.ActiveName = ''
+}
+
 # 図・レイヤーのチップ・解決の欄・時系列を、いまの状態に合わせる
 function Update-KcTraceView($View) {
     $state = $View.State
@@ -198,11 +271,7 @@ function Invoke-KcLayerTrace {
         Seqs = (New-Object 'System.Collections.Generic.List[int]'); Paused = $false; CacheDir = $CacheDir
         Raw = (New-Object System.Text.StringBuilder)
     }
-    $ports = @{}
-    $buffers = @{}
-    $active = $null
-    $activeName = ''
-    $nextScan = [DateTime]::MinValue
+    $reader = New-KcLogPortReader $Port
     $lastRefresh = [DateTime]::MinValue
     $saved = $null
     try {
@@ -229,55 +298,14 @@ function Invoke-KcLayerTrace {
                 $form.SetStatus(('保存しました: {0}' -f $saved), 1)
                 $lastRefresh = [DateTime]::Now.AddSeconds(2)
             }
-            # ポートを探す (ログが届くまで、ZMK の COM ポートをすべて開いて読む)
-            if ($null -eq $active -and [DateTime]::Now -ge $nextScan) {
-                $nextScan = [DateTime]::Now.AddSeconds(2)
-                $cands = @()
-                if ($Port) { $cands = @($Port) } else { $cands = @(Find-KcStudioPort | ForEach-Object { $_.Port }) }
-                foreach ($c in $cands) {
-                    if (-not $ports.ContainsKey($c)) {
-                        try { $ports[$c] = Open-KcLogPort $c; $buffers[$c] = '' } catch { }
-                    }
-                }
-                if ($ports.Count -eq 0) {
-                    $form.SetPort('ログ版のキーボードが見つかりません', 2)
-                } else {
-                    $form.SetPort(('{0} を待っています (キーを押してください)' -f (@($ports.Keys) -join ', ')), 3)
-                }
-            }
-            foreach ($name in @($ports.Keys)) {
-                if ($null -ne $active -and $name -ne $activeName) { continue }
-                $chunk = Read-KcLogPort $ports[$name]
-                if ($null -eq $chunk) {
-                    # 抜かれた
-                    Close-KcLogPort $ports[$name]
-                    $ports.Remove($name)
-                    if ($name -eq $activeName) {
-                        $active = $null; $activeName = ''
-                        $form.SetPort(('{0} が切れました。つなぎ直してください' -f $name), 2)
-                    }
-                    continue
-                }
-                if (-not $chunk) { continue }
-                $buf = $buffers[$name]
-                $lines = Split-KcLogChunk ([ref]$buf) $chunk
-                $buffers[$name] = $buf
-                foreach ($line in $lines) {
-                    $rec = ConvertFrom-KcZmkLogLine $line
-                    if ($null -eq $rec) { continue }
-                    if ($null -eq $active) {
-                        if ($rec.Type -eq 'other' -and $rec.Time -lt 0) { continue }
-                        # ログの行が届いたポートを使い、ほかのポートは閉じる
-                        $active = $ports[$name]; $activeName = $name
-                        foreach ($o in @($ports.Keys)) {
-                            if ($o -ne $name) { Close-KcLogPort $ports[$o]; $ports.Remove($o) }
-                        }
-                        $form.SetPort(('{0} ログ受信中' -f $name), 1)
-                    }
-                    [void]$view.Raw.AppendLine((Remove-KcAnsi $line))
-                    if (-not $view.Paused) {
-                        Update-KcLayerTrace $view.State $rec
-                    }
+            $read = Read-KcLogPortLines $reader
+            if ($null -ne $read.Status) { $form.SetPort($read.Status, $read.Level) }
+            foreach ($line in $read.Lines) {
+                $rec = ConvertFrom-KcZmkLogLine $line
+                if ($null -eq $rec) { continue }
+                [void]$view.Raw.AppendLine((Remove-KcAnsi $line))
+                if (-not $view.Paused) {
+                    Update-KcLayerTrace $view.State $rec
                 }
             }
             $sel = $form.TakeSelectionChanged()
@@ -287,7 +315,7 @@ function Invoke-KcLayerTrace {
             }
         }
     } finally {
-        foreach ($p in @($ports.Values)) { Close-KcLogPort $p }
+        Close-KcLogPortReader $reader
         $form.MaskWinKey($false)
         $form.Close()
         $form.Dispose()
