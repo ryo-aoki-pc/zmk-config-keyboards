@@ -31,6 +31,16 @@ KQ-mini と Keyball39 は組み合わせて使い、役割を分担している:
 
 どちらかを変える前に、README の「Keyboard Quantizer Mini + Keyball39 の役割分担」を読むこと。
 
+`lism.keymap` を変えたら、vial-qmk-kq-mini の生成物も作り直して PR にする (手では編集しない。作り直しても変わらないなら不要):
+- `keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/zmk_keymap_defaults.inc` と `KEYMAP.vil`: zmk-config-LisM の README の「再生成方法」のコマンド (`zmk_to_vial.py`)。`--strict` を付けると、変換の警告で止まる
+- ルートの `KEYMAP.html`: `KEYMAP.vil` の push を受けて、vial-qmk-kq-mini の CI (`keymap-vial-docs.yml`) が bot のコミットで作り直す (ZMK のリポジトリの KEYMAP.html と同じ)。手元で作るなら、vial-qmk-kq-mini で `python3 ../zmk-keymap-docgen/vial_keymap_docgen.py keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/KEYMAP.vil --format vil -l keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/vial.json --title "Keyboard Quantizer Mini (Vial / LisM) キーマップ" -o KEYMAP.html` (CI と同じ結果になる)
+
+ZMK のリポジトリの `KEYMAP.html` / `KEYMAP.xlsx` も、キーマップの push を受けて CI (`keymap-docs.yml`) が bot のコミットで作り直す。bot のコミット (GITHUB_TOKEN) ではワークフローが動かず、PR の最後のコミットにビルドが付かないので、キーマップを変えるときは、CI と同じ docgen (`tools/keymap-docgen`) と openpyxl 3.1.5 で手元で作り直して同じコミットに入れる (docgen は xlsx の時刻を固定するので、同じ結果になる)。
+
+リセット (`&sys_reset`)・ブートローダ (`&bootloader`) のキーは、どのレイヤーにも置かない (押し間違えると、キーボードが再起動したりブートローダで止まったりするため。KQ-mini にも `QK_BOOT` / `QK_RBT` は無い)。ブートローダには、左手側は Q、右手側は P を押したまま USB を挿すか、リセットボタンを素早く 2 回押して切り替える (KQ-mini は書き込みツールが送る `dfu` コマンド)。
+
+キーマップに使えるキーコードは、docgen の `zmk_to_vial.py` の `ZMK_KEYCODES` にあるもの (キーボードのページ 0x07) だけ。メディアキー (`C_*`)・F13 以降・テンキー (`KP_*`) は、docgen と `tools/expected/generate.py` が対応していない (`generate.py` が「知らない ZMK キーコード」や変換の警告で止まる)。
+
 ## リリースから書き込みまでの流れ
 
 `keyball`、`vial-qmk-kq-mini`、ZMK の 6 リポジトリの CI は、ビルドしたファームウェアと `BUILD_INFO.txt` をプレリリースに置く (`.github/scripts/firmware-release.sh`):

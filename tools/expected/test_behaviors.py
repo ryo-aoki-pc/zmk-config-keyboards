@@ -351,11 +351,23 @@ class TestGenerated(unittest.TestCase):
         self.assertEqual(beh['layers'][2]['devs'][6], 'MM_VIM_U')
         self.assertEqual(beh['layers'][0]['devs'][34], 'layer_tap')
 
-    def test_func_layer_avoids_reset_and_bootloader(self):
+    def test_no_reset_or_bootloader_keys(self):
+        """リセット・ブートローダのキーはどのレイヤーにも置かない (押し間違いで止まらないように)。
+        FUNC レイヤーは PC に送るキーだけで、テストはファンクションキーで確かめる"""
+        for name in self.BOARDS:
+            data = load(name)
+            if 'zmk' in data['readout']:
+                heads = {b['b'] for layer in data['readout']['zmk']['bindings'] for b in layer}
+                self.assertFalse(heads & {'Reset', 'Bootloader'}, name)
+            else:
+                codes = {c for layer in data['readout']['vial']['keymap'] for row in layer for c in row}
+                self.assertFalse(codes & {0x7C00, 0x7C01}, f'{name}: QK_BOOT / QK_RBT')
+            func = {info['index']: info for info in data['interactive']['behaviors']['layers']}[6]
+            self.assertEqual(func['danger'], [], name)
         beh = load('lism')['interactive']['behaviors']
         func = [sc for sc in beh['scenarios'] if sc['kind'] == 'layer' and sc['layer'] == 6][0]
         taps = {a['label'] for st in func['steps'] for a in st['actions'] if a['op'] == 'tap'}
-        self.assertTrue(taps <= {'F4', 'F5', 'F6', 'F7'}, taps)
+        self.assertTrue(taps <= {f'F{i}' for i in range(1, 13)}, taps)
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-Pyuron",
-      "commit": "2a60a875b2126f25d038feceb15a2101b2491311",
+      "commit": "13ab82fd3547f4bf82c92de604f41cf04382baeb",
       "files": ["config/Pyuron.keymap", "config/Pyuron.json", "boards/shields/Pyuron/Pyuron.dtsi", "boards/shields/Pyuron/Pyuron_R.overlay", "boards/shields/Pyuron/Pyuron_L.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -339,27 +339,27 @@
           {"b": "Key Press", "p1": 458818, "p2": 0, "src": "&kp F9"},
           {"b": "Key Press", "p1": 458819, "p2": 0, "src": "&kp F10"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Reset", "p1": 0, "p2": 0, "src": "&sys_reset"},
+          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "Key Press", "p1": 458822, "p2": 0, "src": "&kp PRINTSCREEN"},
+          {"b": "Key Press", "p1": 458823, "p2": 0, "src": "&kp SCROLLLOCK"},
+          {"b": "Key Press", "p1": 458824, "p2": 0, "src": "&kp PAUSE_BREAK"},
+          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "Key Press", "p1": 458820, "p2": 0, "src": "&kp F11"},
+          {"b": "Key Press", "p1": 458853, "p2": 0, "src": "&kp K_APP"},
+          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "Key Press", "p1": 458825, "p2": 0, "src": "&kp INSERT"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Reset", "p1": 0, "p2": 0, "src": "&sys_reset"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Bootloader", "p1": 0, "p2": 0, "src": "&bootloader"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "Bootloader", "p1": 0, "p2": 0, "src": "&bootloader"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "Key Press", "p1": 458821, "p2": 0, "src": "&kp F12"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
@@ -648,9 +648,9 @@
         {
           "index": 6,
           "name": "FUNC",
-          "legends": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "", "RESET", "", "", "", "", "", "", "RESET", "", "", "", "", "", "BOOT", "", "", "BOOT", "", "", "", "", "", "", "", "", "", "", "", ""],
-          "danger": [11, 18, 24, 27],
-          "devs": ["key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "none", "sysreset", "none", "none", "none", "none", "none", "none", "sysreset", "none", "none", "none", "none", "none", "bootload", "none", "none", "bootload", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none"]
+          "legends": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "", "", "PrtSc", "ScrLk", "Pause", "", "", "", "", "F11", "App", "", "Ins", "", "", "", "", "", "", "", "", "F12", "", "", "", "", "", "", "", ""],
+          "danger": [],
+          "devs": ["key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "none", "none", "key_press", "key_press", "key_press", "none", "none", "none", "none", "key_press", "key_press", "none", "key_press", "none", "none", "none", "none", "none", "none", "none", "none", "key_press", "none", "none", "none", "none", "none", "none", "none", "none"]
         },
         {
           "index": 7,
@@ -871,19 +871,19 @@
           "steps": [
             {
               "role": "test",
-              "text": "「FUNC (右 1)」を押したまま、「R」をタップ",
+              "text": "「FUNC (右 1)」を押したまま、「Q」をタップ",
               "actions": [
                 {"op": "hold", "pos": 38, "role": "layer", "key": "FUNC (右 1)", "label": "FUNC", "layer": 0},
-                {"op": "tap", "pos": 3, "key": "R", "label": "F4", "layer": 6, "role": "key"}
+                {"op": "tap", "pos": 0, "key": "Q", "label": "F1", "layer": 6, "role": "key"}
               ],
               "path": [0, 6],
               "layer": 6,
               "expect": [
-                {"usage": 61, "mods": 0}
+                {"usage": 58, "mods": 0}
               ],
-              "expect_text": "F4",
-              "note": "FUNC レイヤーの「F4」(&kp F4)",
-              "src": "&kp F4"
+              "expect_text": "F1",
+              "note": "FUNC レイヤーの「F1」(&kp F1)",
+              "src": "&kp F1"
             },
             {
               "role": "test",
@@ -903,19 +903,19 @@
             },
             {
               "role": "test",
-              "text": "「FUNC (右 2)」を押したまま、「R」をタップ",
+              "text": "「FUNC (右 2)」を押したまま、「Q」をタップ",
               "actions": [
                 {"op": "hold", "pos": 39, "role": "layer", "key": "FUNC (右 2)", "label": "FUNC", "layer": 0},
-                {"op": "tap", "pos": 3, "key": "R", "label": "F4", "layer": 6, "role": "key"}
+                {"op": "tap", "pos": 0, "key": "Q", "label": "F1", "layer": 6, "role": "key"}
               ],
               "path": [0, 6],
               "layer": 6,
               "expect": [
-                {"usage": 61, "mods": 0}
+                {"usage": 58, "mods": 0}
               ],
-              "expect_text": "F4",
-              "note": "FUNC レイヤーの「F4」(&kp F4)",
-              "src": "&kp F4"
+              "expect_text": "F1",
+              "note": "FUNC レイヤーの「F1」(&kp F1)",
+              "src": "&kp F1"
             }
           ]
         },
@@ -2177,7 +2177,7 @@
             "1": {"kind": "kp", "usage": 53, "mods": 0, "label": "`"},
             "2": {"kind": "none"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "sys_reset", "src": "&sys_reset"},
+            "6": {"kind": "none"},
             "7": {"kind": "none"}
           }
         },
@@ -2188,7 +2188,7 @@
             "1": {"kind": "kp", "usage": 47, "mods": 0, "label": "["},
             "2": {"kind": "other", "label": "mm_vim_d", "src": "&mm_vim_d"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 70, "mods": 0, "label": "PrtSc"},
             "7": {"kind": "none"}
           }
         },
@@ -2199,7 +2199,7 @@
             "1": {"kind": "kp", "usage": 48, "mods": 0, "label": "]"},
             "2": {"kind": "none"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 71, "mods": 0, "label": "ScrLk"},
             "7": {"kind": "none"}
           }
         },
@@ -2210,7 +2210,7 @@
             "1": {"kind": "kp", "usage": 76, "mods": 0, "label": "Del"},
             "2": {"kind": "other", "label": "mm_vim_g", "src": "&mm_vim_g"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 72, "mods": 0, "label": "Pause"},
             "7": {"kind": "none"}
           }
         },
@@ -2254,7 +2254,7 @@
             "1": {"kind": "kp", "usage": 49, "mods": 0, "label": "\\"},
             "2": {"kind": "kp", "usage": 79, "mods": 0, "label": "→"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "sys_reset", "src": "&sys_reset"},
+            "6": {"kind": "none"},
             "7": {"kind": "none"}
           }
         },
@@ -2270,7 +2270,7 @@
             },
             "2": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
             "3": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
-            "6": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 68, "mods": 0, "label": "F11"},
             "7": {"kind": "none"}
           }
         },
@@ -2293,7 +2293,7 @@
             },
             "2": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
             "3": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
-            "6": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 101, "mods": 0, "label": "App"},
             "7": {"kind": "none"}
           }
         },
@@ -2315,7 +2315,7 @@
             "1": {"kind": "none"},
             "2": {"kind": "none"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 73, "mods": 0, "label": "Ins"},
             "7": {"kind": "other", "label": "bt", "src": "&bt BT_CLR"}
           }
         },
@@ -2337,7 +2337,7 @@
             "1": {"kind": "none"},
             "2": {"kind": "kp", "usage": 80, "mods": 1, "label": "Ctrl+←"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "bootloader", "src": "&bootloader"},
+            "6": {"kind": "none"},
             "7": {"kind": "other", "label": "out", "src": "&out OUT_BLE"}
           }
         },
@@ -2370,7 +2370,7 @@
             "1": {"kind": "none"},
             "2": {"kind": "other", "label": "mm_vim_n", "src": "&mm_vim_n"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "bootloader", "src": "&bootloader"},
+            "6": {"kind": "none"},
             "7": {"kind": "none"}
           }
         },
@@ -2417,7 +2417,7 @@
             },
             "2": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
             "3": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
-            "6": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 69, "mods": 0, "label": "F12"},
             "7": {"kind": "none"}
           }
         },
