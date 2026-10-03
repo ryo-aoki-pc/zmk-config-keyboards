@@ -2059,6 +2059,575 @@
         "MM_VIM_N": {"name": "mm_vim_n", "kind": "mod_morph", "bindings": ["&kp F3", "&kp LS(F3)"], "mods": 34},
         "MM_VIM_W": {"name": "mm_vim_w", "kind": "mod_morph", "bindings": ["&kp LC(RIGHT)", "&kp LC(BACKSPACE)"], "mods": 17}
       }
+    },
+    "hold_tap": {
+      "engine": "zmk",
+      "behaviors": {
+        "lt": {
+          "flavor": "balanced",
+          "tapping_term_ms": 150,
+          "quick_tap_ms": 0,
+          "require_prior_idle_ms": -1,
+          "retro_tap": false,
+          "hold_while_undecided": false,
+          "hold_while_undecided_linger": false,
+          "hold_trigger_on_release": false,
+          "hold_trigger_key_positions": [],
+          "bindings": ["&mo", "&kp"],
+          "source": "キーマップの &lt { }"
+        },
+        "mt": {
+          "flavor": "balanced",
+          "tapping_term_ms": 150,
+          "quick_tap_ms": 0,
+          "require_prior_idle_ms": -1,
+          "retro_tap": false,
+          "hold_while_undecided": false,
+          "hold_while_undecided_linger": false,
+          "hold_trigger_on_release": false,
+          "hold_trigger_key_positions": [],
+          "bindings": ["&kp", "&kp"],
+          "source": "キーマップの &mt { }"
+        }
+      },
+      "layers": [0, 1, 2, 3, 6, 7],
+      "keys": [
+        {
+          "pos": 0,
+          "on": {
+            "0": {"kind": "kp", "usage": 20, "mods": 0, "label": "Q"},
+            "1": {"kind": "kp", "usage": 30, "mods": 0, "label": "1"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 58, "mods": 0, "label": "F1"},
+            "7": {"kind": "other", "label": "bt", "src": "&bt BT_SEL 0"}
+          }
+        },
+        {
+          "pos": 1,
+          "on": {
+            "0": {"kind": "kp", "usage": 26, "mods": 0, "label": "W"},
+            "1": {"kind": "kp", "usage": 31, "mods": 0, "label": "2"},
+            "2": {"kind": "other", "label": "mm_vim_w", "src": "&mm_vim_w"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 59, "mods": 0, "label": "F2"},
+            "7": {"kind": "other", "label": "bt", "src": "&bt BT_SEL 1"}
+          }
+        },
+        {
+          "pos": 2,
+          "on": {
+            "0": {"kind": "kp", "usage": 8, "mods": 0, "label": "E"},
+            "1": {"kind": "kp", "usage": 32, "mods": 0, "label": "3"},
+            "2": {"kind": "kp", "usage": 79, "mods": 1, "label": "Ctrl+→"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 60, "mods": 0, "label": "F3"},
+            "7": {"kind": "other", "label": "bt", "src": "&bt BT_SEL 2"}
+          }
+        },
+        {
+          "pos": 3,
+          "on": {
+            "0": {"kind": "kp", "usage": 21, "mods": 0, "label": "R"},
+            "1": {"kind": "kp", "usage": 33, "mods": 0, "label": "4"},
+            "2": {"kind": "other", "label": "mm_vim_ctrl_r", "src": "&mm_vim_ctrl_r"},
+            "3": {"kind": "other", "label": "mm_vim_shift_4", "src": "&mm_vim_shift_4"},
+            "6": {"kind": "kp", "usage": 61, "mods": 0, "label": "F4"},
+            "7": {"kind": "other", "label": "bt", "src": "&bt BT_SEL 3"}
+          }
+        },
+        {
+          "pos": 4,
+          "on": {
+            "0": {"kind": "kp", "usage": 23, "mods": 0, "label": "T"},
+            "1": {"kind": "kp", "usage": 34, "mods": 0, "label": "5"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 62, "mods": 0, "label": "F5"},
+            "7": {"kind": "other", "label": "bt", "src": "&bt BT_SEL 4"}
+          }
+        },
+        {
+          "pos": 5,
+          "on": {
+            "0": {"kind": "kp", "usage": 28, "mods": 0, "label": "Y"},
+            "1": {"kind": "kp", "usage": 35, "mods": 0, "label": "6"},
+            "2": {"kind": "other", "label": "mm_vim_y", "src": "&mm_vim_y"},
+            "3": {"kind": "other", "label": "mm_vim_shift_6", "src": "&mm_vim_shift_6"},
+            "6": {"kind": "kp", "usage": 63, "mods": 0, "label": "F6"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 6,
+          "on": {
+            "0": {"kind": "kp", "usage": 24, "mods": 0, "label": "U"},
+            "1": {"kind": "kp", "usage": 36, "mods": 0, "label": "7"},
+            "2": {"kind": "other", "label": "mm_vim_u", "src": "&mm_vim_u"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 64, "mods": 0, "label": "F7"},
+            "7": {"kind": "other", "label": "out", "src": "&out OUT_USB"}
+          }
+        },
+        {
+          "pos": 7,
+          "on": {
+            "0": {"kind": "kp", "usage": 12, "mods": 0, "label": "I"},
+            "1": {"kind": "kp", "usage": 37, "mods": 0, "label": "8"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 65, "mods": 0, "label": "F8"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 8,
+          "on": {
+            "0": {"kind": "kp", "usage": 18, "mods": 0, "label": "O"},
+            "1": {"kind": "kp", "usage": 38, "mods": 0, "label": "9"},
+            "2": {"kind": "other", "label": "mm_vim_o", "src": "&mm_vim_o"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 66, "mods": 0, "label": "F9"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 9,
+          "on": {
+            "0": {"kind": "kp", "usage": 19, "mods": 0, "label": "P"},
+            "1": {"kind": "kp", "usage": 39, "mods": 0, "label": "0"},
+            "2": {"kind": "kp", "usage": 25, "mods": 1, "label": "Ctrl+V"},
+            "3": {"kind": "kp", "usage": 74, "mods": 0, "label": "Home"},
+            "6": {"kind": "kp", "usage": 67, "mods": 0, "label": "F10"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 10,
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "mt",
+              "src": "&mt LEFT_CONTROL A",
+              "hold": {"kind": "kp", "usage": 224, "mods": 0, "label": "Ctrl"},
+              "tap": {"kind": "kp", "usage": 4, "mods": 0, "label": "A"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "mt",
+              "src": "&mt LCTRL TAB",
+              "hold": {"kind": "kp", "usage": 224, "mods": 0, "label": "Ctrl"},
+              "tap": {"kind": "kp", "usage": 43, "mods": 0, "label": "Tab"}
+            },
+            "2": {"kind": "kp", "usage": 224, "mods": 0, "label": "Ctrl"},
+            "3": {"kind": "kp", "usage": 224, "mods": 0, "label": "Ctrl"},
+            "6": {"kind": "none"},
+            "7": {"kind": "other", "label": "bt", "src": "&bt BT_CLR_ALL"}
+          }
+        },
+        {
+          "pos": 11,
+          "on": {
+            "0": {"kind": "kp", "usage": 22, "mods": 0, "label": "S"},
+            "1": {"kind": "kp", "usage": 53, "mods": 0, "label": "`"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "sys_reset", "src": "&sys_reset"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 12,
+          "on": {
+            "0": {"kind": "kp", "usage": 7, "mods": 0, "label": "D"},
+            "1": {"kind": "kp", "usage": 47, "mods": 0, "label": "["},
+            "2": {"kind": "other", "label": "mm_vim_d", "src": "&mm_vim_d"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 13,
+          "on": {
+            "0": {"kind": "kp", "usage": 9, "mods": 0, "label": "F"},
+            "1": {"kind": "kp", "usage": 48, "mods": 0, "label": "]"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 14,
+          "on": {
+            "0": {"kind": "kp", "usage": 10, "mods": 0, "label": "G"},
+            "1": {"kind": "kp", "usage": 76, "mods": 0, "label": "Del"},
+            "2": {"kind": "other", "label": "mm_vim_g", "src": "&mm_vim_g"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 15,
+          "on": {
+            "0": {"kind": "none"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 16,
+          "on": {
+            "0": {"kind": "none"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 17,
+          "on": {
+            "0": {"kind": "kp", "usage": 11, "mods": 0, "label": "H"},
+            "1": {"kind": "kp", "usage": 42, "mods": 0, "label": "BS"},
+            "2": {"kind": "kp", "usage": 80, "mods": 0, "label": "←"},
+            "3": {"kind": "kp", "usage": 80, "mods": 0, "label": "←"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 18,
+          "on": {
+            "0": {"kind": "kp", "usage": 13, "mods": 0, "label": "J"},
+            "1": {"kind": "kp", "usage": 51, "mods": 0, "label": ";"},
+            "2": {"kind": "other", "label": "mm_vim_j", "src": "&mm_vim_j"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 19,
+          "on": {
+            "0": {"kind": "kp", "usage": 14, "mods": 0, "label": "K"},
+            "1": {"kind": "kp", "usage": 52, "mods": 0, "label": "'"},
+            "2": {"kind": "kp", "usage": 82, "mods": 0, "label": "↑"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 20,
+          "on": {
+            "0": {"kind": "kp", "usage": 15, "mods": 0, "label": "L"},
+            "1": {"kind": "kp", "usage": 49, "mods": 0, "label": "\\"},
+            "2": {"kind": "kp", "usage": 79, "mods": 0, "label": "→"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "sys_reset", "src": "&sys_reset"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 21,
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "mt",
+              "src": "&mt RCTRL MINUS",
+              "hold": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
+              "tap": {"kind": "kp", "usage": 45, "mods": 0, "label": "-"}
+            },
+            "2": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
+            "3": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 22,
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "mt",
+              "src": "&mt LEFT_SHIFT Z",
+              "hold": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
+              "tap": {"kind": "kp", "usage": 29, "mods": 0, "label": "Z"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "mt",
+              "src": "&mt LEFT_SHIFT ESCAPE",
+              "hold": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
+              "tap": {"kind": "kp", "usage": 41, "mods": 0, "label": "Esc"}
+            },
+            "2": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
+            "3": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 23,
+          "on": {
+            "0": {"kind": "kp", "usage": 27, "mods": 0, "label": "X"},
+            "1": {"kind": "none"},
+            "2": {"kind": "kp", "usage": 76, "mods": 0, "label": "Del"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 24,
+          "on": {
+            "0": {"kind": "kp", "usage": 6, "mods": 0, "label": "C"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "other", "label": "bt", "src": "&bt BT_CLR"}
+          }
+        },
+        {
+          "pos": 25,
+          "on": {
+            "0": {"kind": "kp", "usage": 25, "mods": 0, "label": "V"},
+            "1": {"kind": "none"},
+            "2": {"kind": "other", "label": "mm_vim_v", "src": "&mm_vim_v"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 26,
+          "on": {
+            "0": {"kind": "kp", "usage": 5, "mods": 0, "label": "B"},
+            "1": {"kind": "none"},
+            "2": {"kind": "kp", "usage": 80, "mods": 1, "label": "Ctrl+←"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "bootloader", "src": "&bootloader"},
+            "7": {"kind": "other", "label": "out", "src": "&out OUT_BLE"}
+          }
+        },
+        {
+          "pos": 27,
+          "on": {
+            "0": {"kind": "mo", "layer": 7, "label": "BT"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 28,
+          "on": {
+            "0": {"kind": "mo", "layer": 7, "label": "BT"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 29,
+          "on": {
+            "0": {"kind": "kp", "usage": 17, "mods": 0, "label": "N"},
+            "1": {"kind": "none"},
+            "2": {"kind": "other", "label": "mm_vim_n", "src": "&mm_vim_n"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "bootloader", "src": "&bootloader"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 30,
+          "on": {
+            "0": {"kind": "kp", "usage": 16, "mods": 0, "label": "M"},
+            "1": {"kind": "kp", "usage": 46, "mods": 0, "label": "="},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 31,
+          "on": {
+            "0": {"kind": "kp", "usage": 54, "mods": 0, "label": ","},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 32,
+          "on": {
+            "0": {"kind": "kp", "usage": 55, "mods": 0, "label": "."},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 33,
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "mt",
+              "src": "&mt RIGHT_SHIFT SLASH",
+              "hold": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
+              "tap": {"kind": "kp", "usage": 56, "mods": 0, "label": "/"}
+            },
+            "2": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
+            "3": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 34,
+          "on": {
+            "0": {"kind": "mo", "layer": 6, "label": "FUNC"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 35,
+          "on": {
+            "0": {"kind": "kp", "usage": 227, "mods": 0, "label": "Win"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 36,
+          "on": {
+            "0": {"kind": "kp", "usage": 226, "mods": 0, "label": "Alt"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 37,
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "lt",
+              "src": "&lt 2 SPACE",
+              "hold": {"kind": "mo", "layer": 2, "label": "VIM_BASE"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "lt",
+              "src": "&lt 3 SPACE",
+              "hold": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 38,
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "lt",
+              "src": "&lt 2 SPACE",
+              "hold": {"kind": "mo", "layer": 2, "label": "VIM_BASE"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "lt",
+              "src": "&lt 3 SPACE",
+              "hold": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 39,
+          "on": {
+            "0": {"kind": "mo", "layer": 1, "label": "SYM"},
+            "1": {"kind": "none"},
+            "2": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 40,
+          "on": {
+            "0": {"kind": "mo", "layer": 2, "label": "VIM_BASE"},
+            "1": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 41,
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "lt",
+              "src": "&lt 1 ENTER",
+              "hold": {"kind": "mo", "layer": 1, "label": "SYM"},
+              "tap": {"kind": "kp", "usage": 40, "mods": 0, "label": "Enter"}
+            },
+            "1": {"kind": "none"},
+            "2": {
+              "kind": "ht",
+              "behavior": "lt",
+              "src": "&lt 3 ENTER",
+              "hold": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+              "tap": {"kind": "kp", "usage": 40, "mods": 0, "label": "Enter"}
+            },
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 42,
+          "on": {
+            "0": {"kind": "mo", "layer": 6, "label": "FUNC"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"},
+            "7": {"kind": "none"}
+          }
+        }
+      ]
     }
   },
   "consistency": [
@@ -2068,6 +2637,8 @@
     {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (KUKEY42/KUKEY42_R.overlay の trackball_listener (ドライバのスクロール))"},
     {"level": "ok", "message": "スクロールはドライバの scroll-layers で行う: CONFIG_PMW3610_SCROLL_TICK=32 (README の共通基盤: 32)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
-    {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"}
+    {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"},
+    {"level": "ok", "message": "タップホールド &lt: balanced / tapping-term 150 / quick-tap 0 (LisM 基準: balanced / tapping-term 150 / quick-tap 0)"},
+    {"level": "ok", "message": "タップホールド &mt: balanced / tapping-term 150 / quick-tap 0 (LisM 基準: balanced / tapping-term 150 / quick-tap 0)"}
   ]
 }

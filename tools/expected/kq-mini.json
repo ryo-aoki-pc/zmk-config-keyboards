@@ -2049,7 +2049,546 @@
         {"what": "SCRL レイヤー", "reason": "AML の中のスクロールのレイヤーは、AML のテストで確かめる"}
       ],
       "note": "LisM のキーマップから作った手順を、Keyball39 の位置に置き換えたもの。KQ-mini のキーオーバーライドは、修飾キーより先に、タップしたキーを離す"
+    },
+    "hold_tap": {
+      "engine": "qmk",
+      "settings": {"tapping_term": 150, "tap_code_delay": 10, "permissive_hold": 1, "hold_on_other_key_press": 0, "retro_tapping": 0, "quick_tap_term": 0, "chordal_hold": 0, "flow_tap_term": 0},
+      "layers": [0, 1, 2, 3, 6],
+      "keys": [
+        {
+          "pos": 0,
+          "usage": 20,
+          "qmk_hand": "*",
+          "on": {
+            "0": {"kind": "kp", "usage": 20, "mods": 0, "label": "Q"},
+            "1": {"kind": "kp", "usage": 30, "mods": 0, "label": "1"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 58, "mods": 0, "label": "F1"}
+          }
+        },
+        {
+          "pos": 1,
+          "usage": 26,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 26, "mods": 0, "label": "W"},
+            "1": {"kind": "kp", "usage": 31, "mods": 0, "label": "2"},
+            "2": {"kind": "other", "label": "0x7E03"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 59, "mods": 0, "label": "F2"}
+          }
+        },
+        {
+          "pos": 2,
+          "usage": 8,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 8, "mods": 0, "label": "E"},
+            "1": {"kind": "kp", "usage": 32, "mods": 0, "label": "3"},
+            "2": {"kind": "kp", "usage": 79, "mods": 1, "label": "Ctrl+→"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 60, "mods": 0, "label": "F3"}
+          }
+        },
+        {
+          "pos": 3,
+          "usage": 21,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 21, "mods": 0, "label": "R"},
+            "1": {"kind": "kp", "usage": 33, "mods": 0, "label": "4"},
+            "2": {"kind": "other", "label": "0x7E04"},
+            "3": {"kind": "other", "label": "0x7E07"},
+            "6": {"kind": "kp", "usage": 61, "mods": 0, "label": "F4"}
+          }
+        },
+        {
+          "pos": 4,
+          "usage": 23,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 23, "mods": 0, "label": "T"},
+            "1": {"kind": "kp", "usage": 34, "mods": 0, "label": "5"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 62, "mods": 0, "label": "F5"}
+          }
+        },
+        {
+          "pos": 5,
+          "usage": 28,
+          "qmk_hand": "*",
+          "on": {
+            "0": {"kind": "kp", "usage": 28, "mods": 0, "label": "Y"},
+            "1": {"kind": "kp", "usage": 35, "mods": 0, "label": "6"},
+            "2": {"kind": "other", "label": "0x5701"},
+            "3": {"kind": "other", "label": "0x7E08"},
+            "6": {"kind": "kp", "usage": 63, "mods": 0, "label": "F6"}
+          }
+        },
+        {
+          "pos": 6,
+          "usage": 24,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 24, "mods": 0, "label": "U"},
+            "1": {"kind": "kp", "usage": 36, "mods": 0, "label": "7"},
+            "2": {"kind": "other", "label": "0x7E05"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 64, "mods": 0, "label": "F7"}
+          }
+        },
+        {
+          "pos": 7,
+          "usage": 12,
+          "qmk_hand": "*",
+          "on": {
+            "0": {"kind": "kp", "usage": 12, "mods": 0, "label": "I"},
+            "1": {"kind": "kp", "usage": 37, "mods": 0, "label": "8"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 65, "mods": 0, "label": "F8"}
+          }
+        },
+        {
+          "pos": 8,
+          "usage": 18,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 18, "mods": 0, "label": "O"},
+            "1": {"kind": "kp", "usage": 38, "mods": 0, "label": "9"},
+            "2": {"kind": "other", "label": "0x7E06"},
+            "3": {"kind": "none"},
+            "6": {"kind": "kp", "usage": 66, "mods": 0, "label": "F9"}
+          }
+        },
+        {
+          "pos": 9,
+          "usage": 19,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 19, "mods": 0, "label": "P"},
+            "1": {"kind": "kp", "usage": 39, "mods": 0, "label": "0"},
+            "2": {"kind": "kp", "usage": 25, "mods": 1, "label": "Ctrl+V"},
+            "3": {"kind": "kp", "usage": 74, "mods": 0, "label": "Home"},
+            "6": {"kind": "kp", "usage": 67, "mods": 0, "label": "F10"}
+          }
+        },
+        {
+          "pos": 10,
+          "usage": 4,
+          "qmk_hand": "*",
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "MT",
+              "src": "MT(0x01, A)",
+              "hold": {"kind": "mods", "mods": 1, "label": "Ctrl"},
+              "tap": {"kind": "kp", "usage": 4, "mods": 0, "label": "A"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "MT",
+              "src": "MT(0x01, Tab)",
+              "hold": {"kind": "mods", "mods": 1, "label": "Ctrl"},
+              "tap": {"kind": "kp", "usage": 43, "mods": 0, "label": "Tab"}
+            },
+            "2": {"kind": "kp", "usage": 224, "mods": 0, "label": "Ctrl"},
+            "3": {"kind": "kp", "usage": 224, "mods": 0, "label": "Ctrl"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 11,
+          "usage": 22,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 22, "mods": 0, "label": "S"},
+            "1": {"kind": "kp", "usage": 53, "mods": 0, "label": "`"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "0x7C01"}
+          }
+        },
+        {
+          "pos": 12,
+          "usage": 7,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 7, "mods": 0, "label": "D"},
+            "1": {"kind": "kp", "usage": 47, "mods": 0, "label": "["},
+            "2": {"kind": "other", "label": "0x5700"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 13,
+          "usage": 9,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 9, "mods": 0, "label": "F"},
+            "1": {"kind": "kp", "usage": 48, "mods": 0, "label": "]"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 14,
+          "usage": 10,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 10, "mods": 0, "label": "G"},
+            "1": {"kind": "kp", "usage": 76, "mods": 0, "label": "Del"},
+            "2": {"kind": "other", "label": "0x5702"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 15,
+          "usage": 11,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 11, "mods": 0, "label": "H"},
+            "1": {"kind": "kp", "usage": 42, "mods": 0, "label": "BS"},
+            "2": {"kind": "kp", "usage": 80, "mods": 0, "label": "←"},
+            "3": {"kind": "kp", "usage": 80, "mods": 0, "label": "←"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 16,
+          "usage": 13,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 13, "mods": 0, "label": "J"},
+            "1": {"kind": "kp", "usage": 51, "mods": 0, "label": ";"},
+            "2": {"kind": "kp", "usage": 81, "mods": 0, "label": "↓"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 17,
+          "usage": 14,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 14, "mods": 0, "label": "K"},
+            "1": {"kind": "kp", "usage": 52, "mods": 0, "label": "'"},
+            "2": {"kind": "kp", "usage": 82, "mods": 0, "label": "↑"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 18,
+          "usage": 15,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 15, "mods": 0, "label": "L"},
+            "1": {"kind": "kp", "usage": 49, "mods": 0, "label": "\\"},
+            "2": {"kind": "kp", "usage": 79, "mods": 0, "label": "→"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "0x7C01"}
+          }
+        },
+        {
+          "pos": 19,
+          "usage": 45,
+          "qmk_hand": "R",
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "MT",
+              "src": "MT(0x11, -)",
+              "hold": {"kind": "mods", "mods": 16, "label": "Ctrl"},
+              "tap": {"kind": "kp", "usage": 45, "mods": 0, "label": "-"}
+            },
+            "2": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
+            "3": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 20,
+          "usage": 29,
+          "qmk_hand": "R",
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "MT",
+              "src": "MT(0x02, Z)",
+              "hold": {"kind": "mods", "mods": 2, "label": "Shift"},
+              "tap": {"kind": "kp", "usage": 29, "mods": 0, "label": "Z"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "MT",
+              "src": "MT(0x02, Esc)",
+              "hold": {"kind": "mods", "mods": 2, "label": "Shift"},
+              "tap": {"kind": "kp", "usage": 41, "mods": 0, "label": "Esc"}
+            },
+            "2": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
+            "3": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 21,
+          "usage": 27,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 27, "mods": 0, "label": "X"},
+            "1": {"kind": "none"},
+            "2": {"kind": "kp", "usage": 76, "mods": 0, "label": "Del"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 22,
+          "usage": 6,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 6, "mods": 0, "label": "C"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 23,
+          "usage": 25,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 25, "mods": 0, "label": "V"},
+            "1": {"kind": "none"},
+            "2": {"kind": "other", "label": "0x5204"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 24,
+          "usage": 5,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 5, "mods": 0, "label": "B"},
+            "1": {"kind": "none"},
+            "2": {"kind": "kp", "usage": 80, "mods": 1, "label": "Ctrl+←"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "0x7C00"}
+          }
+        },
+        {
+          "pos": 25,
+          "usage": 17,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 17, "mods": 0, "label": "N"},
+            "1": {"kind": "none"},
+            "2": {"kind": "kp", "usage": 60, "mods": 0, "label": "F3"},
+            "3": {"kind": "none"},
+            "6": {"kind": "other", "label": "0x7C00"}
+          }
+        },
+        {
+          "pos": 26,
+          "usage": 16,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 16, "mods": 0, "label": "M"},
+            "1": {"kind": "kp", "usage": 46, "mods": 0, "label": "="},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 27,
+          "usage": 54,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 54, "mods": 0, "label": ","},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 28,
+          "usage": 55,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "kp", "usage": 55, "mods": 0, "label": "."},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 29,
+          "usage": 56,
+          "qmk_hand": "L",
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "MT",
+              "src": "MT(0x12, /)",
+              "hold": {"kind": "mods", "mods": 32, "label": "Shift"},
+              "tap": {"kind": "kp", "usage": 56, "mods": 0, "label": "/"}
+            },
+            "2": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
+            "3": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 30,
+          "usage": 53,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "mo", "layer": 6, "label": "FUNC"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 31,
+          "usage": 227,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 227, "mods": 0, "label": "Win"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 32,
+          "usage": 226,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "kp", "usage": 226, "mods": 0, "label": "Alt"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 33,
+          "usage": 44,
+          "qmk_hand": "*",
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "LT",
+              "src": "LT(2, Space)",
+              "hold": {"kind": "mo", "layer": 2, "label": "VIM_BASE"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "LT",
+              "src": "LT(3, Space)",
+              "hold": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 34,
+          "usage": 44,
+          "qmk_hand": "*",
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "LT",
+              "src": "LT(2, Space)",
+              "hold": {"kind": "mo", "layer": 2, "label": "VIM_BASE"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "1": {
+              "kind": "ht",
+              "behavior": "LT",
+              "src": "LT(3, Space)",
+              "hold": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+              "tap": {"kind": "kp", "usage": 44, "mods": 0, "label": "Space"}
+            },
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 35,
+          "usage": 230,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "mo", "layer": 1, "label": "SYM"},
+            "1": {"kind": "none"},
+            "2": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 36,
+          "usage": 57,
+          "qmk_hand": "L",
+          "on": {
+            "0": {"kind": "mo", "layer": 2, "label": "VIM_BASE"},
+            "1": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 37,
+          "usage": 40,
+          "qmk_hand": "L",
+          "on": {
+            "0": {
+              "kind": "ht",
+              "behavior": "LT",
+              "src": "LT(1, Enter)",
+              "hold": {"kind": "mo", "layer": 1, "label": "SYM"},
+              "tap": {"kind": "kp", "usage": 40, "mods": 0, "label": "Enter"}
+            },
+            "1": {"kind": "none"},
+            "2": {
+              "kind": "ht",
+              "behavior": "LT",
+              "src": "LT(3, Enter)",
+              "hold": {"kind": "mo", "layer": 3, "label": "VIM_SYM"},
+              "tap": {"kind": "kp", "usage": 40, "mods": 0, "label": "Enter"}
+            },
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        },
+        {
+          "pos": 41,
+          "usage": 53,
+          "qmk_hand": "R",
+          "on": {
+            "0": {"kind": "mo", "layer": 6, "label": "FUNC"},
+            "1": {"kind": "none"},
+            "2": {"kind": "none"},
+            "3": {"kind": "none"},
+            "6": {"kind": "none"}
+          }
+        }
+      ]
     }
   },
-  "consistency": []
+  "consistency": [
+    {"level": "ok", "message": "タップホールド: tapping_term 150 / permissive_hold 1 / hold_on_other_key_press 0 / quick_tap_term 0 (LisM の balanced / tapping-term 150 / quick-tap 0 に相当するのは 150 / 1 / 0 / 0)"}
+  ]
 }
