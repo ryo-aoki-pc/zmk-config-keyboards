@@ -199,6 +199,32 @@ function Find-KcTracePress($State, [int]$Pos) {
     return $null
 }
 
+# 図に出す表示。有効な最上位のレイヤーの表示を出し、押しているキーは押したときに決まったレイヤーの表示にする
+# (VIM_BASE を押したままのとき、VIM_BASE レイヤーのその位置は &none で空になり、何を押しているか分からないため)。
+# 戻り値: @{ Top = 最上位のレイヤー; Legends = $Positions の順の表示; Signature = 変わったかを見る文字列 }
+function Get-KcTraceLegends($State, [int[]]$Positions) {
+    $top = 0
+    foreach ($l in $State.Active) { if ($l -gt $top) { $top = $l } }
+    $held = @{}
+    foreach ($p in @($State.Held.Keys)) {
+        $e = Find-KcTracePress $State ([int]$p)
+        if ($null -ne $e -and $null -ne $e.Resolved -and $State.Layers.ContainsKey([int]$e.Resolved.Layer)) {
+            $held[[int]$p] = [int]$e.Resolved.Layer
+        }
+    }
+    $sig = '{0}|{1}' -f $top, ((@($held.Keys | Sort-Object) | ForEach-Object { '{0}:{1}' -f $_, $held[$_] }) -join ',')
+    $legends = @()
+    if ($State.Layers.ContainsKey($top)) {
+        foreach ($p in $Positions) {
+            $layer = $top
+            if ($held.ContainsKey($p)) { $layer = $held[$p] }
+            $src = @($State.Layers[$layer].legends)
+            if ($p -lt $src.Count) { $legends += [string]$src[$p] } else { $legends += '' }
+        }
+    }
+    return @{ Top = $top; Legends = $legends; Signature = $sig }
+}
+
 # モッドモーフの分岐: 押した時点の明示的な修飾で、どの binding になったか (ログには出ないので、期待値の定義から決める)
 function Resolve-KcTraceMorph($State, $Event, [string]$Device) {
     $def = $null

@@ -51,11 +51,13 @@ function Update-KcTraceView($View) {
     }
     $form.SetLayers([string[]]$names, [int[]]$states)
 
-    # 図: 有効な最上位のレイヤーの表示と、押しているキー
+    # 図: 有効な最上位のレイヤーの表示 (押しているキーは、押したときに決まったレイヤーの表示) と、押しているキー
+    $lg = Get-KcTraceLegends $state ([int[]]@($View.KeyPositions))
+    if ($View.ShownLegends -ne $lg.Signature -and $lg.Legends.Count -gt 0) {
+        $form.SetKeyLegends([int[]]@($View.KeyPositions), [string[]]$lg.Legends)
+        $View.ShownLegends = $lg.Signature
+    }
     if ($View.ShownLayer -ne $top -and $state.Layers.ContainsKey($top)) {
-        $legends = @($state.Layers[$top].legends)
-        $pos = @($View.KeyPositions)
-        $form.SetKeyLegends([int[]]$pos, [string[]]@($pos | ForEach-Object { if ($_ -lt $legends.Count) { [string]$legends[$_] } else { '' } }))
         $View.ShownLayer = $top
         $form.SetPictureCaption(('表示: {0} (いま有効な最上位のレイヤー)' -f (Get-KcTraceLayerName $state $top)))
     }
@@ -194,7 +196,7 @@ function Invoke-KcLayerTrace {
     $consoleMode = [KcConsoleMode]::DisableQuickEdit()
     $view = @{
         Form = $form; Expected = $Expected; ScanTable = (New-KcScanTable $Common); State = (New-KcLayerTrace $Expected)
-        KeyPositions = @($keys | ForEach-Object { [int]$_.pos }); ShownLayer = -1; LastSeq = 0
+        KeyPositions = @($keys | ForEach-Object { [int]$_.pos }); ShownLayer = -1; ShownLegends = ''; LastSeq = 0
         Seqs = (New-Object 'System.Collections.Generic.List[int]'); Paused = $false; CacheDir = $CacheDir
         Raw = (New-Object System.Text.StringBuilder)
     }
@@ -219,7 +221,7 @@ function Invoke-KcLayerTrace {
             }
             if ($a -eq 'clear') {
                 $view.State = New-KcLayerTrace $Expected
-                $view.Seqs.Clear(); $view.LastSeq = 0; $view.ShownLayer = -1
+                $view.Seqs.Clear(); $view.LastSeq = 0; $view.ShownLayer = -1; $view.ShownLegends = ''
                 [void]$view.Raw.Clear()
                 $form.ClearTimeline()
                 $form.ClearSelection()

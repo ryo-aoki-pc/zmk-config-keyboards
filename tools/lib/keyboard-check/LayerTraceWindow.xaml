@@ -49,11 +49,16 @@
       <RowDefinition Height="*" MinHeight="90"/>
     </Grid.RowDefinitions>
 
-    <!-- all layers: active ones are lit, the one the last key resolved on is emphasized -->
-    <StackPanel Grid.Row="0" Orientation="Horizontal">
-      <TextBlock x:Name="LayersCaption" Style="{DynamicResource KcSectionCaption}"/>
-      <WrapPanel x:Name="LayerChips" VerticalAlignment="Center"/>
-    </StackPanel>
+    <!-- all layers: active ones are lit, the top active one is emphasized. The chips wrap on a narrow
+         window (a WrapPanel in a horizontal StackPanel would not: it gets an infinite width) -->
+    <Grid Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock x:Name="LayersCaption" Grid.Column="0" Style="{DynamicResource KcSectionCaption}"/>
+      <WrapPanel x:Name="LayerChips" Grid.Column="1" VerticalAlignment="Center"/>
+    </Grid>
     <TextBlock x:Name="HintText" Grid.Row="1" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0"
                Foreground="{DynamicResource KcTextMuted}"/>
 
@@ -75,10 +80,11 @@
           </Viewbox>
         </Grid>
       </Border>
-      <!-- how the selected (or last) key was resolved: layers from the top, steps of the behavior, output -->
+      <!-- how the selected (or last) key was resolved: layers from the top, steps of the behavior, output.
+           ResolvePanel shrinks with the window height (KcLayerTraceForm.FitTexts) so that it fits without scrolling -->
       <Border Grid.Column="1" Style="{DynamicResource KcCard}" Margin="14,0,0,0" Padding="18,14,18,14">
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel>
+        <ScrollViewer x:Name="ResolveScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="ResolvePanel">
             <TextBlock x:Name="ResolveTitle" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
                        Foreground="{DynamicResource KcText}"/>
             <StackPanel x:Name="CascadePanel" Margin="0,10,0,0"/>

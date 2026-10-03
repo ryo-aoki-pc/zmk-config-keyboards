@@ -128,6 +128,36 @@ Test-Case 'SYM を押したまま Q: レイヤーがオンになり、SYM の 1 
     Assert-True ((Format-KcTraceEvent $st $q $scan) -like '*SYM: &kp N1 → 1*') (Format-KcTraceEvent $st $q $scan)
 }
 
+Test-Case '図の表示: 最上位のレイヤーの表示。押しているレイヤーキーは、押したときのレイヤーの表示のまま' {
+    $pos = [int[]]@($lism.physical.keys | ForEach-Object { [int]$_.pos })
+    $base = @($lism.interactive.behaviors.layers[0].legends)
+    $vim = @($lism.interactive.behaviors.layers[2].legends)
+    $idx36 = [array]::IndexOf($pos, 36)
+    $idx6 = [array]::IndexOf($pos, 6)
+    $st = Invoke-ZlTrace @()
+    $lg = Get-KcTraceLegends $st $pos
+    Assert-Equal 0 $lg.Top
+    Assert-Equal $pos.Count $lg.Legends.Count
+    Assert-Equal ([string]$base[6]) $lg.Legends[$idx6]
+    $before = $lg.Signature
+    # VIM_BASE (36) を押したまま: VIM_BASE レイヤーの 36 は &none (表示なし) だが、押しているキーは BASE の「VIM_BASE」のまま
+    $st = Invoke-ZlTrace (@((New-ZlPos 1000 36 $true $true), (New-ZlApply 1000.1 0 36 'momentary_layer')) + (New-ZlMo 1000.2 36 2 $true))
+    Assert-Equal '' ([string]$vim[36]) '前提: VIM_BASE レイヤーの 36 は表示なし'
+    $lg = Get-KcTraceLegends $st $pos
+    Assert-Equal 2 $lg.Top
+    Assert-Equal 'VIM_BASE' $lg.Legends[$idx36]
+    Assert-Equal ([string]$vim[6]) $lg.Legends[$idx6]
+    Assert-True ($lg.Signature -ne $before) '表示が変わったことが分かる'
+    # 離すと BASE の表示に戻る
+    $st = Invoke-ZlTrace (@((New-ZlPos 1000 36 $true $true), (New-ZlApply 1000.1 0 36 'momentary_layer')) + (New-ZlMo 1000.2 36 2 $true) +
+        @((New-ZlPos 1200 36 $false $true), (New-ZlApply 1200.1 0 36 'momentary_layer')) + (New-ZlMo 1200.2 36 2 $false))
+    $lg = Get-KcTraceLegends $st $pos
+    Assert-Equal 0 $lg.Top
+    Assert-Equal 'VIM_BASE' $lg.Legends[$idx36]
+    Assert-Equal ([string]$base[6]) $lg.Legends[$idx6]
+    Assert-Equal $before $lg.Signature
+}
+
 Test-Case '&trans で下のレイヤーへ: VIM_BASE の Win の位置は BASE の &kp LEFT_WIN' {
     $lines = @(
         (New-ZlPos 1000 36 $true $true), (New-ZlApply 1000.1 0 36 'momentary_layer')) + (New-ZlMo 1000.2 36 2 $true) + @(
