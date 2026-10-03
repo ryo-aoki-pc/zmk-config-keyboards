@@ -71,164 +71,190 @@ Test-Case 'QMK: tests/tap_hold_configurations で、QMK と同じ HID のレポ�
 }
 
 $script:HtLism = New-KcHtModel (Get-KcExpected 'lism' $script:ExpectedDir)
-$script:HtKq = New-KcHtModel (Get-KcExpected 'kq-mini' $script:ExpectedDir)
 
-# 期待値からの計算: 対象のキーとプリセットの入力で、判定と届く入力
-function Invoke-HtPreset($Model, [int]$Target, [string]$Preset, [hashtable]$Params = @{}) {
-    $cfg = New-KcHtConfig $Model
-    foreach ($k in $Params.Keys) { Set-KcHtParamValue $Model $cfg $Target $k ([string]$Params[$k]) }
-    $pr = New-KcHtPreset $Model $cfg $Target $Preset
-    $r = Invoke-KcHtRun $Model (Get-KcHtKeymapWith $Model $cfg) $pr.Events
-    $d = [KcHtText]::DecisionFor($r, $pr.TargetIndex)
-    $status = ''
-    if ($null -ne $d) { $status = $d.Status }
-    return @{ Status = $status; Strokes = [KcHtText]::Strokes($r); Result = $r; Preset = $pr; Config = $cfg; Decision = $d }
+# 'p10@0 p15@50 r15@100 r10@140' → 1 回分 (対象は最初に 0 ms に押したキー)
+function New-HtEpisode([string]$Text, [bool]$Live = $false, $Decisions = @()) {
+    $events = ConvertTo-HtEvents $Text
+    $ti = 0
+    for ($i = 0; $i -lt $events.Count; $i++) {
+        if ($events[$i].Down -and $events[$i].T -eq 0) { $ti = $i; break }
+    }
+    foreach ($e in $events) {
+        $role = 'partner'
+        if ($e.Pos -eq $events[$ti].Pos) { $role = 'target' } elseif ($e.T -lt 0) { $role = 'prior' }
+        $e.Role = $role
+    }
+    return @{ Seq = 1; Target = $events[$ti].Pos; T0 = 0; Events = $events; TargetIndex = $ti; Decisions = @($Decisions); Hid = @()
+        Dropped = $false; Uncertain = $false; Live = $Live }
 }
 
-Test-Case 'モデル: LisM はキーマップの &mt / &lt (balanced 150 / quick-tap 0)、KQ-mini は Vial の設定、Keyball39 は無し' {
-    Assert-Equal 'zmk' $script:HtLism.Engine
-    $a = Get-KcHtTarget $script:HtLism 10
-    Assert-Equal 'A' $a.TapLabel
-    Assert-Equal 'Ctrl' $a.HoldLabel
-    Assert-Equal 'mt' $a.Behavior
-    $sp = Get-KcHtTarget $script:HtLism 34
-    Assert-True $sp.HoldIsLayer 'Space は &lt (レイヤー)'
-    $cfg = New-KcHtConfig $script:HtLism
-    Assert-Equal 'balanced' (Get-KcHtParamValue $script:HtLism $cfg 10 'flavor')
-    Assert-Equal 150 (Get-KcHtParamValue $script:HtLism $cfg 10 'term')
-    Assert-Equal 0 (Get-KcHtParamValue $script:HtLism $cfg 10 'quick')
+# 1 回分を、設定 $Config で計算する
+function Invoke-HtEpisode($Episode, $Config = $null, $Now = $null) {
+    if ($null -eq $Config) { $Config = New-KcHtConfig }
+    $r = Invoke-KcHtRun (Get-KcHtKeymapWith $script:HtLism $Config) $Episode.Events
+    $range = Get-KcHtRange $Episode $r 150 $Now
+    $sw = Get-KcHtReleaseSweeps $script:HtLism $Config $Episode $range
+    $d = [KcHtText]::DecisionFor($r, $Episode.TargetIndex)
+    $status = ''
+    if ($null -ne $d) { $status = $d.Status }
+    return @{ Result = $r; Range = $range; Sweeps = $sw; Status = $status; Decision = $d; Strokes = [KcHtText]::Strokes($r)
+        Summary = (Get-KcHtSummary $script:HtLism $Config $Episode $r $sw $Now) }
+}
+
+Test-Case 'モデル: LisM はキーマップの &mt / &lt (balanced 150)、KQ-mini と Keyball39 は対象外' {
+    Assert-Equal 'LisM' $script:HtLism.Name
+    Assert-Equal 'mt' (Get-KcHtBehavior $script:HtLism 10)
+    Assert-Equal 'lt' (Get-KcHtBehavior $script:HtLism 34)
+    Assert-Equal '' (Get-KcHtBehavior $script:HtLism 15) 'H は hold-tap ではない'
+    $s = Get-KcHtSetting $script:HtLism (New-KcHtConfig) 'mt'
+    Assert-Equal 'balanced' $s.Flavor
+    Assert-Equal 150 $s.Term
+    Assert-Equal $false $s.Changed
     Assert-Equal 'A (Ctrl)' (Get-KcHtKeyName $script:HtLism 10)
-    Assert-Equal 'qmk' $script:HtKq.Engine
-    $kc = New-KcHtConfig $script:HtKq
-    Assert-Equal 150 (Get-KcHtParamValue $script:HtKq $kc 10 'term')
-    Assert-Equal '1' (Get-KcHtParamValue $script:HtKq $kc 10 'permissive')
+    Assert-Equal $null (New-KcHtModel (Get-KcExpected 'kq-mini' $script:ExpectedDir))
     Assert-Equal $null (New-KcHtModel (Get-KcExpected 'keyball39' $script:ExpectedDir))
 }
 
-Test-Case 'プリセット: どの機種・対象でも、押す → 離すの順で、相手は反対の手の文字キー' {
-    foreach ($id in @('lism', 'kukey42', 'aroundfortyrb', 'pyuron', 'roba', 'torabo-tsuki-lp', 'kq-mini')) {
-        $m = New-KcHtModel (Get-KcExpected $id $script:ExpectedDir)
-        $cfg = New-KcHtConfig $m
-        foreach ($t in $m.Targets) {
-            foreach ($p in (Get-KcHtPresetDefs $m $t.Pos)) {
-                $pr = New-KcHtPreset $m $cfg $t.Pos $p.Id
-                $down = @{}
-                foreach ($e in $pr.Events) {
-                    Assert-True ($e.Pos -ge 0) ('{0} {1} {2}: 相手のキーが見つからない' -f $id, $t.Pos, $p.Id)
-                    $was = $down.ContainsKey($e.Pos) -and $down[$e.Pos]
-                    Assert-True ($was -ne $e.Down) ('{0} {1} {2}: 押す / 離すの順' -f $id, $t.Pos, $p.Id)
-                    $down[$e.Pos] = $e.Down
-                }
-                Assert-True $pr.Events[$pr.TargetIndex].Down ('{0} {1}: 判定を見るのは押下' -f $id, $p.Id)
-                Assert-Equal $t.Pos $pr.Events[$pr.TargetIndex].Pos
-            }
-            $partner = Get-KcHtPartner $m $t.Pos
-            Assert-True ($m.Keys[$partner].Hand -ne $m.Keys[$t.Pos].Hand) ('{0} {1}: 反対の手' -f $id, $t.Pos)
-        }
-    }
+Test-Case '設定: flavor と tapping-term を変えると判定が変わる。キーマップの値に戻すと上書きが消える' {
+    $roll = New-HtEpisode 'p10@0 p15@50 r10@90 r15@130'
+    $nest = New-HtEpisode 'p10@0 p15@50 r15@100 r10@140'
+    Assert-Equal 'tap' (Invoke-HtEpisode $roll).Status
+    Assert-Equal 'A H' (Invoke-HtEpisode $roll).Strokes
+    Assert-Equal 'hold-interrupt' (Invoke-HtEpisode $nest).Status
+    Assert-Equal 'Ctrl+H' (Invoke-HtEpisode $nest).Strokes
+    $cfg = New-KcHtConfig
+    Set-KcHtSetting $script:HtLism $cfg 'mt' 'flavor' 'hold-preferred'
+    Assert-True (Get-KcHtSetting $script:HtLism $cfg 'mt').Changed
+    Assert-Equal 'hold-interrupt' (Invoke-HtEpisode $roll $cfg).Status 'hold-preferred はほかのキーを押したらホールド'
+    Assert-Equal 'balanced' (Get-KcHtSetting $script:HtLism $cfg 'lt').Flavor '&lt は変わらない'
+    Set-KcHtSetting $script:HtLism $cfg 'mt' 'flavor' 'tap-preferred'
+    Assert-Equal 'tap' (Invoke-HtEpisode $nest $cfg).Status 'tap-preferred は 140ms < 150ms でタップ'
+    Set-KcHtSetting $script:HtLism $cfg 'mt' 'term' 120
+    Assert-Equal 'hold-timer' (Invoke-HtEpisode $nest $cfg).Status
+    $copy = Copy-KcHtConfig $cfg
+    Set-KcHtSetting $script:HtLism $copy 'mt' 'term' 200
+    Assert-Equal 120 (Get-KcHtSetting $script:HtLism $cfg 'mt').Term 'コピーは別'
+    Set-KcHtSetting $script:HtLism $cfg 'mt' 'flavor' 'balanced'
+    Set-KcHtSetting $script:HtLism $cfg 'mt' 'term' 150
+    Assert-Equal 0 $cfg.Count 'キーマップの値と同じなら持たない'
 }
 
-Test-Case 'LisM の A (balanced 150): ロールはタップ、包むとホールド、flavor と term で変わる' {
-    $roll = Invoke-HtPreset $script:HtLism 10 'roll'
-    Assert-Equal 'tap' $roll.Status
-    Assert-Equal 'A H' $roll.Strokes
-    $nest = Invoke-HtPreset $script:HtLism 10 'nest'
-    Assert-Equal 'hold-interrupt' $nest.Status
-    Assert-Equal 'other-key-up' $nest.Decision.Moment
-    Assert-Equal 'Ctrl+H' $nest.Strokes
-    Assert-Equal 'hold-interrupt' (Invoke-HtPreset $script:HtLism 10 'roll' @{ flavor = 'hold-preferred' }).Status 'hold-preferred はほかのキーを押したらホールド'
-    Assert-Equal 'tap' (Invoke-HtPreset $script:HtLism 10 'nest' @{ flavor = 'tap-preferred' }).Status 'tap-preferred は 140ms < 150ms でタップ'
-    Assert-Equal 'hold-timer' (Invoke-HtPreset $script:HtLism 10 'nest' @{ flavor = 'tap-preferred'; term = 120 }).Status
-    Assert-Equal 'tap' (Invoke-HtPreset $script:HtLism 10 'prior' @{ idle = 150 }).Status 'require-prior-idle 150 で、直前のキーから 120ms は quick-tap'
-    Assert-Equal 'tap' (Invoke-HtPreset $script:HtLism 10 'double' @{ quick = 200 }).Status 'quick-tap 200 で押し直しはタップ'
-    $pos = Invoke-HtPreset $script:HtLism 10 'nest' @{ positional = 'opposite' }
-    Assert-Equal 'hold-interrupt' $pos.Status '反対の手の H ならホールド'
-    $same = New-KcHtConfig $script:HtLism
-    Set-KcHtParamValue $script:HtLism $same 10 'positional' 'opposite'
-    $pr = New-KcHtPreset $script:HtLism $same 10 'nest' -Same
-    $r = Invoke-KcHtRun $script:HtLism (Get-KcHtKeymapWith $script:HtLism $same) $pr.Events
-    $d = [KcHtText]::DecisionFor($r, $pr.TargetIndex)
-    Assert-Equal 'tap' $d.Status '同じ手のキーならタップ'
-    Assert-True $d.Positional
-    $changed = Get-KcHtChangedParams $script:HtLism $same 10
-    Assert-Equal 'positional' ($changed -join ',')
-}
-
-Test-Case 'KQ-mini (QMK): PERMISSIVE_HOLD で包むとホールド、オフなら TAPPING_TERM まで待つ' {
-    Assert-Equal 'hold' (Invoke-HtPreset $script:HtKq 10 'nest').Status
-    Assert-Equal 'permissive' (Invoke-HtPreset $script:HtKq 10 'nest').Decision.Moment
-    Assert-Equal 'tap' (Invoke-HtPreset $script:HtKq 10 'nest' @{ permissive = 0 }).Status
-    Assert-Equal 'hold' (Invoke-HtPreset $script:HtKq 10 'roll' @{ permissive = 0; hoop = 1 }).Status
-    # A の KQ-mini の手は '*' (HID コード 0x04 の列 4) なので、chordal hold でもホールドになる
-    Assert-Equal 'hold' (Invoke-HtPreset $script:HtKq 10 'nest' @{ chordal = 1 }).Status
-    # Z (0x1D、列 5 = R) を押したまま J (0x0D、列 5 = R) を押して離す: KQ-mini では同じ手なのでタップ
-    $j = @($script:HtKq.Keys.Values | Where-Object { $null -ne $_.Base -and $_.Base.Kind -eq 'kp' -and $_.Base.Usage -eq 0x0D })[0].Pos
-    $ev = @(@{ Pos = 20; Down = $true; T = 0 }, @{ Pos = $j; Down = $true; T = 50 }, @{ Pos = $j; Down = $false; T = 90 }, @{ Pos = 20; Down = $false; T = 130 })
-    $cfg = New-KcHtConfig $script:HtKq
-    Assert-Equal 'hold' ([KcHtText]::DecisionFor((Invoke-KcHtRun $script:HtKq (Get-KcHtKeymapWith $script:HtKq $cfg) $ev), 0)).Status
-    Set-KcHtParamValue $script:HtKq $cfg 20 'chordal' '1'
-    $d = [KcHtText]::DecisionFor((Invoke-KcHtRun $script:HtKq (Get-KcHtKeymapWith $script:HtKq $cfg) $ev), 0)
-    Assert-Equal 'tap' $d.Status
-    Assert-Equal 'chordal' $d.Moment
-}
-
-Test-Case '帯: 離す時刻を 1ms ずつ動かした結果が、1 回ずつ計算した結果と同じ' {
-    foreach ($m in @($script:HtLism, $script:HtKq)) {
-        $cfg = New-KcHtConfig $m
-        foreach ($preset in @('roll', 'nest', 'double', 'prior')) {
-            $pr = New-KcHtPreset $m $cfg 10 $preset
-            $km = Get-KcHtKeymapWith $m $cfg
-            $range = @{ From = -200; To = 400 }
-            foreach ($handle in 0..($pr.Events.Count - 1)) {
-                $segs = @(Get-KcHtSweep $m $km $pr.Events $pr.TargetIndex $handle $range 'mt')
-                Assert-True ($segs.Count -ge 1) ('{0} {1}: 区間がある' -f $preset, $handle)
-                for ($i = 1; $i -lt $segs.Count; $i++) {
-                    Assert-Equal ($segs[$i - 1].To + 1) $segs[$i].From ('{0}: 区間がつながる' -f $preset)
-                }
-                foreach ($s in $segs) {
-                    foreach ($t in @($s.From, $s.To)) {
-                        $ev = Set-KcHtEventTime $pr.Events $handle $t
-                        $r = Invoke-KcHtRun $m $km $ev
-                        $d = [KcHtText]::DecisionFor($r, $pr.TargetIndex)
-                        $st = ''
-                        if ($null -ne $d) { $st = $d.Status }
-                        Assert-Equal $s.Status $st ('{0} 入力 {1} を {2} ms' -f $preset, $handle, $t)
-                        Assert-Equal $s.Text ([KcHtText]::Strokes($r))
-                    }
-                }
+Test-Case '離す時刻ごとの結果: 1ms ずつ動かした区間が、1 回ずつ計算した結果と同じ。flavor ごとの帯も出す' {
+    $km = Get-KcHtKeymapWith $script:HtLism (New-KcHtConfig)
+    foreach ($text in @('p10@0 p15@50 r10@90 r15@130', 'p10@0 p15@50 r15@100 r10@140', 'p15@-40 p10@0 r15@40 r10@100', 'p10@0 r10@80')) {
+        $ep = New-HtEpisode $text
+        $x = Invoke-HtEpisode $ep
+        $rel = Get-KcHtReleaseIndex $ep
+        Assert-Equal ([long]$ep.Events[$rel].T) $x.Sweeps.Release
+        $segs = @($x.Sweeps.Segments)
+        Assert-True ($segs.Count -ge 1) $text
+        Assert-Equal 1 $segs[0].From
+        for ($i = 1; $i -lt $segs.Count; $i++) { Assert-Equal ($segs[$i - 1].To + 1) $segs[$i].From ('{0}: 区間がつながる' -f $text) }
+        foreach ($s in $segs) {
+            foreach ($t in @($s.From, $s.To)) {
+                $ev = @(for ($i = 0; $i -lt $ep.Events.Count; $i++) {
+                        $e = $ep.Events[$i]
+                        if ($i -eq $rel) { @{ Pos = $e.Pos; Down = $e.Down; T = [long]$t } } else { $e }
+                    })
+                $r = Invoke-KcHtRun $km $ev
+                $d = [KcHtText]::DecisionFor($r, $ep.TargetIndex)
+                Assert-Equal $s.Status $d.Status ('{0}: {1} ms に離す' -f $text, $t)
+                Assert-Equal $s.Text ([KcHtText]::Strokes($r))
             }
         }
+        Assert-Equal ($script:KcHtFlavors -join ',') (($x.Sweeps.Flavors | ForEach-Object { $_.Flavor }) -join ',')
+        Assert-Equal 'balanced' (@($x.Sweeps.Flavors | Where-Object { $_.Current })[0].Flavor)
     }
-    $text = Format-KcHtSegments $script:HtLism @(
-        @{ From = 51; To = 130; Status = 'tap'; Text = 'A H' }, @{ From = 131; To = 400; Status = 'hold-interrupt'; Text = 'Ctrl+H' })
-    Assert-Equal '〜130 ms: タップ → A H / 131 ms〜: ホールド (ほかのキー) → Ctrl+H' $text
+    $roll = Invoke-HtEpisode (New-HtEpisode 'p10@0 p15@50 r10@90 r15@130')
+    Assert-Equal '〜130 ms: タップ → A H / 131 ms〜: ホールド (ほかのキー) → Ctrl+H' (Format-KcHtSegments $roll.Sweeps.Segments)
 }
 
-Test-Case 'グラフのモデル: レーン・判定の線・tapping-term の線・動かせる入力' {
-    $m = $script:HtLism
-    $cfg = New-KcHtConfig $m
-    $pr = New-KcHtPreset $m $cfg 10 'nest'
-    $km = Get-KcHtKeymapWith $m $cfg
-    $r = Invoke-KcHtRun $m $km $pr.Events
-    $range = Get-KcHtRange $pr.Events $r 0 150
-    Assert-Equal -100 $range.From
-    $view = @{ Model = $m; Config = $cfg; Target = 10; Events = $pr.Events; TargetIndex = $pr.TargetIndex; Selected = $pr.Handle
-        Result = $r; Base = $null; Firmware = $null; Range = $range; Sweeps = @{ Handle = (Get-KcHtSweep $m $km $pr.Events 0 $pr.Handle $range 'mt'); Compare = @(); Term = $null } }
-    $ch = Get-KcHoldTapChart $view
+Test-Case '押している最中: 仮の「離す」で、今離すとどうなるかを出す (A を押したまま)' {
+    $ep = New-HtEpisode 'p10@0' $true
+    $x = Invoke-HtEpisode $ep $null 87
+    Assert-Equal $null $x.Sweeps.Release
+    Assert-Equal '〜149 ms: タップ → A / 150 ms〜: ホールド (時間切れ) → Ctrl' (Format-KcHtSegments $x.Sweeps.Segments)
+    Assert-Equal '判定待ち' $x.Summary.Title
+    Assert-Equal '今離すと: タップ → A。150 ms を過ぎると ホールド (時間切れ) → Ctrl' $x.Summary.Lines[0]
+    Assert-Equal 0 $x.Summary.Level
+    $later = Invoke-HtEpisode $ep $null 160
+    Assert-Equal 'ホールド (時間切れ) に決定 (150 ms)' $later.Summary.Title
+    Assert-Equal 2 $later.Summary.Level
+    Assert-True ($later.Summary.Key -ne $x.Summary.Key) '区間をまたぐと変わる'
+    Assert-Equal (Invoke-HtEpisode $ep $null 120).Summary.Key $x.Summary.Key '同じ区間なら同じ'
+    # H を押したまま (balanced): 今離すとタップ、H を離すとホールド
+    $ep2 = New-HtEpisode 'p10@0 p15@50' $true
+    $y = Invoke-HtEpisode $ep2 $null 70
+    Assert-Equal '判定待ち' $y.Summary.Title
+    Assert-True ($y.Summary.Lines[0] -like '今離すと: タップ → A H。*') $y.Summary.Lines[0]
+}
+
+Test-Case '要約: 決め手、保留されたキー、ファームの判定と違うとき' {
+    $nest = New-HtEpisode 'p10@0 p15@50 r15@100 r10@140'
+    $x = Invoke-HtEpisode $nest
+    Assert-Equal 'ホールド (ほかのキー): PC に届くのは Ctrl+H' $x.Summary.Title
+    Assert-Equal '決め手: 100 ms に H を離した (押している間に、ほかのキーを押して離した) (balanced)' $x.Summary.Lines[0]
+    Assert-Equal 'H は判定まで保留され、50 ms 遅れて送られた' $x.Summary.Lines[1]
+    Assert-Equal 2 $x.Summary.Lines.Count 'ファームと同じ (判定がログに無い) なら出さない'
+    $fw = New-HtEpisode 'p10@0 p15@50 r15@100 r10@140' $false @(@{ Pos = 10; Status = 'tap'; Moment = 'key-up'; Flavor = 'balanced'; T = 140 })
+    $y = Invoke-HtEpisode $fw
+    Assert-True ($y.Summary.Lines[2] -like 'ファームの判定は タップ (140 ms)。計算と違う*') ($y.Summary.Lines -join ' / ')
+    $cfg = New-KcHtConfig
+    Set-KcHtSetting $script:HtLism $cfg 'mt' 'flavor' 'tap-preferred'
+    $same = New-HtEpisode 'p10@0 p15@50 r15@100 r10@140' $false @(@{ Pos = 10; Status = 'hold-interrupt'; Moment = 'other-key-up'; Flavor = 'balanced'; T = 100 })
+    $z = Invoke-HtEpisode $same $cfg
+    Assert-Equal 'tap' $z.Status
+    Assert-True ($z.Summary.Lines[-1] -like '*設定を変えたので違う') ($z.Summary.Lines -join ' / ')
+}
+
+Test-Case 'グラフのモデル: レーン・判定と tapping-term の線・保留の矢印・帯 (押している最中は離していないキーを開いたまま)' {
+    $nest = New-HtEpisode 'p10@0 p15@50 r15@100 r10@140'
+    $x = Invoke-HtEpisode $nest
+    Assert-Equal -100 $x.Range.From
+    $ch = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $nest $x.Result $x.Sweeps $x.Range
     $titles = @($ch.Lanes | ForEach-Object { $_.Title })
-    Assert-Equal '押したキー,A (Ctrl),H,PC に届く入力,Ctrl,H' (($titles | Select-Object -First 6) -join ',')
+    Assert-Equal '押したキー,A (Ctrl),H,PC に届く入力,Ctrl,H,A (Ctrl) を離す時刻ごとの結果,今の設定' (($titles | Select-Object -First 8) -join ',')
+    Assert-Equal '&mt' $ch.Lanes[1].Note
     $styles = @($ch.Bars | Where-Object { $_.Lane -eq 1 } | ForEach-Object { $_.Style })
     Assert-Equal "$($script:KcHtBarUndecided),$($script:KcHtBarHold)" ($styles -join ',') '判定待ち → ホールド'
-    $term = @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkTerm })
-    Assert-Equal 150 $term[0].At
-    Assert-Equal $script:KcHtHandleTerm $term[0].Handle
-    $dec = @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkDecision })
-    Assert-Equal 100 $dec[0].At
+    Assert-Equal 150 @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkTerm })[0].At
+    Assert-Equal 100 @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkDecision })[0].At
+    Assert-Equal 0 @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkFirmware }).Count
+    Assert-Equal 140 @($ch.Marks | Where-Object { $_.Style -eq $script:KcHtMarkCursor })[0].At '実際に離した時刻'
     Assert-Equal 1 $ch.Arrows.Count 'H の押下は判定まで保留'
-    Assert-Equal 5 $ch.Handles.Count
-    Assert-Equal 2 $ch.Selected
+    $actions = @($ch.Lanes | Where-Object { $_.Action } | ForEach-Object { $_.Action })
+    Assert-Equal 'flavor:hold-preferred,flavor:balanced,flavor:tap-preferred,flavor:tap-unless-interrupted' ($actions -join ',')
+    # ファームの判定が違えば線を出す
+    $fw = New-HtEpisode 'p10@0 p15@50 r15@100 r10@140' $false @(@{ Pos = 10; Status = 'tap'; Moment = 'key-up'; Flavor = 'balanced'; T = 140 })
+    $ch2 = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $fw $x.Result $x.Sweeps $x.Range
+    Assert-Equal 140 @($ch2.Marks | Where-Object { $_.Style -eq $script:KcHtMarkFirmware })[0].At
+    # 押している最中: 離していないキーは開いたまま、帯のカーソルは無い
+    $live = New-HtEpisode 'p10@0 p15@50' $true
+    $y = Invoke-HtEpisode $live $null 70
+    Assert-Equal 300 $y.Range.To '「今」+ 100 ms と tapping-term + 60 ms の大きいほう'
+    $ch3 = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $live $y.Result $y.Sweeps $y.Range
+    $a = @($ch3.Bars | Where-Object { $_.Lane -eq 1 })
+    Assert-Equal $script:KcHtOpenEnd $a[-1].To
+    Assert-Equal 0 @($ch3.Marks | Where-Object { $_.Style -eq $script:KcHtMarkCursor }).Count
 }
 
+Test-Case '時計: いちばん遅れの少ない行に合わせて「今」を推定し、ファームの時刻が戻ったら作り直す' {
+    $c = New-KcHtClock
+    Assert-Equal $null (Get-KcHtClockNow $c 0)
+    # 本当のずれは 990 ms。行は 0〜60 ms 遅れて届く
+    Update-KcHtClock $c 1000 70
+    Update-KcHtClock $c 1005 75
+    Update-KcHtClock $c 1020 30
+    Update-KcHtClock $c 1030 100
+    Assert-Equal 990 $c.Offset
+    Assert-Equal 1090 (Get-KcHtClockNow $c 100)
+    # 5 秒より前の行は使わない
+    Update-KcHtClock $c 6990 6070
+    Assert-Equal 920 $c.Offset
+    # 再起動 (ファームの時刻が戻った)
+    Update-KcHtClock $c 5 6100
+    Assert-Equal -6095 $c.Offset
+}
 # ログ版ファームの行 (zmk-log.Tests.ps1 と同じ書式)
 function New-HtLog([double]$Ms, [string]$Func, [string]$Msg) {
     $ts = [TimeSpan]::FromMilliseconds([math]::Floor($Ms))
@@ -268,9 +294,9 @@ Test-Case 'ログ: A (ペリフェラル) を押したまま H (セントラル)
     Assert-Equal 100 $ep.Decisions[0].T
     Assert-Equal 4 @($ep.Hid).Count
     Assert-True $ep.Uncertain '左手側のキーは押す / 離すを数えた'
-    $cmp = Compare-KcHtFirmware $script:HtLism $ep
-    Assert-Equal 1 $cmp.Level $cmp.Text
-    Assert-True ((Format-KcHtEpisode $script:HtLism $ep) -like '*A (Ctrl) + H → ホールド (ほかのキー)') (Format-KcHtEpisode $script:HtLism $ep)
+    $x = Invoke-HtEpisode $ep
+    Assert-Equal 'hold-interrupt' $x.Status 'ファームの判定と同じ'
+    Assert-Equal 0 @($x.Summary.Lines | Where-Object { $_ -like 'ファーム*' }).Count
 }
 
 Test-Case 'ログ: 欠けたエピソードは比べない。左手側の押す / 離すのずれは hold-tap の行で直す' {
@@ -290,5 +316,25 @@ Test-Case 'ログ: 欠けたエピソードは比べない。左手側の押す 
     Assert-True ($null -ne $ep) '判定待ちが無く、すべて離した'
     Assert-True $ep.Dropped
     Assert-Equal 'p10@0 r10@80' (($ep.Events | Where-Object { $_.T -ge 0 } | ForEach-Object { '{0}{1}@{2}' -f @('r', 'p')[[int]$_.Down], $_.Pos, $_.T }) -join ' ')
-    Assert-Equal 0 (Compare-KcHtFirmware $script:HtLism $ep).Level
+    Assert-True ((Invoke-HtEpisode $ep).Summary.Lines[-1] -like 'ログが欠けた*')
+}
+
+Test-Case 'ログ: 押している最中の回 (スナップショット) は、切り出しの状態を変えない' {
+    $cap = New-KcHtCapture $script:HtLism
+    $lines = @(
+        (New-HtLog 5000.2 'peripheral_event_work_callback' 'Trigger key position state change for 10'),
+        (New-HtLog 5000.4 'on_hold_tap_binding_pressed' '10 new undecided hold_tap'),
+        (New-HtLog 5060.3 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: true'),
+        (New-HtLog 5060.4 'position_state_changed_listener' '10 capturing 15 down event')
+    )
+    Assert-Equal $null (Get-KcHtCaptureSnapshot $cap)
+    foreach ($l in $lines) { [void](Update-KcHtCapture $cap (ConvertFrom-KcZmkLogLine $l)) }
+    $snap = Get-KcHtCaptureSnapshot $cap
+    Assert-True $snap.Live
+    Assert-Equal 5000 $snap.T0
+    Assert-Equal 'p10@0 p15@60' (($snap.Events | ForEach-Object { '{0}{1}@{2}' -f @('r', 'p')[[int]$_.Down], $_.Pos, $_.T }) -join ' ')
+    Assert-Equal 'target,partner' (($snap.Events | ForEach-Object { $_.Role }) -join ',')
+    Assert-Equal 2 $cap.Ep.Events.Count 'スナップショットで変わらない'
+    Assert-Equal $null (Complete-KcHtCapture $cap) 'まだ押している'
+    Assert-True ($null -ne $cap.Ep)
 }

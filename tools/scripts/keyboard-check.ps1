@@ -26,11 +26,10 @@
         &trans のフォールスルー・決まったレイヤーとバインディング・ホールドタップの判定・タップダンスの回数・
         モッドモーフの分岐・送ったキーを、キーボードの図と時系列で表示する。ログは tools/.cache/keyboard-check/trace/ に保存できる
 
-    タップホールドのタイミングを見る (-Mode HoldTap。合否は出さない)
-      - &mt / &lt (KQ-mini は Vial の Tap-Hold の設定) がタップになるかホールドになるかを、押す・離す時刻を横軸にした
-        グラフで表示する。押す・離す時刻や tapping-term をドラッグすると、どこで結果が変わるかが分かり、flavor
-        (KQ-mini は PERMISSIVE_HOLD など) や tapping-term を変えたときの違いを並べて比べられる。ZMK はログ版のファームを
-        つなぐと、実際に押したキーとファームの判定も重ねる。tools/.cache/keyboard-check/hold-tap/ に保存できる
+    タップホールドのタイミングを見る (-Mode HoldTap。ZMK のみ。合否は出さない)
+      - 右手側にログ版のファーム (*_logging.uf2) を書き込んで USB でつなぐと、hold-tap のキー (&mt / &lt) を押した
+        瞬間から、押したキー・PC に届く入力・tapping-term と判定の時刻を、時刻を横軸にしたグラフにリアルタイムに出す。
+        離す時刻ごとの結果と flavor ごとの比較の帯も出し、flavor と tapping-term を変えると計算し直す
 
 .PARAMETER Keyboard
     機種 (KqMini / Keyball39 / LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp)。省略するとメニューで選びます。
@@ -39,7 +38,7 @@
 .PARAMETER Mode
     All (読み出し検査と実動作テスト) / Readout (読み出し検査だけ) / Interactive (実動作テストだけ) /
     Trace (レイヤーの動きを見る。ZMK のログ版ファームのログから、押したキーのレイヤーの遷移と解決を表示する。合否は出さない) /
-    HoldTap (タップホールドのタイミングを見る。&mt / &lt の判定を、押す・離す時刻のグラフで表示する。合否は出さない)。
+    HoldTap (タップホールドのタイミングを見る。ZMK のログ版ファームで押した &mt / &lt の判定を、時刻のグラフにリアルタイムに出す。合否は出さない)。
 
 .PARAMETER Section
     実動作テストの範囲。All / Keys (キーのタップ) / Behaviors (レイヤー・タップダンス・モッドモーフ・コンボ) /
@@ -253,7 +252,7 @@ if (-not $Mode) {
     Write-Host '  4. トラックボールの正規化だけ (楕円・速さ)'
     Write-Host '  5. レイヤー・タップダンス・モッドモーフ・コンボだけ'
     Write-Host '  6. レイヤーの動きを見る (ZMK のログ版ファームで、自由に押したキーのレイヤーの遷移と解決を表示)'
-    Write-Host '  7. タップホールドのタイミングを見る (押す・離す時刻のグラフで、&mt / &lt の判定と、設定による違いを確かめる)'
+    Write-Host '  7. タップホールドのタイミングを見る (ZMK のログ版ファームで、押した hold-tap の判定をリアルタイムに表示)'
     switch (Read-KcChoice '番号' 7 1) {
         1 { $Mode = 'All' }
         2 { $Mode = 'Readout' }
@@ -299,12 +298,11 @@ if ($Mode -eq 'Trace') {
     exit 0
 }
 
-# タップホールドのタイミングを見る (シミュレータ + ZMK はログ版ファーム)。合否は出さない
+# タップホールドのタイミングを見る (ログ版ファーム)。合否は出さない
 if ($Mode -eq 'HoldTap') {
-    if ($null -eq (Get-KcProp (Get-KcProp $expected 'interactive') 'hold_tap' $null)) {
+    if ($expected.kind -ne 'zmk') {
         Write-Host ''
-        Write-Host ('{0} にはタップホールドがありません (タップホールドは KQ-mini 側にあります)。' -f $board.Label) -ForegroundColor Yellow
-        Write-Host '「Keyboard Quantizer Mini + Keyball39」を選んでください。'
+        Write-Host ('「タップホールドのタイミングを見る」は ZMK のキーボードだけです ({0} は対象外)。' -f $board.Label) -ForegroundColor Yellow
         exit 0
     }
     if (-not $isWindowsHost) {
@@ -312,16 +310,10 @@ if ($Mode -eq 'HoldTap') {
         exit 0
     }
     Write-Host ''
-    Write-Host ('{0} のタップホールドの判定を、押す・離す時刻のグラフで表示します。' -f $expected.name)
-    if ($expected.kind -eq 'zmk') {
-        Write-Host '右手側にログ版のファームを書き込んで USB でつなぐと、実際に押したキーとファームの判定も表示します。'
-    }
+    Write-Host ('{0} のログ版ファームのログから、押した hold-tap の判定をリアルタイムに表示します。' -f $expected.name)
     Write-Host 'ウィンドウを閉じるか「閉じる」を押すと終わります。'
     try {
-        $saved = Invoke-KcHoldTap -Expected $expected -CacheDir $cacheDir -Port $Port
-        if ($saved) {
-            Write-Host ('保存しました: {0}' -f $saved)
-        }
+        Invoke-KcHoldTap -Expected $expected -Port $Port
     } catch {
         Write-Host ('失敗: {0}' -f $_.Exception.Message) -ForegroundColor Red
         exit 1

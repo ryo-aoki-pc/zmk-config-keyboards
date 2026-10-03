@@ -3319,9 +3319,10 @@ public sealed class KcFlashForm : IDisposable
 }
 
 // The timeline of the tap-hold timing window: lanes (key presses, what the PC gets, result strips) with time on
-// the x axis. PowerShell (hold-tap.ps1 Get-KcHoldTapChart) sends the elements; the ends of the key presses and the
-// tapping term line can be dragged (actions "drag:<id>:<ms>" while moving, "drop:<id>:<ms>" at the end,
-// "select:<id>" for a click). The constants are mirrored in hold-tap.ps1.
+// the x axis. PowerShell (hold-tap.ps1 Get-KcHoldTapChart) sends the elements. While a key is still held
+// (SetLive), the view draws the key and output lanes up to "now" only, and moves the "now" line by itself with a
+// timer, so PowerShell only re-syncs the clock now and then. A click on a lane with an action queues the action
+// (flavor:<name> on the comparison strips). The constants are mirrored in hold-tap.ps1.
 public sealed class KcTimelineView
 {
     public const int LaneCaption = 0;
@@ -3337,53 +3338,38 @@ public sealed class KcTimelineView
     public const int BarLayer = 5;
     public const int BarKey = 6;
     public const int BarOther = 7;
-    public const int BarBaseline = 8;
-    public const int BarFirmware = 9;
-    public const int BarStripTap = 10;
-    public const int BarStripHold = 11;
-    public const int BarStripNone = 12;
-
-    public const int SpanWindow = 0;
+    public const int BarStripTap = 8;
+    public const int BarStripHold = 9;
+    public const int BarStripNone = 10;
 
     public const int MarkDecision = 0;
     public const int MarkTerm = 1;
     public const int MarkFirmware = 2;
     public const int MarkCursor = 3;
-    public const int MarkBaseline = 4;
 
     public const int ArrowCapture = 0;
 
-    public const int HandleTerm = 1000;
-    public const int HandleNone = -1;
-
     static readonly string[] BarFill = { "KcKeyNormalFill", "KcWarnTint", "KcKeyComboFill", "KcKeyHoldFill", "KcKeyModFill",
-        "KcKeyHoldFill", "KcLayerOnFill", "KcKeySkipFill", "KcBg", "KcBg", "KcKeyComboFill", "KcKeyHoldFill", "KcKeySkipFill" };
+        "KcKeyHoldFill", "KcLayerOnFill", "KcKeySkipFill", "KcKeyComboFill", "KcKeyHoldFill", "KcKeySkipFill" };
     static readonly string[] BarEdge = { "KcKeyNormalEdge", "KcWarnEdge", "KcKeyComboEdge", "KcKeyHoldEdge", "KcKeyModEdge",
-        "KcKeyHoldEdge", "KcLayerOnEdge", "KcKeySkipEdge", "KcTextMuted", "KcInfoMark", "KcKeyComboEdge", "KcKeyHoldEdge", "KcKeySkipEdge" };
+        "KcKeyHoldEdge", "KcLayerOnEdge", "KcKeySkipEdge", "KcKeyComboEdge", "KcKeyHoldEdge", "KcKeySkipEdge" };
     static readonly string[] BarInk = { "KcKeyNormalInk", "KcWarnInk", "KcKeyComboInk", "KcKeyHoldInk", "KcKeyModInk",
-        "KcKeyHoldInk", "KcLayerOnInk", "KcKeySkipInk", "KcTextMuted", "KcInfoInk", "KcKeyComboInk", "KcKeyHoldInk", "KcKeySkipInk" };
-    static readonly string[] MarkInk = { "KcAccentLight", "KcWarnMark", "KcInfoMark", "KcText", "KcTextMuted" };
+        "KcKeyHoldInk", "KcLayerOnInk", "KcKeySkipInk", "KcKeyComboInk", "KcKeyHoldInk", "KcKeySkipInk" };
+    static readonly string[] MarkInk = { "KcAccentLight", "KcWarnMark", "KcInfoMark", "KcText" };
+    const string NowInk = "KcOkMark";
 
     const double Gutter = 196;
     const double RightPad = 18;
     const double AxisHeight = 24;
-    const double GripRadius = 5;
     const double LabelRow = 17;
     const double MinBarWidth = 4;
-
-    sealed class Spot
-    {
-        public int Id;
-        public double X;
-        public double Y0;
-        public double Y1;
-    }
 
     readonly FrameworkElement owner;
     readonly Canvas canvas;
     readonly ScrollViewer scroll;
-    readonly Action<string, string> enqueue;
-    readonly List<Spot> spots = new List<Spot>();
+    readonly Action<string> enqueue;
+    readonly DispatcherTimer timer;
+    readonly Stopwatch liveClock = new Stopwatch();
 
     double from;
     double to = 400;
@@ -3396,37 +3382,24 @@ public sealed class KcTimelineView
     double[] barTo = new double[0];
     int[] barStyles = new int[0];
     string[] barTexts = new string[0];
-    int[] barStarts = new int[0];
-    int[] barEnds = new int[0];
-    int[] spanLaneFrom = new int[0];
-    int[] spanLaneTo = new int[0];
-    double[] spanFrom = new double[0];
-    double[] spanTo = new double[0];
-    string[] spanTexts = new string[0];
     int[] markLaneFrom = new int[0];
     int[] markLaneTo = new int[0];
     double[] markAt = new double[0];
     int[] markStyles = new int[0];
     string[] markTexts = new string[0];
-    int[] markHandles = new int[0];
     int[] arrowFromLane = new int[0];
     double[] arrowFromAt = new double[0];
     int[] arrowToLane = new int[0];
     double[] arrowToAt = new double[0];
-    int[] handleIds = new int[0];
-    double[] handleMin = new double[0];
-    double[] handleMax = new double[0];
-    string[] handleTips = new string[0];
-    int selected = HandleNone;
-    int dragId = HandleNone;
-    double dragValue;
-    bool dragMoved;
     double[] laneTop = new double[0];
     double[] laneHeight = new double[0];
     double plotLeft = Gutter;
     double plotRight = 600;
+    bool live;
+    double liveBase;
+    string nowFormat = "{0} ms";
 
-    public KcTimelineView(FrameworkElement owner, Canvas canvas, ScrollViewer scroll, Action<string, string> enqueue)
+    public KcTimelineView(FrameworkElement owner, Canvas canvas, ScrollViewer scroll, Action<string> enqueue)
     {
         this.owner = owner;
         this.canvas = canvas;
@@ -3434,15 +3407,13 @@ public sealed class KcTimelineView
         this.enqueue = enqueue;
         canvas.MouseLeftButtonDown += OnDown;
         canvas.MouseMove += OnMove;
-        canvas.MouseLeftButtonUp += OnUp;
-        canvas.LostMouseCapture += delegate
-        {
-            if (dragId != HandleNone) EndDrag();
-        };
         scroll.SizeChanged += delegate(object sender, SizeChangedEventArgs e)
         {
             if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 0.5) Render();
         };
+        timer = new DispatcherTimer(DispatcherPriority.Render, owner.Dispatcher);
+        timer.Interval = TimeSpan.FromMilliseconds(33);
+        timer.Tick += delegate { Render(); };
     }
 
     public void SetRange(double fromMs, double toMs)
@@ -3459,34 +3430,22 @@ public sealed class KcTimelineView
         laneActions = actions ?? new string[0];
     }
 
-    public void SetBars(int[] lanes, double[] fromMs, double[] toMs, int[] styles, string[] texts, int[] starts, int[] ends)
+    public void SetBars(int[] lanes, double[] fromMs, double[] toMs, int[] styles, string[] texts)
     {
         barLanes = lanes ?? new int[0];
         barFrom = fromMs ?? new double[0];
         barTo = toMs ?? new double[0];
         barStyles = styles ?? new int[0];
         barTexts = texts ?? new string[0];
-        barStarts = starts ?? new int[0];
-        barEnds = ends ?? new int[0];
     }
 
-    public void SetSpans(int[] laneFrom, int[] laneTo, double[] fromMs, double[] toMs, string[] texts)
-    {
-        spanLaneFrom = laneFrom ?? new int[0];
-        spanLaneTo = laneTo ?? new int[0];
-        spanFrom = fromMs ?? new double[0];
-        spanTo = toMs ?? new double[0];
-        spanTexts = texts ?? new string[0];
-    }
-
-    public void SetMarks(int[] laneFrom, int[] laneTo, double[] at, int[] styles, string[] texts, int[] handles)
+    public void SetMarks(int[] laneFrom, int[] laneTo, double[] at, int[] styles, string[] texts)
     {
         markLaneFrom = laneFrom ?? new int[0];
         markLaneTo = laneTo ?? new int[0];
         markAt = at ?? new double[0];
         markStyles = styles ?? new int[0];
         markTexts = texts ?? new string[0];
-        markHandles = handles ?? new int[0];
     }
 
     public void SetArrows(int[] fromLane, double[] fromAt, int[] toLane, double[] toAt)
@@ -3497,22 +3456,42 @@ public sealed class KcTimelineView
         arrowToAt = toAt ?? new double[0];
     }
 
-    public void SetHandles(int[] ids, double[] mins, double[] maxs, string[] tips)
+    // The label of the "now" line ({0} = ms since the hold-tap key was pressed).
+    public void SetNowFormat(string format)
     {
-        handleIds = ids ?? new int[0];
-        handleMin = mins ?? new double[0];
-        handleMax = maxs ?? new double[0];
-        handleTips = tips ?? new string[0];
+        nowFormat = string.IsNullOrEmpty(format) ? "{0} ms" : format;
     }
 
-    public void SetSelected(int id)
+    // While a key is held: "now" is nowMs and then moves on with the clock (the view redraws itself).
+    public void SetLive(bool on, double nowMs)
     {
-        selected = id;
+        live = on;
+        liveBase = nowMs;
+        liveClock.Reset();
+        if (on)
+        {
+            liveClock.Start();
+            timer.Start();
+        }
+        else
+        {
+            timer.Stop();
+        }
     }
 
-    public int Selected { get { return selected; } }
+    public bool IsLive { get { return live; } }
 
-    public int Dragging { get { return dragId; } }
+    // "Now" in ms (NaN when not live).
+    public double Now { get { return live ? liveBase + liveClock.Elapsed.TotalMilliseconds : double.NaN; } }
+
+    // The time range drawn (it grows while live).
+    public double RangeTo { get { return to; } }
+
+    // The x of a time (for the tests).
+    public double XOf(double ms)
+    {
+        return X(ms);
+    }
 
     // Brushes of a bar style (the legend of the window uses them).
     public Brush FillOf(int style)
@@ -3523,20 +3502,6 @@ public sealed class KcTimelineView
     public Brush EdgeOf(int style)
     {
         return Res(BarEdge[KcDraw.Clamp(style, 0, BarEdge.Length - 1)]);
-    }
-
-    // For the tests: a drag of a handle to ms (drop: also release it) as the mouse would do.
-    public void SimulateDrag(int id, double ms, bool drop)
-    {
-        if (dragId != id)
-        {
-            dragId = id;
-            dragMoved = false;
-            dragValue = double.NaN;
-            selected = id;
-        }
-        Move(ms);
-        if (drop) EndDrag();
     }
 
     Brush Res(string key)
@@ -3564,36 +3529,21 @@ public sealed class KcTimelineView
         return plotLeft + (t - from) * (plotRight - plotLeft) / Math.Max(1, to - from);
     }
 
-    double T(double x)
-    {
-        return from + (x - plotLeft) * (to - from) / Math.Max(1, plotRight - plotLeft);
-    }
-
     static double LaneHeightOf(int kind)
     {
         switch (kind)
         {
             case LaneCaption: return 30;
             case LaneKey: return 34;
-            case LaneOutput: return 28;
             default: return 28;
         }
     }
 
-    int HandleIndex(int id)
+    // Lanes cut at "now" while live: the key presses and what the PC gets (not the strips).
+    bool Clipped(int lane)
     {
-        for (int i = 0; i < handleIds.Length; i++)
-        {
-            if (handleIds[i] == id) return i;
-        }
-        return -1;
-    }
-
-    double Clamp(int id, double ms)
-    {
-        int h = HandleIndex(id);
-        if (h < 0) return ms;
-        return Math.Max(At(handleMin, h), Math.Min(At(handleMax, h), ms));
+        int kind = AtInt(laneKinds, lane, LaneCaption);
+        return live && (kind == LaneKey || kind == LaneOutput);
     }
 
     TextBlock MakeText(string text, double size, FontWeight weight, string ink)
@@ -3606,6 +3556,20 @@ public sealed class KcTimelineView
         t.TextTrimming = TextTrimming.CharacterEllipsis;
         t.IsHitTestVisible = false;
         return t;
+    }
+
+    Border MakeChip(string text, string ink)
+    {
+        Border chip = new Border();
+        chip.CornerRadius = new CornerRadius(5);
+        chip.Padding = new Thickness(5, 0, 5, 1);
+        chip.Background = Res("KcSurfaceRaised");
+        chip.BorderBrush = Res(ink);
+        chip.BorderThickness = new Thickness(1);
+        chip.IsHitTestVisible = false;
+        chip.Child = MakeText(text, 10.5, FontWeights.SemiBold, ink);
+        chip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return chip;
     }
 
     void Place(UIElement e, double x, double y)
@@ -3633,7 +3597,6 @@ public sealed class KcTimelineView
     public void Render()
     {
         canvas.Children.Clear();
-        spots.Clear();
         double width = scroll.ViewportWidth;
         if (width <= 0) width = scroll.ActualWidth;
         if (width <= 0) width = 800;
@@ -3641,50 +3604,65 @@ public sealed class KcTimelineView
         plotLeft = Gutter;
         plotRight = width - RightPad;
         int n = laneKinds.Length;
-
-        // labels of the marks: in rows above the first lane they cross, so that labels close in time do not overlap
-        int markCount = markAt.Length;
-        Border[] markChips = new Border[markCount];
-        double[] chipX = new double[markCount];
-        int[] chipRow = new int[markCount];
-        int labelLane = -1;
-        List<int> labelled = new List<int>();
-        for (int i = 0; i < markCount; i++)
+        double now = Now;
+        if (live && now > to - 20)
         {
+            // keep "now" inside: widen the range in steps of 50 ms
+            to = Math.Ceiling((now + 100) / 50) * 50;
+        }
+
+        // labels of the lines (and of "now"): in rows above the first lane they cross, so that labels close in
+        // time do not overlap
+        List<Border> chips = new List<Border>();
+        List<double> chipX = new List<double>();
+        List<int> chipRow = new List<int>();
+        int[] markChip = new int[markAt.Length];
+        int nowChip = -1;
+        int labelLane = -1;
+        for (int i = 0; i < markAt.Length; i++)
+        {
+            markChip[i] = -1;
             int lf = AtInt(markLaneFrom, i, -1);
             string text = AtText(markTexts, i);
-            if (text.Length == 0 || lf < 0 || lf >= n) continue;
-            double x = X(MarkTime(i));
+            if (text.Length == 0 || lf < 0 || lf >= n || !MarkShown(i, now)) continue;
+            double x = X(markAt[i]);
             if (x < plotLeft - 0.5 || x > plotRight + 0.5) continue;
             int style = KcDraw.Clamp(AtInt(markStyles, i, 0), 0, MarkInk.Length - 1);
-            Border chip = new Border();
-            chip.CornerRadius = new CornerRadius(5);
-            chip.Padding = new Thickness(5, 0, 5, 1);
-            chip.Background = Res("KcSurfaceRaised");
-            chip.BorderBrush = Res(MarkInk[style]);
-            chip.BorderThickness = new Thickness(1);
-            chip.IsHitTestVisible = false;
-            chip.Child = MakeText(text, 10.5, FontWeights.SemiBold, MarkInk[style]);
-            chip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double cx = x + 4;
-            if (cx + chip.DesiredSize.Width > plotRight) cx = x - 4 - chip.DesiredSize.Width;
-            markChips[i] = chip;
-            chipX[i] = cx;
-            labelled.Add(i);
+            markChip[i] = AddChip(chips, chipX, MakeChip(text, MarkInk[style]), x);
             if (labelLane < 0 || lf < labelLane) labelLane = lf;
         }
-        labelled.Sort(delegate(int a, int b)
+        int firstKeyLane = -1;
+        for (int i = 0; i < n; i++)
+        {
+            if (laneKinds[i] != LaneCaption)
+            {
+                firstKeyLane = i;
+                break;
+            }
+        }
+        if (live && firstKeyLane >= 0)
+        {
+            nowChip = AddChip(chips, chipX, MakeChip(string.Format(nowFormat, (long)Math.Floor(Math.Max(0, now))), NowInk), X(now));
+            if (labelLane < 0 || firstKeyLane < labelLane) labelLane = firstKeyLane;
+        }
+        List<int> order = new List<int>();
+        for (int i = 0; i < chips.Count; i++)
+        {
+            order.Add(i);
+            chipRow.Add(0);
+        }
+        order.Sort(delegate(int a, int b)
         {
             int c = chipX[a].CompareTo(chipX[b]);
             return c != 0 ? c : a.CompareTo(b);
         });
         List<double> rowEnds = new List<double>();
-        foreach (int i in labelled)
+        foreach (int i in order)
         {
             int row = 0;
             while (row < rowEnds.Count && rowEnds[row] + 4 > chipX[i]) row++;
             if (row == rowEnds.Count) rowEnds.Add(0);
-            rowEnds[row] = chipX[i] + markChips[i].DesiredSize.Width;
+            rowEnds[row] = chipX[i] + chips[i].DesiredSize.Width;
             chipRow[i] = row;
         }
 
@@ -3715,13 +3693,13 @@ public sealed class KcTimelineView
                 Place(c, 6, top + 9);
                 continue;
             }
-            if (AtText(laneActions, i).Length > 0)
+            if (AtText(laneActions, i).Length > 0 && AtText(laneNotes, i).Length > 0)
             {
                 Rectangle hover = new Rectangle();
                 hover.Width = width;
                 hover.Height = h;
                 hover.Fill = Res("KcSurfaceHover");
-                hover.Opacity = AtText(laneNotes, i).Length > 0 ? 0.55 : 0;
+                hover.Opacity = 0.55;
                 hover.IsHitTestVisible = false;
                 Place(hover, 0, top);
             }
@@ -3730,18 +3708,11 @@ public sealed class KcTimelineView
             title.Orientation = Orientation.Horizontal;
             title.Width = Gutter - 16;
             title.IsHitTestVisible = false;
-            TextBlock t = MakeText(AtText(laneTitles, i), 12.5, FontWeights.SemiBold, laneKinds[i] == LaneStrip ? "KcTextMuted" : "KcText");
-            title.Children.Add(t);
+            title.Children.Add(MakeText(AtText(laneTitles, i), 12.5, FontWeights.SemiBold, laneKinds[i] == LaneStrip ? "KcTextMuted" : "KcText"));
             string note = AtText(laneNotes, i);
-            if (note.Length > 0 && laneKinds[i] != LaneStrip)
+            if (note.Length > 0)
             {
-                TextBlock nt = MakeText(note, 11, FontWeights.Normal, "KcTextFaint");
-                nt.Margin = new Thickness(6, 1, 0, 0);
-                title.Children.Add(nt);
-            }
-            else if (note.Length > 0)
-            {
-                TextBlock nt = MakeText(note, 11, FontWeights.Normal, "KcAccentLight");
+                TextBlock nt = MakeText(note, 11, FontWeights.Normal, laneKinds[i] == LaneStrip ? "KcAccentLight" : "KcTextFaint");
                 nt.Margin = new Thickness(6, 1, 0, 0);
                 title.Children.Add(nt);
             }
@@ -3750,7 +3721,7 @@ public sealed class KcTimelineView
 
         // time axis and grid
         double pxPerMs = (plotRight - plotLeft) / Math.Max(1, to - from);
-        double[] steps = { 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000 };
+        double[] steps = { 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000 };
         double step = steps[steps.Length - 1];
         foreach (double s in steps)
         {
@@ -3774,32 +3745,7 @@ public sealed class KcTimelineView
                 Place(lt, x - 30, 3);
             }
         }
-        TextBlock unit = MakeText("ms", 11, FontWeights.Normal, "KcTextFaint");
-        Place(unit, 10, 3);
-
-        // windows (quick-tap etc.)
-        for (int i = 0; i < spanFrom.Length; i++)
-        {
-            int lf = AtInt(spanLaneFrom, i, -1);
-            int lt2 = AtInt(spanLaneTo, i, -1);
-            if (lf < 0 || lt2 >= n || lf > lt2) continue;
-            double x0 = Math.Max(plotLeft, X(spanFrom[i]));
-            double x1 = Math.Min(plotRight, X(At(spanTo, i)));
-            if (x1 <= x0) continue;
-            Rectangle r = new Rectangle();
-            r.Width = x1 - x0;
-            r.Height = laneTop[lt2] + laneHeight[lt2] - laneTop[lf] - 2;
-            r.Fill = Res("KcInfoTint");
-            r.Stroke = Res("KcInfoEdge");
-            r.StrokeThickness = 1;
-            r.StrokeDashArray = new DoubleCollection(new double[] { 3, 3 });
-            r.Opacity = 0.9;
-            r.IsHitTestVisible = false;
-            Place(r, x0, laneTop[lf] + 1);
-            TextBlock st = MakeText(AtText(spanTexts, i), 10, FontWeights.Normal, "KcInfoInk");
-            st.Width = Math.Max(10, x1 - x0 - 4);
-            Place(st, x0 + 3, laneTop[lf] + 1);
-        }
+        Place(MakeText("ms", 11, FontWeights.Normal, "KcTextFaint"), 10, 3);
 
         // bars
         for (int i = 0; i < barLanes.Length; i++)
@@ -3807,52 +3753,48 @@ public sealed class KcTimelineView
             int lane = barLanes[i];
             if (lane < 0 || lane >= n) continue;
             int style = KcDraw.Clamp(AtInt(barStyles, i, 0), 0, BarFill.Length - 1);
-            int start = AtInt(barStarts, i, -1);
-            int end = AtInt(barEnds, i, -1);
             double t0 = At(barFrom, i);
             double t1 = At(barTo, i);
-            if (dragId != HandleNone && start == dragId) t0 = dragValue;
-            if (dragId != HandleNone && end == dragId) t1 = dragValue;
+            if (Clipped(lane))
+            {
+                if (t0 > now) continue;
+                t1 = Math.Min(t1, now);
+            }
             double x0 = Math.Max(plotLeft, X(t0));
             double x1 = Math.Min(plotRight, X(t1));
-            double top = laneTop[lane];
-            double h = laneHeight[lane];
-            bool outline = style == BarBaseline || style == BarFirmware;
-            double bh = outline ? 8 : h - 10;
-            double by = outline ? top + h - bh - 3 : top + 5;
-            if (t1 >= t0 && x1 >= x0)
+            if (t1 < t0 || x1 < x0) continue;
+            // a key pressed and released in the same ms (a tap) still shows
+            if (x1 - x0 < MinBarWidth)
             {
-                // a key pressed and released in the same ms (a tap) still shows
-                if (x1 - x0 < MinBarWidth)
+                x1 = x0 + MinBarWidth;
+                if (x1 > plotRight)
                 {
-                    x1 = x0 + MinBarWidth;
-                    if (x1 > plotRight)
-                    {
-                        x1 = plotRight;
-                        x0 = plotRight - MinBarWidth;
-                    }
-                }
-                Rectangle r = new Rectangle();
-                r.Width = x1 - x0;
-                r.Height = bh;
-                r.RadiusX = 4;
-                r.RadiusY = 4;
-                r.Fill = outline ? Brushes.Transparent : Res(BarFill[style]);
-                r.Stroke = Res(BarEdge[style]);
-                r.StrokeThickness = outline ? 1.5 : 1;
-                if (style == BarUndecided || outline) r.StrokeDashArray = new DoubleCollection(new double[] { 3, 2 });
-                string text = AtText(barTexts, i);
-                if (text.Length > 0) ToolTipService.SetToolTip(r, text);
-                Place(r, x0, by);
-                if (!outline && text.Length > 0 && x1 - x0 > 18)
-                {
-                    TextBlock bt = MakeText(text, 11, FontWeights.SemiBold, BarInk[style]);
-                    bt.Width = x1 - x0 - 8;
-                    Place(bt, x0 + 5, by + (bh - 15) / 2);
+                    x1 = plotRight;
+                    x0 = plotRight - MinBarWidth;
                 }
             }
-            if (start >= 0) AddSpot(start, X(t0), top, top + h);
-            if (end >= 0) AddSpot(end, X(t1), top, top + h);
+            double top = laneTop[lane];
+            double h = laneHeight[lane];
+            double bh = h - 10;
+            double by = top + 5;
+            Rectangle r = new Rectangle();
+            r.Width = x1 - x0;
+            r.Height = bh;
+            r.RadiusX = 4;
+            r.RadiusY = 4;
+            r.Fill = Res(BarFill[style]);
+            r.Stroke = Res(BarEdge[style]);
+            r.StrokeThickness = 1;
+            if (style == BarUndecided) r.StrokeDashArray = new DoubleCollection(new double[] { 3, 2 });
+            string text = AtText(barTexts, i);
+            if (text.Length > 0) ToolTipService.SetToolTip(r, text);
+            Place(r, x0, by);
+            if (text.Length > 0 && x1 - x0 > 18)
+            {
+                TextBlock bt = MakeText(text, 11, FontWeights.SemiBold, BarInk[style]);
+                bt.Width = x1 - x0 - 8;
+                Place(bt, x0 + 5, by + (bh - 15) / 2);
+            }
         }
 
         // arrows (a key press held back until the decision -> when it was sent)
@@ -3861,6 +3803,7 @@ public sealed class KcTimelineView
             int fl = AtInt(arrowFromLane, i, -1);
             int tl = AtInt(arrowToLane, i, -1);
             if (fl < 0 || tl < 0 || fl >= n || tl >= n) continue;
+            if (live && At(arrowToAt, i) > now) continue;
             double x0 = X(arrowFromAt[i]);
             double y0 = laneTop[fl] + laneHeight[fl] - 4;
             double x1 = X(At(arrowToAt, i));
@@ -3876,103 +3819,54 @@ public sealed class KcTimelineView
             canvas.Children.Add(head);
         }
 
-        // marks (decision, tapping term, firmware, cursor)
+        // lines (decision, tapping term, firmware, cursor)
         for (int i = 0; i < markAt.Length; i++)
         {
             int lf = AtInt(markLaneFrom, i, -1);
-            int lt3 = AtInt(markLaneTo, i, -1);
-            if (lf < 0 || lt3 >= n || lf > lt3) continue;
+            int lt = AtInt(markLaneTo, i, -1);
+            if (lf < 0 || lt >= n || lf > lt || !MarkShown(i, now)) continue;
             int style = KcDraw.Clamp(AtInt(markStyles, i, 0), 0, MarkInk.Length - 1);
-            int handle = AtInt(markHandles, i, -1);
-            double x = X(MarkTime(i));
+            double x = X(markAt[i]);
             if (x < plotLeft - 0.5 || x > plotRight + 0.5) continue;
             double y0 = laneTop[lf];
-            double y1 = laneTop[lt3] + laneHeight[lt3];
-            bool dashed = style == MarkTerm || style == MarkFirmware || style == MarkBaseline;
-            double thick = style == MarkCursor ? 2 : (style == MarkTerm ? 1.6 : 2);
-            AddLine(x, y0, x, y1, MarkInk[style], thick, dashed, 1);
-            if (markChips[i] != null)
-            {
-                double cy = y0 - 19 - chipRow[i] * LabelRow;
-                AddLine(x, cy + 8, x, y0, MarkInk[style], 1, true, 0.7);
-                Place(markChips[i], chipX[i], Math.Max(0, cy));
-            }
-            if (handle >= 0) AddSpot(handle, x, y0, y1);
+            double y1 = laneTop[lt] + laneHeight[lt];
+            bool dashed = style == MarkTerm || style == MarkFirmware;
+            AddLine(x, y0, x, y1, MarkInk[style], style == MarkTerm ? 1.6 : 2, dashed, 1);
+            if (markChip[i] >= 0) PlaceChip(chips[markChip[i]], chipX[markChip[i]], chipRow[markChip[i]], x, y0, MarkInk[style]);
         }
 
-        // grips
-        foreach (Spot s in spots)
+        // now
+        if (nowChip >= 0)
         {
-            bool isSelected = s.Id == selected;
-            Ellipse g = new Ellipse();
-            double r = isSelected ? GripRadius + 1.5 : GripRadius;
-            g.Width = r * 2;
-            g.Height = r * 2;
-            g.Fill = Res(isSelected ? "KcAccentLight" : "KcText");
-            g.Stroke = Res("KcSurface");
-            g.StrokeThickness = 1.5;
-            g.Opacity = isSelected ? 1 : 0.75;
-            g.IsHitTestVisible = false;
-            double gy = s.Id == HandleTerm ? s.Y0 - r : (s.Y0 + s.Y1) / 2 - r;
-            Place(g, s.X - r, gy);
-        }
-
-        // drag value
-        if (dragId != HandleNone)
-        {
-            int h = HandleIndex(dragId);
-            string tip = h >= 0 ? AtText(handleTips, h) : "";
-            Border chip = new Border();
-            chip.CornerRadius = new CornerRadius(6);
-            chip.Padding = new Thickness(7, 2, 7, 3);
-            chip.Background = Res("KcAccent");
-            chip.IsHitTestVisible = false;
-            chip.Child = MakeText(tip + "  " + ((long)Math.Round(dragValue)).ToString() + " ms", 11.5, FontWeights.SemiBold, "KcOnAccent");
-            chip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double cx = Math.Min(plotRight - chip.DesiredSize.Width, Math.Max(0, X(dragValue) - chip.DesiredSize.Width / 2));
-            Place(chip, cx, AxisHeight - 22);
+            double x = X(now);
+            double y0 = laneTop[firstKeyLane];
+            AddLine(x, y0, x, bottom, NowInk, 2, false, 0.95);
+            PlaceChip(chips[nowChip], chipX[nowChip], chipRow[nowChip], x, y0, NowInk);
         }
     }
 
-    // The time of a mark (the dragged value while its handle is dragged).
-    double MarkTime(int i)
+    // While live, the decision and firmware lines appear once "now" has passed them.
+    bool MarkShown(int i, double now)
     {
-        int handle = AtInt(markHandles, i, -1);
-        return dragId != HandleNone && handle == dragId ? dragValue : markAt[i];
+        int style = AtInt(markStyles, i, 0);
+        if (!live || style == MarkTerm) return true;
+        return markAt[i] <= now;
     }
 
-    void AddSpot(int id, double x, double y0, double y1)
+    int AddChip(List<Border> chips, List<double> chipX, Border chip, double x)
     {
-        if (HandleIndex(id) < 0) return;
-        foreach (Spot s in spots)
-        {
-            if (s.Id == id && Math.Abs(s.X - x) < 0.5) return;
-        }
-        Spot p = new Spot();
-        p.Id = id;
-        p.X = x;
-        p.Y0 = y0;
-        p.Y1 = y1;
-        spots.Add(p);
+        double cx = x + 4;
+        if (cx + chip.DesiredSize.Width > plotRight) cx = x - 4 - chip.DesiredSize.Width;
+        chips.Add(chip);
+        chipX.Add(cx);
+        return chips.Count - 1;
     }
 
-    Spot HitSpot(Point p)
+    void PlaceChip(Border chip, double cx, int row, double x, double y0, string ink)
     {
-        Spot best = null;
-        double bestD = 7;
-        foreach (Spot s in spots)
-        {
-            if (p.Y < s.Y0 - 6 || p.Y > s.Y1 + 4) continue;
-            double d = Math.Abs(p.X - s.X);
-            // a key press end wins over the term line at the same place
-            if (s.Id == HandleTerm) d += 1.5;
-            if (d <= bestD)
-            {
-                bestD = d;
-                best = s;
-            }
-        }
-        return best;
+        double cy = y0 - 19 - row * LabelRow;
+        AddLine(x, cy + 8, x, y0, ink, 1, true, 0.7);
+        Place(chip, cx, Math.Max(0, cy));
     }
 
     int LaneAt(double y)
@@ -3984,98 +3878,39 @@ public sealed class KcTimelineView
         return -1;
     }
 
+    // For the tests: a click on lane i.
+    public void SimulateLaneClick(int lane)
+    {
+        if (lane >= 0 && AtText(laneActions, lane).Length > 0) enqueue(laneActions[lane]);
+    }
+
     void OnDown(object sender, MouseButtonEventArgs e)
     {
-        Point p = e.GetPosition(canvas);
-        Spot s = HitSpot(p);
-        if (s != null)
-        {
-            dragId = s.Id;
-            dragMoved = false;
-            dragValue = T(s.X);
-            int h = HandleIndex(s.Id);
-            if (h >= 0) dragValue = Math.Round(Clamp(s.Id, dragValue));
-            selected = s.Id;
-            canvas.CaptureMouse();
-            Render();
-            e.Handled = true;
-            return;
-        }
-        int lane = LaneAt(p.Y);
+        int lane = LaneAt(e.GetPosition(canvas).Y);
         if (lane >= 0 && AtText(laneActions, lane).Length > 0)
         {
-            enqueue(null, laneActions[lane]);
+            enqueue(laneActions[lane]);
             e.Handled = true;
         }
     }
 
     void OnMove(object sender, MouseEventArgs e)
     {
-        Point p = e.GetPosition(canvas);
-        if (dragId != HandleNone)
-        {
-            Move(T(p.X));
-            return;
-        }
-        if (HitSpot(p) != null)
-        {
-            canvas.Cursor = Cursors.SizeWE;
-            return;
-        }
-        int lane = LaneAt(p.Y);
+        int lane = LaneAt(e.GetPosition(canvas).Y);
         canvas.Cursor = lane >= 0 && AtText(laneActions, lane).Length > 0 ? Cursors.Hand : null;
-    }
-
-    void Move(double ms)
-    {
-        double v = Math.Round(Clamp(dragId, ms));
-        if (dragMoved && Math.Abs(v - dragValue) < 0.5) return;
-        if (!dragMoved && Math.Abs(v - dragValue) < 0.5) return;
-        dragValue = v;
-        dragMoved = true;
-        string prefix = "drag:" + dragId.ToString() + ":";
-        enqueue(prefix, prefix + ((long)v).ToString());
-        Render();
-    }
-
-    void OnUp(object sender, MouseButtonEventArgs e)
-    {
-        if (dragId == HandleNone) return;
-        EndDrag();
-        e.Handled = true;
-    }
-
-    void EndDrag()
-    {
-        int id = dragId;
-        double v = dragValue;
-        bool moved = dragMoved;
-        dragId = HandleNone;
-        dragMoved = false;
-        if (canvas.IsMouseCaptured) canvas.ReleaseMouseCapture();
-        if (moved)
-        {
-            enqueue("drag:" + id.ToString() + ":", "drop:" + id.ToString() + ":" + ((long)v).ToString());
-        }
-        else
-        {
-            enqueue(null, "select:" + id.ToString());
-        }
-        Render();
     }
 }
 
-// The tap-hold timing window (keyboard-check.ps1 -Mode HoldTap). Runs on its own STA thread (Launch): the
-// sweeps of hold-tap.ps1 take a moment, and the window must stay responsive while a handle is dragged.
-// PowerShell polls TakeActions (key:<pos>, preset:<id>, partner:<side>, episode:<seq>, follow:<0|1>,
-// param:<name>:<value>, reset, drag/drop/select from the timeline, clear, save, close).
+// The tap-hold timing window (keyboard-check.ps1 -Mode HoldTap). Runs on its own STA thread (Launch), so that the
+// chart keeps moving while PowerShell reads the log and computes. PowerShell polls TakeActions (flavor:<name>,
+// term:<ms>, reset, close).
 public sealed class KcHoldTapForm : IDisposable
 {
     public const int LevelInfo = 0;
     public const int LevelOk = 1;
     public const int LevelNg = 2;
     public const int LevelWarn = 3;
-    // Summary banner: none / tap / hold
+    // Summary banner: none (undecided) / tap / hold
     public const int SummaryNone = 0;
     public const int SummaryTap = 1;
     public const int SummaryHold = 2;
@@ -4084,19 +3919,6 @@ public sealed class KcHoldTapForm : IDisposable
     static readonly string[] SummaryEdge = { "KcInfoEdge", "KcKeyComboEdge", "KcKeyHoldEdge" };
     static readonly string[] SummaryInk = { "KcInfoInk", "KcKeyComboInk", "KcKeyHoldInk" };
     static readonly string[] FooterInk = { "KcTextMuted", "KcOkMark", "KcNgMark", "KcWarnMark", "KcTextFaint" };
-
-    sealed class ParamUi
-    {
-        public StackPanel Box;
-        public Dictionary<string, RadioButton> Choices;
-        public Slider Slider;
-        public TextBlock Value;
-        public string OffText;
-        public Border Changed;
-        public TextBlock ChangedText;
-        public TextBlock Hint;
-        public Dictionary<string, string> Details;
-    }
 
     readonly object sync = new object();
     readonly List<string> actions = new List<string>();
@@ -4107,35 +3929,32 @@ public sealed class KcHoldTapForm : IDisposable
     readonly Border portChip;
     readonly Ellipse portMark;
     readonly TextBlock portText;
-    readonly TextBlock keysCaption;
-    readonly Panel keyPanel;
-    readonly TextBlock presetsCaption;
-    readonly Panel presetPanel;
-    readonly FrameworkElement episodesBox;
-    readonly TextBlock episodesCaption;
-    readonly Panel followPanel;
-    readonly TextBlock episodesEmpty;
-    readonly Panel episodeList;
-    readonly TextBlock paramsCaption;
-    readonly TextBlock paramsNote;
+    readonly TextBlock settingsCaption;
+    readonly TextBlock flavorCaption;
+    readonly Panel flavorPanel;
+    readonly TextBlock flavorHint;
+    readonly TextBlock termCaption;
+    readonly TextBlock termValue;
+    readonly Slider termSlider;
+    readonly Border changedTag;
+    readonly TextBlock changedText;
+    readonly TextBlock keymapText;
     readonly Button resetButton;
-    readonly Panel paramPanel;
     readonly Border summaryBanner;
     readonly Ellipse summaryMark;
     readonly Path summaryIcon;
     readonly TextBlock summaryTitle;
     readonly Panel summaryLines;
     readonly ScrollViewer chartScroll;
-    readonly Canvas chartCanvas;
     readonly TextBlock chartMessage;
     readonly Panel legendPanel;
     readonly TextBlock statusText;
-    readonly Button clearButton;
-    readonly Button saveButton;
     readonly Button closeButton;
     readonly KcTimelineView timeline;
     readonly KcWinKeyMask winMask;
-    readonly Dictionary<string, ParamUi> parameters = new Dictionary<string, ParamUi>();
+    readonly Dictionary<string, RadioButton> flavorButtons = new Dictionary<string, RadioButton>();
+    readonly Dictionary<string, string> flavorDetails = new Dictionary<string, string>();
+    string flavorKeys = "";
     IntPtr hwnd = IntPtr.Zero;
     bool suppress;
     volatile bool closed;
@@ -4147,7 +3966,7 @@ public sealed class KcHoldTapForm : IDisposable
         root = content;
         window.Title = title ?? "hold-tap";
         window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        KcUi.FitSize(window, 1360, 880, 1040, 640);
+        KcUi.FitSize(window, 1280, 860, 980, 620);
         InputMethod.SetIsInputMethodEnabled(window, false);
 
         titleText = KcUi.Find<TextBlock>(root, "TitleText");
@@ -4155,37 +3974,37 @@ public sealed class KcHoldTapForm : IDisposable
         portChip = KcUi.Find<Border>(root, "PortChip");
         portMark = KcUi.Find<Ellipse>(root, "PortMark");
         portText = KcUi.Find<TextBlock>(root, "PortText");
-        keysCaption = KcUi.Find<TextBlock>(root, "KeysCaption");
-        keyPanel = KcUi.Find<Panel>(root, "KeyPanel");
-        presetsCaption = KcUi.Find<TextBlock>(root, "PresetsCaption");
-        presetPanel = KcUi.Find<Panel>(root, "PresetPanel");
-        episodesBox = KcUi.Find<FrameworkElement>(root, "EpisodesBox");
-        episodesCaption = KcUi.Find<TextBlock>(root, "EpisodesCaption");
-        followPanel = KcUi.Find<Panel>(root, "FollowPanel");
-        episodesEmpty = KcUi.Find<TextBlock>(root, "EpisodesEmpty");
-        episodeList = KcUi.Find<Panel>(root, "EpisodeList");
-        paramsCaption = KcUi.Find<TextBlock>(root, "ParamsCaption");
-        paramsNote = KcUi.Find<TextBlock>(root, "ParamsNote");
+        settingsCaption = KcUi.Find<TextBlock>(root, "SettingsCaption");
+        flavorCaption = KcUi.Find<TextBlock>(root, "FlavorCaption");
+        flavorPanel = KcUi.Find<Panel>(root, "FlavorPanel");
+        flavorHint = KcUi.Find<TextBlock>(root, "FlavorHint");
+        termCaption = KcUi.Find<TextBlock>(root, "TermCaption");
+        termValue = KcUi.Find<TextBlock>(root, "TermValue");
+        termSlider = KcUi.Find<Slider>(root, "TermSlider");
+        changedTag = KcUi.Find<Border>(root, "ChangedTag");
+        changedText = KcUi.Find<TextBlock>(root, "ChangedText");
+        keymapText = KcUi.Find<TextBlock>(root, "KeymapText");
         resetButton = KcUi.Find<Button>(root, "ResetButton");
-        paramPanel = KcUi.Find<Panel>(root, "ParamPanel");
         summaryBanner = KcUi.Find<Border>(root, "SummaryBanner");
         summaryMark = KcUi.Find<Ellipse>(root, "SummaryMark");
         summaryIcon = KcUi.Find<Path>(root, "SummaryIcon");
         summaryTitle = KcUi.Find<TextBlock>(root, "SummaryTitle");
         summaryLines = KcUi.Find<Panel>(root, "SummaryLines");
         chartScroll = KcUi.Find<ScrollViewer>(root, "ChartScroll");
-        chartCanvas = KcUi.Find<Canvas>(root, "ChartCanvas");
+        Canvas chartCanvas = KcUi.Find<Canvas>(root, "ChartCanvas");
         chartMessage = KcUi.Find<TextBlock>(root, "ChartMessage");
         legendPanel = KcUi.Find<Panel>(root, "LegendPanel");
         statusText = KcUi.Find<TextBlock>(root, "StatusText");
-        clearButton = KcUi.Find<Button>(root, "ClearButton");
-        saveButton = KcUi.Find<Button>(root, "SaveButton");
         closeButton = KcUi.Find<Button>(root, "CloseButton");
 
-        timeline = new KcTimelineView(window, chartCanvas, chartScroll, EnqueueReplace);
+        timeline = new KcTimelineView(window, chartCanvas, chartScroll, Enqueue);
+        termSlider.ValueChanged += delegate
+        {
+            int v = (int)Math.Round(termSlider.Value);
+            termValue.Text = v.ToString() + " ms";
+            if (!suppress) EnqueueReplace("term:", "term:" + v.ToString());
+        };
         resetButton.Click += delegate { Enqueue("reset"); };
-        clearButton.Click += delegate { Enqueue("clear"); };
-        saveButton.Click += delegate { Enqueue("save"); };
         closeButton.Click += delegate { Enqueue("close"); };
         SetSummaryCore("", new string[0], SummaryNone);
 
@@ -4196,6 +4015,7 @@ public sealed class KcHoldTapForm : IDisposable
         window.SourceInitialized += OnSourceInitialized;
         window.Closed += delegate
         {
+            timeline.SetLive(false, 0);
             winMask.Dispose();
             closed = true;
         };
@@ -4258,7 +4078,7 @@ public sealed class KcHoldTapForm : IDisposable
 
     public bool IsClosed { get { return closed; } }
 
-    // The timeline (the tests drag its handles).
+    // The timeline (the tests look at it).
     public KcTimelineView Timeline { get { return timeline; } }
 
     // The queued actions (oldest first); "close" once the window has been closed.
@@ -4319,35 +4139,57 @@ public sealed class KcHoldTapForm : IDisposable
         });
     }
 
-    public void SetCaptions(string keys, string presets, string episodes, string settings)
+    // Fixed labels: the flavor and tapping term captions, the reset / close buttons, the "changed" tag and the
+    // label of the "now" line ({0} = ms).
+    public void SetLabels(string flavor, string term, string reset, string changed, string close, string nowFormat)
     {
         Post(delegate
         {
-            keysCaption.Text = keys ?? "";
-            presetsCaption.Text = presets ?? "";
-            episodesCaption.Text = episodes ?? "";
-            paramsCaption.Text = settings ?? "";
-        });
-    }
-
-    public void SetButtonTexts(string close, string save, string clear, string reset)
-    {
-        Post(delegate
-        {
-            closeButton.Content = close ?? "";
-            saveButton.Content = save ?? "";
-            clearButton.Content = clear ?? "";
+            flavorCaption.Text = flavor ?? "";
+            termCaption.Text = term ?? "";
             resetButton.Content = reset ?? "";
+            changedText.Text = changed ?? "";
+            closeButton.Content = close ?? "";
+            timeline.SetNowFormat(nowFormat);
         });
     }
 
-    // Which footer buttons are shown (save / clear are for the logging firmware).
-    public void SetButtons(bool save, bool clear)
+    // The settings of the hold-tap behavior shown (no action is queued by these values).
+    public void SetSettings(string caption, string[] flavors, string[] details, string selected, int term, int termMin, int termMax,
+        string keymap, bool changed)
     {
         Post(delegate
         {
-            KcUi.SetVisible(saveButton, save);
-            KcUi.SetVisible(clearButton, clear);
+            settingsCaption.Text = caption ?? "";
+            string keys = flavors == null ? "" : string.Join("|", flavors);
+            if (keys != flavorKeys)
+            {
+                flavorKeys = keys;
+                flavorPanel.Children.Clear();
+                flavorButtons.Clear();
+                flavorDetails.Clear();
+                Border bar = FlavorBar(flavors, details);
+                flavorPanel.Children.Add(bar);
+            }
+            RadioButton r;
+            if (selected != null && flavorButtons.TryGetValue(selected, out r)) SetChecked(r);
+            string detail;
+            flavorHint.Text = selected != null && flavorDetails.TryGetValue(selected, out detail) ? detail : "";
+            KcUi.SetVisible(flavorHint, flavorHint.Text.Length > 0);
+            suppress = true;
+            try
+            {
+                termSlider.Minimum = termMin;
+                termSlider.Maximum = Math.Max(termMin, termMax);
+                termSlider.Value = Math.Max(termMin, Math.Min(termMax, term));
+            }
+            finally
+            {
+                suppress = false;
+            }
+            termValue.Text = term.ToString() + " ms";
+            keymapText.Text = keymap ?? "";
+            KcUi.SetVisible(changedTag, changed);
         });
     }
 
@@ -4372,174 +4214,13 @@ public sealed class KcHoldTapForm : IDisposable
         });
     }
 
-    // The hold-tap keys to look at (segments, 2 per row) -> "key:<key>"
-    public void SetKeyChoices(string[] keys, string[] labels, string selected)
-    {
-        Post(delegate
-        {
-            keyPanel.Children.Clear();
-            keyPanel.Children.Add(SegmentBar(keys, labels, null, selected, "key:", 2, null));
-        });
-    }
-
-    // The presets -> "preset:<key>" (and the side of the other key -> "partner:<key>", hidden when no keys)
-    public void SetPresets(string[] keys, string[] labels, string[] details, string selected,
-        string[] partnerKeys, string[] partnerLabels, string partnerSelected)
-    {
-        Post(delegate
-        {
-            presetPanel.Children.Clear();
-            TextBlock hint = SmallText("", "KcTextMuted");
-            hint.Margin = new Thickness(2, 6, 0, 0);
-            presetPanel.Children.Add(SegmentBar(keys, labels, details, selected, "preset:", 2, hint));
-            presetPanel.Children.Add(hint);
-            if (partnerKeys != null && partnerKeys.Length > 0)
-            {
-                Border bar = SegmentBar(partnerKeys, partnerLabels, null, partnerSelected, "partner:", 0, null);
-                bar.Margin = new Thickness(0, 8, 0, 0);
-                presetPanel.Children.Add(bar);
-            }
-        });
-    }
-
-    // The key presses read from the logging firmware (newest first) -> "episode:<key>"; follow -> "follow:<key>"
-    public void SetEpisodes(string[] keys, string[] labels, string[] details, int[] levels, string selected, string emptyText,
-        bool visible, string[] followKeys, string[] followLabels, string followSelected)
-    {
-        Post(delegate
-        {
-            KcUi.SetVisible(episodesBox, visible);
-            followPanel.Children.Clear();
-            if (followKeys != null && followKeys.Length > 0)
-            {
-                followPanel.Children.Add(SegmentBar(followKeys, followLabels, null, followSelected, "follow:", 0, null));
-            }
-            episodesEmpty.Text = emptyText ?? "";
-            KcUi.SetVisible(episodesEmpty, (keys == null || keys.Length == 0) && episodesEmpty.Text.Length > 0);
-            episodeList.Children.Clear();
-            if (keys == null) return;
-            for (int i = 0; i < keys.Length; i++)
-            {
-                StackPanel c = new StackPanel();
-                TextBlock head = SmallText(At(labels, i), "KcText");
-                head.FontSize = 12.5;
-                head.FontWeight = FontWeights.SemiBold;
-                head.TextWrapping = TextWrapping.Wrap;
-                c.Children.Add(head);
-                if (At(details, i).Length > 0)
-                {
-                    int l = KcDraw.Clamp(AtInt(levels, i), 0, KcDraw.StatusInk.Length - 1);
-                    TextBlock d = SmallText(At(details, i), KcDraw.StatusInk[l]);
-                    d.TextWrapping = TextWrapping.Wrap;
-                    d.Margin = new Thickness(0, 2, 0, 0);
-                    c.Children.Add(d);
-                }
-                RadioButton r = Radio("KcChoice", c, "episode:" + keys[i]);
-                r.Padding = new Thickness(10, 6, 10, 6);
-                episodeList.Children.Add(r);
-                if (keys[i] == selected) SetChecked(r);
-            }
-        });
-    }
-
-    public void ClearParams()
-    {
-        Post(delegate
-        {
-            paramPanel.Children.Clear();
-            parameters.Clear();
-        });
-    }
-
-    public void SetParamsNote(string text)
-    {
-        Post(delegate
-        {
-            paramsNote.Text = text ?? "";
-            KcUi.SetVisible(paramsNote, paramsNote.Text.Length > 0);
-        });
-    }
-
-    // A choice setting (segments; columns 0 = one row) -> "param:<name>:<key>". changed: the "changed" tag text ("" hides it).
-    public void AddChoiceParam(string name, string caption, string[] keys, string[] labels, string[] details, string selected,
-        string changed, int columns)
-    {
-        Post(delegate
-        {
-            ParamUi p = NewParam(name, caption, changed);
-            p.Choices = new Dictionary<string, RadioButton>();
-            p.Details = new Dictionary<string, string>();
-            p.Hint = SmallText("", "KcTextMuted");
-            p.Hint.Margin = new Thickness(2, 5, 0, 0);
-            Border bar = SegmentBar(keys, labels, details, null, "param:" + name + ":", columns, p.Hint);
-            System.Windows.Controls.Primitives.UniformGrid grid = (System.Windows.Controls.Primitives.UniformGrid)bar.Child;
-            for (int i = 0; i < grid.Children.Count && i < keys.Length; i++)
-            {
-                p.Choices[keys[i]] = (RadioButton)grid.Children[i];
-                p.Details[keys[i]] = At(details, i);
-            }
-            p.Box.Children.Add(bar);
-            p.Box.Children.Add(p.Hint);
-            SelectChoice(p, selected);
-        });
-    }
-
-    // A number setting (slider) -> "param:<name>:<int>". offText: shown for 0 ("" = show the number).
-    public void AddSliderParam(string name, string caption, int min, int max, int value, string offText, string changed)
-    {
-        Post(delegate
-        {
-            ParamUi p = NewParam(name, caption, changed);
-            p.OffText = offText ?? "";
-            Slider s = new Slider();
-            s.Style = (Style)window.FindResource("KcSlider");
-            s.Minimum = min;
-            s.Maximum = max;
-            s.SmallChange = 1;
-            s.LargeChange = 10;
-            s.Margin = new Thickness(0, 2, 0, 0);
-            p.Slider = s;
-            SetSliderValue(p, value);
-            s.ValueChanged += delegate
-            {
-                int v = (int)Math.Round(s.Value);
-                ShowSliderValue(p, v);
-                if (!suppress)
-                {
-                    string prefix = "param:" + name + ":";
-                    EnqueueReplace(prefix, prefix + v.ToString());
-                }
-            };
-            p.Box.Children.Add(s);
-        });
-    }
-
-    // Shows a value set by PowerShell (no action). changed: the "changed" tag text.
-    public void SetParamValue(string name, string value, string changed)
-    {
-        Post(delegate
-        {
-            ParamUi p;
-            if (!parameters.TryGetValue(name ?? "", out p)) return;
-            if (p.Slider != null)
-            {
-                int v;
-                if (int.TryParse(value, out v)) SetSliderValue(p, v);
-            }
-            else
-            {
-                SelectChoice(p, value);
-            }
-            SetChanged(p, changed);
-        });
-    }
-
     // The result: level SummaryTap / SummaryHold / SummaryNone.
     public void SetSummary(string title, string[] lines, int level)
     {
         Post(delegate { SetSummaryCore(title, lines, level); });
     }
 
+    // A message in place of the chart ("" shows the chart).
     public void SetChartMessage(string text)
     {
         Post(delegate
@@ -4560,19 +4241,14 @@ public sealed class KcHoldTapForm : IDisposable
         Post(delegate { timeline.SetLanes(titles, notes, kinds, laneActions); });
     }
 
-    public void SetBars(int[] lanes, double[] from, double[] to, int[] styles, string[] texts, int[] starts, int[] ends)
+    public void SetBars(int[] lanes, double[] from, double[] to, int[] styles, string[] texts)
     {
-        Post(delegate { timeline.SetBars(lanes, from, to, styles, texts, starts, ends); });
+        Post(delegate { timeline.SetBars(lanes, from, to, styles, texts); });
     }
 
-    public void SetSpans(int[] laneFrom, int[] laneTo, double[] from, double[] to, string[] texts)
+    public void SetMarks(int[] laneFrom, int[] laneTo, double[] at, int[] styles, string[] texts)
     {
-        Post(delegate { timeline.SetSpans(laneFrom, laneTo, from, to, texts); });
-    }
-
-    public void SetMarks(int[] laneFrom, int[] laneTo, double[] at, int[] styles, string[] texts, int[] handles)
-    {
-        Post(delegate { timeline.SetMarks(laneFrom, laneTo, at, styles, texts, handles); });
+        Post(delegate { timeline.SetMarks(laneFrom, laneTo, at, styles, texts); });
     }
 
     public void SetArrows(int[] fromLane, double[] fromAt, int[] toLane, double[] toAt)
@@ -4580,19 +4256,20 @@ public sealed class KcHoldTapForm : IDisposable
         Post(delegate { timeline.SetArrows(fromLane, fromAt, toLane, toAt); });
     }
 
-    public void SetHandles(int[] ids, double[] mins, double[] maxs, string[] tips, int selected)
-    {
-        Post(delegate
-        {
-            timeline.SetHandles(ids, mins, maxs, tips);
-            timeline.SetSelected(selected);
-        });
-    }
-
     // Draws the chart after the Set* calls.
     public void RenderChart()
     {
         Post(delegate { timeline.Render(); });
+    }
+
+    // While a key is held: "now" (ms since the hold-tap key was pressed) keeps moving on its own.
+    public void SetLive(bool on, double nowMs)
+    {
+        Post(delegate
+        {
+            timeline.SetLive(on, nowMs);
+            timeline.Render();
+        });
     }
 
     // The legend under the chart: bar styles and their meaning.
@@ -4653,17 +4330,14 @@ public sealed class KcHoldTapForm : IDisposable
         }
     }
 
-    // Queues an action, replacing a queued one with the same prefix (dragging and sliders send many).
+    // Queues an action, replacing a queued one with the same prefix (the slider sends many).
     void EnqueueReplace(string prefix, string action)
     {
         lock (sync)
         {
-            if (prefix != null)
+            for (int i = actions.Count - 1; i >= 0; i--)
             {
-                for (int i = actions.Count - 1; i >= 0; i--)
-                {
-                    if (actions[i].StartsWith(prefix, StringComparison.Ordinal)) actions.RemoveAt(i);
-                }
+                if (actions[i].StartsWith(prefix, StringComparison.Ordinal)) actions.RemoveAt(i);
             }
             actions.Add(action);
         }
@@ -4684,28 +4358,6 @@ public sealed class KcHoldTapForm : IDisposable
         return a != null && i < a.Length ? a[i] : 0;
     }
 
-    TextBlock SmallText(string text, string ink)
-    {
-        TextBlock t = new TextBlock();
-        t.Text = text ?? "";
-        t.FontSize = 12;
-        t.Foreground = Res(ink);
-        t.TextWrapping = TextWrapping.Wrap;
-        return t;
-    }
-
-    RadioButton Radio(string style, object content, string action)
-    {
-        RadioButton r = new RadioButton();
-        r.Style = (Style)window.FindResource(style);
-        r.Content = content;
-        r.Checked += delegate
-        {
-            if (!suppress) Enqueue(action);
-        };
-        return r;
-    }
-
     void SetChecked(RadioButton r)
     {
         suppress = true;
@@ -4719,126 +4371,38 @@ public sealed class KcHoldTapForm : IDisposable
         }
     }
 
-    // A segment bar (columns 0 = one row). hint: shows the detail of the selected segment.
-    Border SegmentBar(string[] keys, string[] labels, string[] details, string selected, string prefix, int columns, TextBlock hint)
+    // The flavors as segments, one per row -> "flavor:<key>"; the hint shows the detail of the selected one.
+    Border FlavorBar(string[] keys, string[] details)
     {
         Border bar = new Border();
         bar.Style = (Style)window.FindResource("KcSegmentBar");
         System.Windows.Controls.Primitives.UniformGrid grid = new System.Windows.Controls.Primitives.UniformGrid();
-        int count = keys == null ? 0 : keys.Length;
-        if (columns <= 0 || columns >= count)
-        {
-            grid.Rows = 1;
-        }
-        else
-        {
-            grid.Columns = columns;
-        }
+        grid.Columns = 1;
         bar.Child = grid;
+        int count = keys == null ? 0 : keys.Length;
         for (int i = 0; i < count; i++)
         {
+            string key = keys[i];
             string detail = At(details, i);
             TextBlock label = new TextBlock();
-            label.Text = At(labels, i);
+            label.Text = key;
             label.TextTrimming = TextTrimming.CharacterEllipsis;
-            RadioButton r = Radio("KcSegment", label, prefix + keys[i]);
+            RadioButton r = new RadioButton();
+            r.Style = (Style)window.FindResource("KcSegment");
+            r.Content = label;
             r.Padding = new Thickness(6, 6, 6, 6);
             if (detail.Length > 0) ToolTipService.SetToolTip(r, detail);
-            if (hint != null)
+            r.Checked += delegate
             {
-                r.Checked += delegate
-                {
-                    hint.Text = detail;
-                    KcUi.SetVisible(hint, detail.Length > 0);
-                };
-            }
+                flavorHint.Text = detail;
+                KcUi.SetVisible(flavorHint, detail.Length > 0);
+                if (!suppress) Enqueue("flavor:" + key);
+            };
             grid.Children.Add(r);
-            if (keys[i] == selected) SetChecked(r);
+            flavorButtons[key] = r;
+            flavorDetails[key] = detail;
         }
-        if (hint != null) KcUi.SetVisible(hint, hint.Text.Length > 0);
         return bar;
-    }
-
-    ParamUi NewParam(string name, string caption, string changed)
-    {
-        StackPanel box = new StackPanel();
-        box.Margin = new Thickness(0, 10, 0, 0);
-        DockPanel head = new DockPanel();
-        ParamUi p = new ParamUi();
-        p.Box = box;
-        p.Value = new TextBlock();
-        p.Value.FontSize = 12.5;
-        p.Value.FontWeight = FontWeights.SemiBold;
-        p.Value.Foreground = Res("KcAccentLight");
-        p.Value.VerticalAlignment = VerticalAlignment.Center;
-        DockPanel.SetDock(p.Value, Dock.Right);
-        head.Children.Add(p.Value);
-        p.ChangedText = new TextBlock();
-        p.ChangedText.FontSize = 11;
-        p.ChangedText.Foreground = Res("KcWarnInk");
-        p.Changed = new Border();
-        p.Changed.CornerRadius = new CornerRadius(5);
-        p.Changed.Padding = new Thickness(6, 0, 6, 1);
-        p.Changed.Margin = new Thickness(6, 0, 6, 0);
-        p.Changed.Background = Res("KcWarnTint");
-        p.Changed.BorderBrush = Res("KcWarnEdge");
-        p.Changed.BorderThickness = new Thickness(1);
-        p.Changed.VerticalAlignment = VerticalAlignment.Center;
-        p.Changed.Child = p.ChangedText;
-        DockPanel.SetDock(p.Changed, Dock.Right);
-        head.Children.Add(p.Changed);
-        TextBlock c = new TextBlock();
-        c.Text = caption ?? "";
-        c.FontSize = 12.5;
-        c.FontWeight = FontWeights.SemiBold;
-        c.Foreground = Res("KcText");
-        c.TextTrimming = TextTrimming.CharacterEllipsis;
-        c.VerticalAlignment = VerticalAlignment.Center;
-        head.Children.Add(c);
-        box.Children.Add(head);
-        head.Margin = new Thickness(0, 0, 0, 5);
-        paramPanel.Children.Add(box);
-        SetChanged(p, changed);
-        parameters[name] = p;
-        return p;
-    }
-
-    void SetChanged(ParamUi p, string changed)
-    {
-        p.ChangedText.Text = changed ?? "";
-        KcUi.SetVisible(p.Changed, p.ChangedText.Text.Length > 0);
-    }
-
-    void SelectChoice(ParamUi p, string key)
-    {
-        RadioButton r;
-        if (key != null && p.Choices.TryGetValue(key, out r))
-        {
-            SetChecked(r);
-            string detail;
-            p.Hint.Text = p.Details.TryGetValue(key, out detail) ? detail : "";
-            KcUi.SetVisible(p.Hint, p.Hint.Text.Length > 0);
-        }
-        p.Value.Text = "";
-    }
-
-    void SetSliderValue(ParamUi p, int value)
-    {
-        suppress = true;
-        try
-        {
-            p.Slider.Value = Math.Max(p.Slider.Minimum, Math.Min(p.Slider.Maximum, value));
-        }
-        finally
-        {
-            suppress = false;
-        }
-        ShowSliderValue(p, value);
-    }
-
-    void ShowSliderValue(ParamUi p, int value)
-    {
-        p.Value.Text = value == 0 && p.OffText.Length > 0 ? p.OffText : value.ToString();
     }
 
     void SetSummaryCore(string title, string[] lines, int level)
