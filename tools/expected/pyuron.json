@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-Pyuron",
-      "commit": "671a1f5b8e97b2ed1d067c78c5e3f7cbc9f82885",
+      "commit": "2a60a875b2126f25d038feceb15a2101b2491311",
       "files": ["config/Pyuron.keymap", "config/Pyuron.json", "boards/shields/Pyuron/Pyuron.dtsi", "boards/shields/Pyuron/Pyuron_R.overlay", "boards/shields/Pyuron/Pyuron_L.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
