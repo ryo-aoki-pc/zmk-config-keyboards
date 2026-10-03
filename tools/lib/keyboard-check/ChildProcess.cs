@@ -1,10 +1,10 @@
-// Runs one flashing step of tools/flash.ps1 (flash-uf2.ps1 / flash-keyball.ps1 in a child powershell.exe)
+// Runs one flashing step of tools/scripts/flash.ps1 (flash-uf2.ps1 / flash-keyball.ps1 in a child powershell.exe)
 // with its output redirected. The output is read on background threads and queued line by line; the
 // PowerShell thread takes the lines with TakeLines() while the window (KcFlashForm) stays responsive.
 // The child is put in a Job Object that kills the whole process tree when the job is closed, so Kill(),
 // Dispose() and the end of the tool also end grandchildren such as avrdude.exe (a stray child would
 // otherwise keep waiting for a bootloader drive and write an old firmware to it later).
-// Loaded by tools/flash.ps1 with Add-Type. It shares no types with InputTestForm.cs, so it is a file of
+// Loaded by tools/scripts/flash.ps1 with Add-Type. It shares no types with InputTestForm.cs, so it is a file of
 // its own. Must stay C# 5 compatible (Windows PowerShell 5.1 compiles it with the .NET Framework
 // compiler and treats warnings as errors) and ASCII only.
 using System;

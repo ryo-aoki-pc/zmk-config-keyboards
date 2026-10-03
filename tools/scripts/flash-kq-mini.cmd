@@ -1,5 +1,5 @@
 @echo off
-rem Double-click to open the firmware flashing tool (flash.cmd) with Keyboard Quantizer Mini selected,
+rem Double-click to open the firmware flashing tool (tools\flash.cmd) with Keyboard Quantizer Mini selected,
 rem or drag and drop a .uf2 file onto this file to flash that file instead.
 rem See the "Keyboard Quantizer Mini" flashing section in README.md for details.
 setlocal

@@ -1,5 +1,5 @@
 <!--
-  Content of the window of the interactive test of tools/keyboard-check.ps1 (KcInputTestForm in
+  Content of the window of the interactive test of tools/scripts/keyboard-check.ps1 (KcInputTestForm in
   InputTestForm.cs). Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
   Theme keys (Theme.xaml) are referenced with DynamicResource because the theme is merged into the
   window after this content is parsed. ASCII only: texts are set from PowerShell.

@@ -41,16 +41,16 @@
     RP2040 のとき、Keyboard Quantizer Mini をシリアルポート経由でブートローダに切り替えません。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 AroundForty-RB_right_central.uf2
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-uf2.ps1 AroundForty-RB_right_central.uf2
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 settings_reset-seeeduino_xiao_ble-zmk.uf2 E:
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-uf2.ps1 settings_reset-seeeduino_xiao_ble-zmk.uf2 E:
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 torabo_tsuki_lp_right_central.uf2
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-uf2.ps1 torabo_tsuki_lp_right_central.uf2
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 sekigon_keyboard_quantizer_mini_vial.uf2
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash-uf2.ps1 sekigon_keyboard_quantizer_mini_vial.uf2
 #>
 [CmdletBinding()]
 param(

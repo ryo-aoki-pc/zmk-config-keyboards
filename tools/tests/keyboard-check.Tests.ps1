@@ -1,8 +1,8 @@
-﻿# 入口のスクリプト (tools/keyboard-check.ps1) を別のプロセスで実行するテスト (キーボードはつながっていない前提)
+﻿# 入口のスクリプト (tools/scripts/keyboard-check.ps1) を別のプロセスで実行するテスト (キーボードはつながっていない前提)
 
 . (Join-Path $script:KcLib 'expected.ps1')
 
-$script:KcEntry = Join-Path $script:ToolsDir 'keyboard-check.ps1'
+$script:KcEntry = Join-Path $script:ToolsDir 'scripts\keyboard-check.ps1'
 $script:KcHostExe = (Get-Process -Id $PID).Path
 
 function Invoke-KcEntry([string[]]$Arguments) {

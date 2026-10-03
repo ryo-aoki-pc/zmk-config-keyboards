@@ -4,7 +4,7 @@
 #
 # $Ctx:
 #   Form          ウィンドウ (KcFlashForm と同じメソッドを持つもの)
-#   ToolsDir      tools フォルダ
+#   ToolsDir      tools フォルダ (書き込みのスクリプトは ToolsDir\scripts、子プロセスの作業フォルダは ToolsDir)
 #   WaitSeconds   1 回の書き込みで、ブートローダが現れるのを待つ秒数
 #   GetBuilds     { param($Repo) } → Get-FirmwareBuildList の戻り値
 #   Download      { param($Repo, $Tag, $Assets, $OnFile) } → Save-FirmwareBuild の戻り値
