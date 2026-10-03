@@ -262,7 +262,7 @@ function Get-KcHtParamValue($Model, $Config, [int]$Target, [string]$Name) {
         'positional' {
             $p = @($c.TriggerPositions)
             if ($p.Count -eq 0) { return 'off' }
-            $opp = @(Get-KcHtOppositePositions $Model $Target)
+            $opp = Get-KcHtOppositePositions $Model $Target
             if (($p -join ',') -eq ($opp -join ',')) { return 'opposite' }
             return 'keymap'
         }
@@ -781,13 +781,28 @@ function Get-KcHtOutputRuns($Hid, [double]$End) {
     return , $runs.ToArray()
 }
 
-# ファームのログの HID (@{ T; Usage; Pressed; Mods }) → Hid と同じ形
-function ConvertTo-KcHtHidFromLog($Records) {
+# キーの表示名 (HID の usage → 名前)。キーマップの BASE のバインディングから取る
+function Get-KcHtUsageLabels($Model) {
+    $labels = @{ 0xE0 = 'Ctrl'; 0xE1 = 'Shift'; 0xE2 = 'Alt'; 0xE3 = 'Win'; 0xE4 = 'RCtrl'; 0xE5 = 'RShift'; 0xE6 = 'RAlt'; 0xE7 = 'RWin' }
+    foreach ($k in $Model.Keys.Values) {
+        $b = $k.Base
+        if ($null -eq $b) { continue }
+        foreach ($x in @($b, $b.Tap, $b.Hold)) {
+            if ($null -ne $x -and $x.Kind -eq 'kp' -and $x.Usage -gt 0 -and $x.Label -and -not $labels.ContainsKey([int]$x.Usage)) {
+                $labels[[int]$x.Usage] = [string]$x.Label
+            }
+        }
+    }
+    return $labels
+}
+
+# ファームのログの HID (@{ T; Usage; Pressed }) → Hid と同じ形
+function ConvertTo-KcHtHidFromLog($Records, $Labels = @{}) {
     $out = New-Object 'System.Collections.Generic.List[object]'
     foreach ($r in @($Records)) {
-        $label = ''
-        if ($null -ne $r.Label) { $label = [string]$r.Label }
-        $out.Add(@{ T = [double]$r.T; Down = [bool]$r.Pressed; Kind = 'key'; Usage = [int]$r.Usage; Mods = 0; Layer = -1; Label = $label })
+        $label = '0x{0:X2}' -f [int]$r.Usage
+        if ($Labels.ContainsKey([int]$r.Usage)) { $label = [string]$Labels[[int]$r.Usage] }
+        $out.Add(@{ T = [double]$r.T; Down = [bool]$r.Pressed; Kind = 'key'; Usage = [int]$r.Usage; Mods = 0; Layer = -1; Label = $label; Pos = -1 })
     }
     return , $out.ToArray()
 }
@@ -909,7 +924,7 @@ function Get-KcHoldTapChart($View) {
     }
     $extra = @()
     if ($null -ne $View.Base) { $extra += @{ Hid = $View.Base.Hid; Style = $script:KcHtBarBaseline; Note = 'キーマップの値' } }
-    if ($null -ne $View.Firmware) { $extra += @{ Hid = (ConvertTo-KcHtHidFromLog $View.Firmware.Hid); Style = $script:KcHtBarFirmware; Note = 'ファーム' } }
+    if ($null -ne $View.Firmware) { $extra += @{ Hid = (ConvertTo-KcHtHidFromLog $View.Firmware.Hid (Get-KcHtUsageLabels $model)); Style = $script:KcHtBarFirmware; Note = 'ファーム' } }
     foreach ($x in $extra) {
         foreach ($run in (Get-KcHtOutputRuns $x.Hid $end)) {
             if (-not $outLane.ContainsKey($run.Key)) {
