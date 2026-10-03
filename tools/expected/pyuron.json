@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-Pyuron",
-      "commit": "73bcbcffd62cc50509c6621627ae682dabed6709",
+      "commit": "64cdfa1b6b871c5c74041f3add94993e2c1e22d5",
       "files": ["config/Pyuron.keymap", "config/Pyuron.json", "boards/shields/Pyuron/Pyuron.dtsi", "boards/shields/Pyuron/Pyuron_R.overlay", "boards/shields/Pyuron/Pyuron_L.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -2010,6 +2010,7 @@
     {"level": "ok", "message": "AML の除外位置 (12 17) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
+    {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (Pyuron/Pyuron.dtsi の scroller_L, Pyuron/Pyuron.dtsi の scroller_R)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/16 (README の共通基盤: 1/16)"},
     {"level": "ok", "message": "カーソルの加速 (左のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},

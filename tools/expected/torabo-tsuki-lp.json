@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-keyboard-torabo-tsuki-lp",
-      "commit": "38022ecb98ada3c674213437749ddde3210fdf90",
+      "commit": "0529464c98a2219024675806f65dea85b4ff75c5",
       "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
@@ -90,7 +90,7 @@
       {"pos": 59, "x": 8.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": "VIM_BASE"},
       {"pos": 60, "x": 9.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": "Enter"},
       {"pos": 61, "x": 10.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": ""},
-      {"pos": 62, "x": 11.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": ""},
+      {"pos": 62, "x": 11.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": "BT"},
       {"pos": 63, "x": 12.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": "FUNC"},
       {"pos": 64, "x": 13.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": "FUNC"},
       {"pos": 65, "x": 14.0, "y": 4.0, "w": 1, "h": 1, "hand": "right", "legend": ""}
@@ -164,7 +164,7 @@
           {"b": "Momentary Layer", "p1": 2, "p2": 0, "src": "&mo 2"},
           {"b": "Layer-Tap", "p1": 1, "p2": 458792, "src": "&lt 1 ENTER"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
-          {"b": "None", "p1": 0, "p2": 0, "src": "&none"},
+          {"b": "Momentary Layer", "p1": 7, "p2": 0, "src": "&mo 7"},
           {"b": "Momentary Layer", "p1": 6, "p2": 0, "src": "&mo 6"},
           {"b": "Momentary Layer", "p1": 6, "p2": 0, "src": "&mo 6"},
           {"b": "None", "p1": 0, "p2": 0, "src": "&none"}
@@ -850,7 +850,7 @@
       {"pos": 58, "legend": "SYM", "src": "&mo 1", "reason": "レイヤーキー"},
       {"pos": 59, "legend": "VIM_BASE", "src": "&mo 2", "reason": "レイヤーキー"},
       {"pos": 61, "legend": "", "src": "&none", "reason": "割り当てなし"},
-      {"pos": 62, "legend": "", "src": "&none", "reason": "割り当てなし"},
+      {"pos": 62, "legend": "BT", "src": "&mo 7", "reason": "レイヤーキー"},
       {"pos": 63, "legend": "FUNC", "src": "&mo 6", "reason": "レイヤーキー"},
       {"pos": 64, "legend": "FUNC", "src": "&mo 6", "reason": "レイヤーキー"},
       {"pos": 65, "legend": "", "src": "&none", "reason": "割り当てなし"}
@@ -904,9 +904,9 @@
         {
           "index": 0,
           "name": "BASE",
-          "legends": ["", "", "", "", "", "", "", "", "", "", "", "", "", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "", "", "A\nCtrl", "S", "D", "F", "G", "", "", "H", "J", "K", "L", "-\nRCtrl", "", "", "Z\nShift", "X", "C", "V", "B", "BT", "BT", "N", "M", ",", ".", "/\nRShift", "", "", "FUNC", "Win", "Alt", "Space\nVIM_BASE", "Space\nVIM_BASE", "SYM", "VIM_BASE", "Enter\nSYM", "", "", "FUNC", "FUNC", ""],
+          "legends": ["", "", "", "", "", "", "", "", "", "", "", "", "", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "", "", "A\nCtrl", "S", "D", "F", "G", "", "", "H", "J", "K", "L", "-\nRCtrl", "", "", "Z\nShift", "X", "C", "V", "B", "BT", "BT", "N", "M", ",", ".", "/\nRShift", "", "", "FUNC", "Win", "Alt", "Space\nVIM_BASE", "Space\nVIM_BASE", "SYM", "VIM_BASE", "Enter\nSYM", "", "BT", "FUNC", "FUNC", ""],
           "danger": [],
-          "devs": ["none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "none", "none", "mod_tap", "key_press", "key_press", "key_press", "key_press", "none", "none", "key_press", "key_press", "key_press", "key_press", "mod_tap", "none", "none", "mod_tap", "key_press", "key_press", "key_press", "key_press", "momentary_layer", "momentary_layer", "key_press", "key_press", "key_press", "key_press", "mod_tap", "none", "none", "momentary_layer", "key_press", "key_press", "layer_tap", "layer_tap", "momentary_layer", "momentary_layer", "layer_tap", "none", "none", "momentary_layer", "momentary_layer", "none"]
+          "devs": ["none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "key_press", "none", "none", "mod_tap", "key_press", "key_press", "key_press", "key_press", "none", "none", "key_press", "key_press", "key_press", "key_press", "mod_tap", "none", "none", "mod_tap", "key_press", "key_press", "key_press", "key_press", "momentary_layer", "momentary_layer", "key_press", "key_press", "key_press", "key_press", "mod_tap", "none", "none", "momentary_layer", "key_press", "key_press", "layer_tap", "layer_tap", "momentary_layer", "momentary_layer", "layer_tap", "none", "momentary_layer", "momentary_layer", "momentary_layer", "none"]
         },
         {
           "index": 1,
@@ -2357,6 +2357,7 @@
     {"level": "ok", "message": "AML の除外位置 (27 34) が MOUSE_MOVE の割り当てと一致"},
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
+    {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (torabo_tsuki_lp/torabo_tsuki_lp_right.overlay の scroller, torabo_tsuki_lp/torabo_tsuki_lp_left.overlay の scroller)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/1 (README の共通基盤: 1/1、実機で調整した値 + スムーズスクロール)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"}

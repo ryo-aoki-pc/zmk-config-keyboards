@@ -598,6 +598,47 @@ def listener_block(text: str, name: str, path: Path) -> str:
     return body[:child.start()] if child else body
 
 
+def scroll_chains(text: str, scrl: int) -> list[tuple[str, str]]:
+    """リスナーの子ノードのうち、SCRL レイヤーで使うもの (ノード名, input-processors)。"""
+    out = []
+    for m in re.finditer(r'([\w-]+)\s*\{\s*layers\s*=\s*<([^>]*)>\s*;\s*input-processors\s*=(.*?);', text, re.DOTALL):
+        if str(scrl) in m.group(2).split():
+            out.append((m.group(1), re.sub(r'\s+', ' ', m.group(3)).strip()))
+    return out
+
+
+def keeps_aml(processors: str, mous: int) -> bool:
+    """チェーンが AML (MOUSE_MOVE) のタイムアウトを延ばすか (zip_temp_layer <MOUS> 10000 を通る)。"""
+    return bool(re.search(rf'&zip_temp_layer\s+{mous}\s+10000\b', processors))
+
+
+def scroll_aml_consistency(board: dict, base: Path, mous: int, scrl: int) -> dict:
+    """スクロール中も AML を延ばすか (LisM 基準: スクロールのチェーンの先頭に zip_temp_layer <MOUS> 10000)。"""
+    chains: list[tuple[str, str]] = []
+    for rel in board['files']:
+        p = base / rel
+        if not p.exists():
+            continue
+        t = strip_c_comments(read_text(p))
+        t = re.sub(r'\bSCRL\b', str(scrl), re.sub(r'\bMOUS\b', str(mous), t))
+        where = '/'.join(Path(rel).parts[-2:])
+        chains += [(f'{where} の {name}', proc) for name, proc in scroll_chains(t, scrl)]
+    if 'tick' in board['scroll']:
+        # KUKEY42: ドライバ (scroll-layers) のホイールは、カーソルと同じ trackball_listener を通る
+        rel = 'boards/shields/KUKEY42/KUKEY42_R.overlay'
+        proc = listener_block(strip_c_comments(read_text(base / rel)), 'trackball_listener', base / rel)
+        chains.append(('KUKEY42/KUKEY42_R.overlay の trackball_listener (ドライバのスクロール)', proc))
+    if not chains:
+        return {'level': 'warn', 'message': 'スクロールのチェーンが見つかりません (スクロール中に AML を延ばすか確かめられません)'}
+    missing = [name for name, proc in chains if not keeps_aml(proc, mous)]
+    if missing:
+        return {'level': 'warn', 'message': (
+            f'スクロール中に AML を延ばさないチェーンがあります ({", ".join(missing)})。'
+            f'D / K を押したまま 10 秒以上スクロールすると AML が切れます (LisM 基準: 先頭に zip_temp_layer {mous} 10000)')}
+    return {'level': 'ok', 'message': (
+        f'スクロール中も AML を延ばす: zip_temp_layer {mous} 10000 を通る ({", ".join(name for name, _ in chains)})')}
+
+
 def zmk_trackball_firmware(board: dict, base: Path) -> tuple[list[dict], list[dict | None]]:
     """ボールごとの、今のファームの設定 (正規化の推奨値を作るため) と、AML の発動条件 (整合のチェック用)。"""
     entries = zmk_trackball_firmware_base(board, base)
@@ -755,6 +796,7 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
         out.append({'level': 'ok', 'message': f'{names} はすべて {mous} 10000 (AML: MOUSE_MOVE、10 秒)'})
     else:
         out.append({'level': 'warn', 'message': f'{names} の設定がそろっていません: {sorted(temp_layers)}'})
+    out.append(scroll_aml_consistency(board, base, mous, scrl))
     # スクロールの速さ: README の「共通基盤」の表の値 (LisM は 1/16。CPI などが違う機種は例外として書いてある)
     want = board['scroll']
     why = f'、{want["why"]}' if 'why' in want else ''
