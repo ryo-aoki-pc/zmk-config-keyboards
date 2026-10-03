@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "zmk-config-AroundFortyRB",
-      "commit": "17d2f722b0c49c1633201ae6f1871b3aec254b4b",
+      "commit": "4af9f06179703ae80e707899871f7d9e68608b65",
       "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
