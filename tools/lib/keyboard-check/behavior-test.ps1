@@ -502,7 +502,7 @@ function Invoke-KcBehaviorTest($Ctx) {
 # 種類ごとの結果の項目
 function Add-KcBehaviorResults($Ctx, [string]$Category) {
     $beh = $Ctx.Behaviors
-    $hint = 'ファームが古いか、キーマップのビヘイビア (mod-morph の mods、tap-dance、マクロ) が意図と違います。tools/flash-zmk.cmd で最新のファームを書き込んでください'
+    $hint = 'ファームが古いか、キーマップのビヘイビア (mod-morph の mods、tap-dance、マクロ) が意図と違います。tools/flash.cmd で最新のファームを書き込んでください'
     if ($Ctx.Expected.kind -eq 'vial') {
         $hint = 'Vial で変えたタップダンス・キーオーバーライド・マクロが残っているかもしれません。Vial の「File → Load saved layout」で KEYMAP.vil を読み込んでください。' +
         'キーオーバーライドは、修飾キーより先にタップしたキーを離したか確かめてください'

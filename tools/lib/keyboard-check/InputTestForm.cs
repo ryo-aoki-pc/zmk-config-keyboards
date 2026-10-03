@@ -1,12 +1,12 @@
 // Windows for the interactive test of tools/keyboard-check.ps1 (KcInputTestForm), the layer trace of
-// keyboard-check.ps1 -Mode Trace (KcLayerTraceForm) and the input event monitor of tools/input-monitor.ps1
-// (KcInputMonitorForm), built with WPF.
+// keyboard-check.ps1 -Mode Trace (KcLayerTraceForm), the input event monitor of tools/input-monitor.ps1
+// (KcInputMonitorForm) and the flashing tool tools/flash.ps1 (KcFlashForm), built with WPF.
 // Records Raw Input (WM_INPUT) per device: keyboard scan codes (layout independent) and
 // relative mouse movement before pointer acceleration, so key taps and trackball motion can be
 // checked against the expected values, and the timing of the reports can be analyzed.
-// The look is defined in Theme.xaml, InputTestWindow.xaml, LayerTraceWindow.xaml and InputMonitorWindow.xaml (next to this
-// file, KcUi.XamlDir), loaded at run time with XamlReader (no x:Class: the named elements are looked up
-// here). Loaded by tools/lib/keyboard-check/input-test.ps1 with Add-Type. The windows live in this one
+// The look is defined in Theme.xaml, InputTestWindow.xaml, LayerTraceWindow.xaml, InputMonitorWindow.xaml and
+// FlashWindow.xaml (next to this file, KcUi.XamlDir), loaded at run time with XamlReader (no x:Class: the
+// named elements are looked up here). Loaded by tools/lib/keyboard-check/input-test.ps1 with Add-Type. The windows live in this one
 // file because every Add-Type call makes its own assembly: a second file could not share
 // KcInputEvent / KcRawInputParser / KcUi without a duplicate type name.
 // Must stay C# 5 compatible (Windows PowerShell 5.1 compiles it with the .NET Framework compiler and
@@ -373,6 +373,22 @@ public static class KcDraw
     static readonly string[] CapFill = { "KcCapFill", "KcOkTint", "KcNgTint", "KcKeySkipFill" };
     static readonly string[] CapEdge = { "KcCapEdge", "KcOkEdge", "KcNgEdge", "KcKeySkipEdge" };
     static readonly string[] CapInk = { "KcCapInk", "KcOkInk", "KcNgInk", "KcKeySkipInk" };
+
+    // Theme keys per status level (0 = info, 1 = ok, 2 = ng, 3 = warning) of the banners.
+    public static readonly string[] StatusTint = { "KcInfoTint", "KcOkTint", "KcNgTint", "KcWarnTint" };
+    public static readonly string[] StatusEdge = { "KcInfoEdge", "KcOkEdge", "KcNgEdge", "KcWarnEdge" };
+    public static readonly string[] StatusMark = { "KcInfoMark", "KcOkMark", "KcNgMark", "KcWarnMark" };
+    public static readonly string[] StatusInk = { "KcInfoInk", "KcOkInk", "KcNgInk", "KcWarnInk" };
+
+    // Status icons drawn in a 24 x 24 circle: i, check, cross, exclamation mark.
+    public static readonly string[] StatusIconData =
+    {
+        "M12,11 L12,17 M12,7.4 L12,7.6",
+        "M7,12.5 L10.5,16 L17,8.5",
+        "M8.5,8.5 L15.5,15.5 M15.5,8.5 L8.5,15.5",
+        "M12,6.6 L12,13.4 M12,17.2 L12,17.4"
+    };
+
     // Arrow between chips (12 x 10).
     const string ArrowData = "M0,5 L11,5 M7,1 L11,5 L7,9";
 
@@ -864,21 +880,6 @@ public sealed class KcInputTestForm : IDisposable
     static readonly string[] OverviewFill = { "KcLayerIdleFill", "KcLayerOnFill", "KcOkTint", "KcNgTint", "KcKeySkipFill" };
     static readonly string[] OverviewEdge = { "KcLayerIdleEdge", "KcLayerOnEdge", "KcOkEdge", "KcNgEdge", "KcKeySkipEdge" };
     static readonly string[] OverviewInk = { "KcLayerIdleInk", "KcLayerOnInk", "KcOkInk", "KcNgInk", "KcKeySkipInk" };
-    // Theme keys per status level (0 .. 3).
-    static readonly string[] StatusTint = { "KcInfoTint", "KcOkTint", "KcNgTint", "KcWarnTint" };
-    static readonly string[] StatusEdge = { "KcInfoEdge", "KcOkEdge", "KcNgEdge", "KcWarnEdge" };
-    static readonly string[] StatusMark = { "KcInfoMark", "KcOkMark", "KcNgMark", "KcWarnMark" };
-    static readonly string[] StatusInk = { "KcInfoInk", "KcOkInk", "KcNgInk", "KcWarnInk" };
-
-    // Status icons drawn in a 24 x 24 circle: i, check, cross, exclamation mark.
-    static readonly string[] StatusIconData =
-    {
-        "M12,11 L12,17 M12,7.4 L12,7.6",
-        "M7,12.5 L10.5,16 L17,8.5",
-        "M8.5,8.5 L15.5,15.5 M15.5,8.5 L8.5,15.5",
-        "M12,6.6 L12,13.4 M12,17.2 L12,17.4"
-    };
-
     readonly object sync = new object();
     readonly List<KcInputEvent> events = new List<KcInputEvent>();
     readonly Stopwatch clock = Stopwatch.StartNew();
@@ -1130,11 +1131,11 @@ public sealed class KcInputTestForm : IDisposable
             statusBanner.Visibility = Visibility.Hidden;
             return;
         }
-        statusBanner.Background = ThemeBrush(StatusTint[level]);
-        statusBanner.BorderBrush = ThemeBrush(StatusEdge[level]);
-        statusMark.Fill = ThemeBrush(StatusMark[level]);
-        statusText.Foreground = ThemeBrush(StatusInk[level]);
-        statusIcon.Data = Geometry.Parse(StatusIconData[level]);
+        statusBanner.Background = ThemeBrush(KcDraw.StatusTint[level]);
+        statusBanner.BorderBrush = ThemeBrush(KcDraw.StatusEdge[level]);
+        statusMark.Fill = ThemeBrush(KcDraw.StatusMark[level]);
+        statusText.Foreground = ThemeBrush(KcDraw.StatusInk[level]);
+        statusIcon.Data = Geometry.Parse(KcDraw.StatusIconData[level]);
         statusBanner.Visibility = Visibility.Visible;
     }
 
@@ -2249,6 +2250,943 @@ public sealed class KcLayerTraceForm : IDisposable
     void OnSourceInitialized(object sender, EventArgs e)
     {
         hwnd = new WindowInteropHelper(window).Handle;
+        KcUi.ApplyDarkTitleBar(hwnd);
+        HwndSource.FromHwnd(hwnd).AddHook(WndProc);
+    }
+
+    IntPtr WndProc(IntPtr h, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (KcUi.FilterSystemKeys(msg, wParam))
+        {
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+}
+
+// The window of tools/flash.ps1: choose a keyboard, a build (latest / PR / past custom build) and the
+// options, then follow the steps while the flashing scripts run (their output is shown in the log).
+// The window runs on a thread of its own (Launch) so the PowerShell thread can download and run the
+// child processes; every setter is posted to the window thread. The buttons and the selections are
+// queued as action strings ("keyboard:LisM", "build:firmware-pr-12", "option:mode:Both", "start", ...)
+// and taken with TakeActions(). Keys typed while the window is in front (the keyboard being flashed may
+// type Q / P) are swallowed, and nothing in the window takes the keyboard focus.
+public sealed class KcFlashForm : IDisposable
+{
+    public const int PageSelect = 0;
+    public const int PageRun = 1;
+    // Levels of the banners, the notes and the log lines.
+    public const int LevelInfo = 0;
+    public const int LevelOk = 1;
+    public const int LevelNg = 2;
+    public const int LevelWarn = 3;
+    public const int LevelFaint = 4;
+    // States of the steps.
+    public const int StepPending = 0;
+    public const int StepActive = 1;
+    public const int StepDone = 2;
+    public const int StepFailed = 3;
+    // Kinds of the builds.
+    public const int KindLatest = 0;
+    public const int KindPr = 1;
+    public const int KindCustom = 2;
+    // States of the pull requests.
+    public const int PrNone = 0;
+    public const int PrOpen = 1;
+    public const int PrMerged = 2;
+    public const int PrClosed = 3;
+    // Styles of the option groups.
+    public const int StyleChoices = 0;
+    public const int StyleSegments = 1;
+
+    const int MaxLogLines = 3000;
+
+    static readonly string[] KindFill = { "KcLayerOnFill", "KcKeyHoldFill", "KcLayerIdleFill" };
+    static readonly string[] KindEdge = { "KcLayerOnEdge", "KcKeyHoldEdge", "KcLayerIdleEdge" };
+    static readonly string[] KindInk = { "KcLayerOnInk", "KcKeyHoldInk", "KcLayerIdleInk" };
+    static readonly string[] PrFill = { "KcLayerIdleFill", "KcOkTint", "KcKeyHoldFill", "KcNgTint" };
+    static readonly string[] PrEdge = { "KcLayerIdleEdge", "KcOkEdge", "KcKeyHoldEdge", "KcNgEdge" };
+    static readonly string[] PrInk = { "KcLayerIdleInk", "KcOkInk", "KcKeyHoldInk", "KcNgInk" };
+    static readonly string[] LineInk = { "KcText", "KcOkMark", "KcNgMark", "KcWarnMark", "KcTextFaint" };
+    static readonly string[] FooterInk = { "KcTextMuted", "KcOkMark", "KcNgMark", "KcWarnMark", "KcTextFaint" };
+
+    readonly object sync = new object();
+    readonly List<string> actions = new List<string>();
+    readonly Window window;
+    readonly FrameworkElement root;
+    readonly TextBlock appCaption;
+    readonly TextBlock titleText;
+    readonly TextBlock subtitleText;
+    readonly ProgressBar stepProgress;
+    readonly Border sourceChip;
+    readonly Ellipse sourceMark;
+    readonly TextBlock sourceText;
+    readonly FrameworkElement selectPage;
+    readonly FrameworkElement runPage;
+    readonly TextBlock keyboardsCaption;
+    readonly Panel keyboardList;
+    readonly TextBlock buildsCaption;
+    readonly Panel filterPanel;
+    readonly Button refreshButton;
+    readonly Border buildsMessage;
+    readonly TextBlock buildsMessageText;
+    readonly Panel buildList;
+    readonly TextBlock optionsCaption;
+    readonly Panel optionsPanel;
+    readonly TextBlock planCaption;
+    readonly Panel planSteps;
+    readonly Border planNote;
+    readonly TextBlock planNoteText;
+    readonly TextBlock runStepsCaption;
+    readonly Panel runSteps;
+    readonly Border banner;
+    readonly Ellipse bannerMark;
+    readonly Path bannerIcon;
+    readonly TextBlock bannerTitle;
+    readonly TextBlock bannerText;
+    readonly TextBlock logCaption;
+    readonly RichTextBox logBox;
+    readonly Button cancelButton;
+    readonly Button startButton;
+    readonly Button continueButton;
+    readonly Button retryButton;
+    readonly Button backButton;
+    readonly Button closeButton;
+    readonly TextBlock statusText;
+    readonly Dictionary<string, RadioButton> keyboardItems = new Dictionary<string, RadioButton>();
+    readonly Dictionary<string, RadioButton> buildItems = new Dictionary<string, RadioButton>();
+    readonly List<FrameworkElement> planStepRows = new List<FrameworkElement>();
+    readonly List<FrameworkElement> runStepRows = new List<FrameworkElement>();
+    string[] stepTitles = new string[0];
+    int[] stepStates = new int[0];
+    bool suppress;
+    bool closeGuard;
+    bool forceClose;
+    bool lastLogPartial;
+    string statusValue = "";
+    int statusLevel = -1;
+    volatile bool closed;
+
+    public KcFlashForm(string title)
+    {
+        FrameworkElement content;
+        window = KcUi.CreateWindow("FlashWindow.xaml", out content);
+        root = content;
+        window.Title = title ?? "flash";
+        window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        KcUi.FitSize(window, 1220, 800, 1000, 600);
+        InputMethod.SetIsInputMethodEnabled(window, false);
+
+        appCaption = KcUi.Find<TextBlock>(root, "AppCaption");
+        titleText = KcUi.Find<TextBlock>(root, "TitleText");
+        subtitleText = KcUi.Find<TextBlock>(root, "SubtitleText");
+        stepProgress = KcUi.Find<ProgressBar>(root, "StepProgress");
+        sourceChip = KcUi.Find<Border>(root, "SourceChip");
+        sourceMark = KcUi.Find<Ellipse>(root, "SourceMark");
+        sourceText = KcUi.Find<TextBlock>(root, "SourceText");
+        selectPage = KcUi.Find<FrameworkElement>(root, "SelectPage");
+        runPage = KcUi.Find<FrameworkElement>(root, "RunPage");
+        keyboardsCaption = KcUi.Find<TextBlock>(root, "KeyboardsCaption");
+        keyboardList = KcUi.Find<Panel>(root, "KeyboardList");
+        buildsCaption = KcUi.Find<TextBlock>(root, "BuildsCaption");
+        filterPanel = KcUi.Find<Panel>(root, "FilterPanel");
+        refreshButton = KcUi.Find<Button>(root, "RefreshButton");
+        buildsMessage = KcUi.Find<Border>(root, "BuildsMessage");
+        buildsMessageText = KcUi.Find<TextBlock>(root, "BuildsMessageText");
+        buildList = KcUi.Find<Panel>(root, "BuildList");
+        optionsCaption = KcUi.Find<TextBlock>(root, "OptionsCaption");
+        optionsPanel = KcUi.Find<Panel>(root, "OptionsPanel");
+        planCaption = KcUi.Find<TextBlock>(root, "PlanCaption");
+        planSteps = KcUi.Find<Panel>(root, "PlanSteps");
+        planNote = KcUi.Find<Border>(root, "PlanNote");
+        planNoteText = KcUi.Find<TextBlock>(root, "PlanNoteText");
+        runStepsCaption = KcUi.Find<TextBlock>(root, "RunStepsCaption");
+        runSteps = KcUi.Find<Panel>(root, "RunSteps");
+        banner = KcUi.Find<Border>(root, "Banner");
+        bannerMark = KcUi.Find<Ellipse>(root, "BannerMark");
+        bannerIcon = KcUi.Find<Path>(root, "BannerIcon");
+        bannerTitle = KcUi.Find<TextBlock>(root, "BannerTitle");
+        bannerText = KcUi.Find<TextBlock>(root, "BannerText");
+        logCaption = KcUi.Find<TextBlock>(root, "LogCaption");
+        logBox = KcUi.Find<RichTextBox>(root, "LogBox");
+        cancelButton = KcUi.Find<Button>(root, "CancelButton");
+        startButton = KcUi.Find<Button>(root, "StartButton");
+        continueButton = KcUi.Find<Button>(root, "ContinueButton");
+        retryButton = KcUi.Find<Button>(root, "RetryButton");
+        backButton = KcUi.Find<Button>(root, "BackButton");
+        closeButton = KcUi.Find<Button>(root, "CloseButton");
+        statusText = KcUi.Find<TextBlock>(root, "StatusText");
+
+        System.Windows.Documents.FlowDocument doc = new System.Windows.Documents.FlowDocument();
+        doc.PagePadding = new Thickness(0);
+        logBox.Document = doc;
+
+        SetupButton(cancelButton, "cancel");
+        SetupButton(startButton, "start");
+        SetupButton(continueButton, "continue");
+        SetupButton(retryButton, "retry");
+        SetupButton(backButton, "back");
+        SetupButton(closeButton, "close");
+        SetupButton(refreshButton, "refresh");
+        SetButtonsCore(true, false, false, false, false, true);
+        SetBannerCore("", "", LevelInfo);
+
+        window.PreviewKeyDown += SwallowKeyButCopy;
+        window.PreviewKeyUp += SwallowKeyButCopy;
+        window.PreviewTextInput += KcUi.SwallowText;
+        window.SourceInitialized += OnSourceInitialized;
+        window.Closing += OnClosing;
+        window.Closed += delegate { closed = true; };
+    }
+
+    // Opens the window on its own STA thread and returns once it is shown (or throws after 15 s).
+    public static KcFlashForm Launch(string title)
+    {
+        KcFlashForm[] box = new KcFlashForm[1];
+        Exception[] error = new Exception[1];
+        ManualResetEvent ready = new ManualResetEvent(false);
+        Thread thread = new Thread(delegate()
+        {
+            try
+            {
+                KcUi.EnsureDpiAware();
+                Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
+                // An exception in a UI callback must not end the process (this is a background thread).
+                dispatcher.UnhandledException += delegate(object sender, DispatcherUnhandledExceptionEventArgs e)
+                {
+                    e.Handled = true;
+                };
+                KcFlashForm form = new KcFlashForm(title);
+                form.window.Loaded += delegate
+                {
+                    box[0] = form;
+                    ready.Set();
+                };
+                form.window.Closed += delegate
+                {
+                    dispatcher.BeginInvokeShutdown(DispatcherPriority.Background);
+                };
+                form.window.Show();
+                form.window.Activate();
+                Dispatcher.Run();
+            }
+            catch (Exception ex)
+            {
+                error[0] = ex;
+            }
+            finally
+            {
+                ready.Set();
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Name = "flash";
+        thread.Start();
+        if (!ready.WaitOne(15000) || box[0] == null)
+        {
+            string reason = error[0] != null ? error[0].Message : "timeout";
+            throw new InvalidOperationException("cannot open the flashing window (" + reason + ")");
+        }
+        return box[0];
+    }
+
+    // ---- called from PowerShell ----
+
+    // The WPF window (the tests show it off screen; use it on the window thread only).
+    public Window Window { get { return window; } }
+
+    public bool IsClosed { get { return closed; } }
+
+    // The queued actions (oldest first); "close" once the window has been closed.
+    public string[] TakeActions()
+    {
+        lock (sync)
+        {
+            if (closed && actions.Count == 0)
+            {
+                return new string[] { "close" };
+            }
+            string[] a = actions.ToArray();
+            actions.Clear();
+            return a;
+        }
+    }
+
+    // While on, closing the window (title bar) only queues "close": PowerShell stops the running step
+    // and then calls RequestClose.
+    public void SetCloseGuard(bool on)
+    {
+        closeGuard = on;
+    }
+
+    public void RequestClose()
+    {
+        forceClose = true;
+        Post(delegate
+        {
+            if (!closed)
+            {
+                window.Close();
+            }
+        });
+    }
+
+    // Waits until the window is closed; false on timeout.
+    public bool WaitClosed(int timeoutMs)
+    {
+        DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (!closed && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(50);
+        }
+        return closed;
+    }
+
+    // Saves a picture of the window content as PNG (for the tests; call it on the window thread).
+    public void SaveSnapshot(string path)
+    {
+        KcUi.SaveSnapshot(root, path);
+    }
+
+    public void Dispose()
+    {
+        RequestClose();
+    }
+
+    public void SetTexts(string caption, string title, string subtitle)
+    {
+        Post(delegate
+        {
+            appCaption.Text = caption ?? "";
+            titleText.Text = title ?? "";
+            subtitleText.Text = subtitle ?? "";
+        });
+    }
+
+    public void SetCaptions(string keyboards, string builds, string options, string steps, string log)
+    {
+        Post(delegate
+        {
+            keyboardsCaption.Text = keyboards ?? "";
+            buildsCaption.Text = builds ?? "";
+            optionsCaption.Text = options ?? "";
+            planCaption.Text = steps ?? "";
+            runStepsCaption.Text = steps ?? "";
+            logCaption.Text = log ?? "";
+        });
+    }
+
+    public void SetButtonTexts(string close, string back, string cancel, string retry, string cont, string start, string refresh)
+    {
+        Post(delegate
+        {
+            closeButton.Content = close ?? "";
+            backButton.Content = back ?? "";
+            cancelButton.Content = cancel ?? "";
+            retryButton.Content = retry ?? "";
+            continueButton.Content = cont ?? "";
+            startButton.Content = start ?? "";
+            refreshButton.Content = refresh ?? "";
+        });
+    }
+
+    // Which footer buttons are shown.
+    public void SetButtons(bool close, bool back, bool cancel, bool retry, bool cont, bool start)
+    {
+        Post(delegate { SetButtonsCore(close, back, cancel, retry, cont, start); });
+    }
+
+    public void SetStartEnabled(bool enabled)
+    {
+        Post(delegate { startButton.IsEnabled = enabled; });
+    }
+
+    // The chip at the top right: where the build list came from ("" hides it).
+    public void SetSource(string text, int level)
+    {
+        Post(delegate
+        {
+            sourceText.Text = text ?? "";
+            sourceMark.Fill = Res(KcDraw.StatusMark[KcDraw.Clamp(level, 0, KcDraw.StatusMark.Length - 1)]);
+            KcUi.SetVisible(sourceChip, sourceText.Text.Length > 0);
+        });
+    }
+
+    // The status line of the footer. Does nothing when nothing changed (called on every tick).
+    public void SetStatus(string text, int level)
+    {
+        Post(delegate
+        {
+            text = text ?? "";
+            if (text == statusValue && level == statusLevel)
+            {
+                return;
+            }
+            statusValue = text;
+            statusLevel = level;
+            statusText.Text = text;
+            statusText.Foreground = Res(FooterInk[KcDraw.Clamp(level, 0, FooterInk.Length - 1)]);
+        });
+    }
+
+    // The thin bar under the header (max 0 hides it).
+    public void SetProgress(int value, int max)
+    {
+        Post(delegate
+        {
+            if (max <= 0)
+            {
+                stepProgress.Visibility = Visibility.Hidden;
+                return;
+            }
+            stepProgress.Maximum = max;
+            stepProgress.Value = Math.Max(0, Math.Min(value, max));
+            stepProgress.Visibility = Visibility.Visible;
+        });
+    }
+
+    public void ShowPage(int page)
+    {
+        Post(delegate
+        {
+            KcUi.SetVisible(selectPage, page == PageSelect);
+            KcUi.SetVisible(runPage, page == PageRun);
+        });
+    }
+
+    // The keyboard list, grouped by groups[i] (a caption before each new group).
+    public void SetKeyboards(string[] keys, string[] names, string[] details, string[] groups)
+    {
+        Post(delegate
+        {
+            keyboardList.Children.Clear();
+            keyboardItems.Clear();
+            string group = null;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string g = At(groups, i);
+                if (g != group)
+                {
+                    group = g;
+                    TextBlock caption = new TextBlock();
+                    caption.Text = g;
+                    caption.Style = (Style)window.FindResource("KcGroupCaption");
+                    keyboardList.Children.Add(caption);
+                }
+                StackPanel content = new StackPanel();
+                content.Children.Add(Text(At(names, i), 14, FontWeights.SemiBold, "KcText"));
+                TextBlock detail = Text(At(details, i), 12, FontWeights.Normal, "KcTextFaint");
+                detail.Margin = new Thickness(0, 1, 0, 0);
+                content.Children.Add(detail);
+                RadioButton item = Radio("KcNavItem", content, "keyboard:" + keys[i]);
+                keyboardItems[keys[i]] = item;
+                keyboardList.Children.Add(item);
+            }
+        });
+    }
+
+    public void SelectKeyboard(string key)
+    {
+        Post(delegate { Check(keyboardItems, key); });
+    }
+
+    // The filter of the build list (segments).
+    public void SetBuildFilters(string[] keys, string[] labels, string selected)
+    {
+        Post(delegate
+        {
+            filterPanel.Children.Clear();
+            for (int i = 0; i < keys.Length; i++)
+            {
+                RadioButton item = Radio("KcSegment", At(labels, i), "filter:" + keys[i]);
+                item.Padding = new Thickness(12, 4, 12, 5);
+                filterPanel.Children.Add(item);
+                if (keys[i] == selected)
+                {
+                    SetChecked(item);
+                }
+            }
+        });
+    }
+
+    // The build list: a card per build (badge by kind, title, detail and the state of its pull request).
+    public void SetBuilds(string[] keys, int[] kinds, string[] badges, string[] titles, string[] details, int[] prStates,
+        string[] prStateTexts, string[] tooltips, string selectedKey)
+    {
+        Post(delegate
+        {
+            buildList.Children.Clear();
+            buildItems.Clear();
+            for (int i = 0; i < keys.Length; i++)
+            {
+                int kind = KcDraw.Clamp(AtInt(kinds, i), 0, KindFill.Length - 1);
+                int pr = KcDraw.Clamp(AtInt(prStates, i), 0, PrFill.Length - 1);
+                DockPanel top = new DockPanel();
+                if (pr != PrNone && At(prStateTexts, i).Length > 0)
+                {
+                    Border state = MakeTag(At(prStateTexts, i), PrFill[pr], PrEdge[pr], PrInk[pr]);
+                    DockPanel.SetDock(state, Dock.Right);
+                    top.Children.Add(state);
+                }
+                Border badge = MakeTag(At(badges, i), KindFill[kind], KindEdge[kind], KindInk[kind]);
+                badge.HorizontalAlignment = HorizontalAlignment.Left;
+                top.Children.Add(badge);
+                StackPanel content = new StackPanel();
+                content.Children.Add(top);
+                TextBlock t = Text(At(titles, i), 14, FontWeights.SemiBold, "KcText");
+                t.Margin = new Thickness(0, 7, 0, 0);
+                t.TextTrimming = TextTrimming.CharacterEllipsis;
+                content.Children.Add(t);
+                TextBlock d = Text(At(details, i), 12, FontWeights.Normal, "KcTextFaint");
+                d.FontFamily = (FontFamily)window.FindResource("KcMonoFont");
+                d.Margin = new Thickness(0, 3, 0, 0);
+                d.TextTrimming = TextTrimming.CharacterEllipsis;
+                content.Children.Add(d);
+                RadioButton item = Radio("KcBuildItem", content, "build:" + keys[i]);
+                if (At(tooltips, i).Length > 0)
+                {
+                    item.ToolTip = At(tooltips, i);
+                }
+                buildItems[keys[i]] = item;
+                buildList.Children.Add(item);
+            }
+            Check(buildItems, selectedKey);
+        });
+    }
+
+    // The note above the build list ("" hides it): loading, offline, no builds.
+    public void SetBuildsMessage(string text, int level)
+    {
+        Post(delegate { Note(buildsMessage, buildsMessageText, text, level); });
+    }
+
+    public void ClearOptionGroups()
+    {
+        Post(delegate { optionsPanel.Children.Clear(); });
+    }
+
+    // One option group: choices (a vertical list with descriptions) or segments (a row; the description of
+    // the selected one below). A hidden group keeps its place in the order.
+    public void AddOptionGroup(string group, string caption, int style, string[] keys, string[] labels, string[] details,
+        string selected, bool visible)
+    {
+        Post(delegate
+        {
+            StackPanel box = new StackPanel();
+            TextBlock c = new TextBlock();
+            c.Text = caption ?? "";
+            c.Style = (Style)window.FindResource("KcSectionCaption");
+            c.Margin = new Thickness(0, 12, 0, 8);
+            box.Children.Add(c);
+            if (style == StyleChoices)
+            {
+                StackPanel list = new StackPanel();
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    StackPanel content = new StackPanel();
+                    content.Children.Add(Text(At(labels, i), 13.5, FontWeights.SemiBold, "KcText"));
+                    if (At(details, i).Length > 0)
+                    {
+                        TextBlock d = Text(At(details, i), 12, FontWeights.Normal, "KcTextMuted");
+                        d.Margin = new Thickness(0, 2, 0, 0);
+                        content.Children.Add(d);
+                    }
+                    RadioButton item = Radio("KcChoice", content, "option:" + group + ":" + keys[i]);
+                    list.Children.Add(item);
+                    if (keys[i] == selected)
+                    {
+                        SetChecked(item);
+                    }
+                }
+                box.Children.Add(list);
+            }
+            else
+            {
+                Border bar = new Border();
+                bar.Style = (Style)window.FindResource("KcSegmentBar");
+                System.Windows.Controls.Primitives.UniformGrid row = new System.Windows.Controls.Primitives.UniformGrid();
+                row.Rows = 1;
+                bar.Child = row;
+                box.Children.Add(bar);
+                TextBlock hint = Text("", 12, FontWeights.Normal, "KcTextMuted");
+                hint.Margin = new Thickness(2, 6, 0, 0);
+                box.Children.Add(hint);
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    string detail = At(details, i);
+                    RadioButton item = Radio("KcSegment", At(labels, i), "option:" + group + ":" + keys[i]);
+                    item.Checked += delegate
+                    {
+                        hint.Text = detail;
+                        KcUi.SetVisible(hint, detail.Length > 0);
+                    };
+                    row.Children.Add(item);
+                    if (keys[i] == selected)
+                    {
+                        SetChecked(item);
+                    }
+                }
+                KcUi.SetVisible(hint, hint.Text.Length > 0);
+            }
+            KcUi.SetVisible(box, visible);
+            optionsPanel.Children.Add(box);
+        });
+    }
+
+    // The note under the steps of the select page ("" hides it).
+    public void SetPlanNote(string text, int level)
+    {
+        Post(delegate { Note(planNote, planNoteText, text, level); });
+    }
+
+    // The steps (shown on both pages).
+    public void SetSteps(string[] titles, string[] details, int[] states)
+    {
+        Post(delegate
+        {
+            stepTitles = titles ?? new string[0];
+            stepStates = new int[stepTitles.Length];
+            FillSteps(planSteps, planStepRows, details, states);
+            FillSteps(runSteps, runStepRows, details, states);
+        });
+    }
+
+    public void SetStepState(int index, int state)
+    {
+        Post(delegate
+        {
+            if (index < 0 || index >= stepStates.Length)
+            {
+                return;
+            }
+            stepStates[index] = state;
+            UpdateStepRow(planStepRows, index);
+            UpdateStepRow(runStepRows, index);
+        });
+    }
+
+    // The banner of the run page: what to do now, or the result.
+    public void SetBanner(string title, string text, int level)
+    {
+        Post(delegate { SetBannerCore(title, text, level); });
+    }
+
+    // Appends a line to the log. partial: the line is replaced by the next one (a progress line).
+    public void AppendLog(string text, int level, bool partial)
+    {
+        Post(delegate { AppendLogCore(text, level, partial); });
+    }
+
+    public void ClearLog()
+    {
+        Post(delegate
+        {
+            logBox.Document.Blocks.Clear();
+            lastLogPartial = false;
+        });
+    }
+
+    // ---- internals ----
+
+    // Runs an action on the window thread (directly when called from it).
+    void Post(Action work)
+    {
+        if (closed)
+        {
+            return;
+        }
+        try
+        {
+            Dispatcher dispatcher = window.Dispatcher;
+            if (dispatcher.CheckAccess())
+            {
+                work();
+            }
+            else
+            {
+                dispatcher.BeginInvoke(DispatcherPriority.Normal, work);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // the window is closing
+        }
+    }
+
+    void Enqueue(string action)
+    {
+        lock (sync)
+        {
+            actions.Add(action);
+        }
+    }
+
+    void SetupButton(Button button, string name)
+    {
+        button.Click += delegate { Enqueue(name); };
+    }
+
+    Brush Res(string key)
+    {
+        return KcDraw.Res(window, key);
+    }
+
+    static string At(string[] a, int i)
+    {
+        return a != null && i < a.Length && a[i] != null ? a[i] : "";
+    }
+
+    static int AtInt(int[] a, int i)
+    {
+        return a != null && i < a.Length ? a[i] : 0;
+    }
+
+    TextBlock Text(string text, double size, FontWeight weight, string ink)
+    {
+        TextBlock t = new TextBlock();
+        t.Text = text ?? "";
+        t.FontSize = size;
+        t.FontWeight = weight;
+        t.Foreground = Res(ink);
+        t.TextWrapping = TextWrapping.NoWrap;
+        return t;
+    }
+
+    // A small rounded tag (the kind of a build, the state of a pull request).
+    Border MakeTag(string text, string fill, string edge, string ink)
+    {
+        TextBlock t = Text(text, 11.5, FontWeights.SemiBold, ink);
+        Border b = new Border();
+        b.CornerRadius = new CornerRadius(6);
+        b.Padding = new Thickness(8, 1, 8, 2);
+        b.BorderThickness = new Thickness(1);
+        b.Background = Res(fill);
+        b.BorderBrush = Res(edge);
+        b.VerticalAlignment = VerticalAlignment.Center;
+        b.Child = t;
+        return b;
+    }
+
+    RadioButton Radio(string style, object content, string action)
+    {
+        RadioButton r = new RadioButton();
+        r.Style = (Style)window.FindResource(style);
+        r.Content = content;
+        r.Checked += delegate
+        {
+            if (!suppress)
+            {
+                Enqueue(action);
+            }
+        };
+        return r;
+    }
+
+    // Checks a radio button without queuing an action.
+    void SetChecked(RadioButton r)
+    {
+        suppress = true;
+        try
+        {
+            r.IsChecked = true;
+        }
+        finally
+        {
+            suppress = false;
+        }
+    }
+
+    void Check(Dictionary<string, RadioButton> items, string key)
+    {
+        RadioButton r;
+        if (key != null && items.TryGetValue(key, out r))
+        {
+            SetChecked(r);
+            r.BringIntoView();
+            return;
+        }
+        suppress = true;
+        try
+        {
+            foreach (RadioButton other in items.Values)
+            {
+                other.IsChecked = false;
+            }
+        }
+        finally
+        {
+            suppress = false;
+        }
+    }
+
+    void Note(Border box, TextBlock text, string value, int level)
+    {
+        value = value ?? "";
+        text.Text = value;
+        int l = KcDraw.Clamp(level, 0, KcDraw.StatusTint.Length - 1);
+        box.Background = Res(KcDraw.StatusTint[l]);
+        box.BorderBrush = Res(KcDraw.StatusEdge[l]);
+        text.Foreground = Res(KcDraw.StatusInk[l]);
+        KcUi.SetVisible(box, value.Length > 0);
+    }
+
+    void SetButtonsCore(bool close, bool back, bool cancel, bool retry, bool cont, bool start)
+    {
+        KcUi.SetVisible(closeButton, close);
+        KcUi.SetVisible(backButton, back);
+        KcUi.SetVisible(cancelButton, cancel);
+        KcUi.SetVisible(retryButton, retry);
+        KcUi.SetVisible(continueButton, cont);
+        KcUi.SetVisible(startButton, start);
+    }
+
+    void SetBannerCore(string title, string text, int level)
+    {
+        int l = KcDraw.Clamp(level, 0, KcDraw.StatusTint.Length - 1);
+        bannerTitle.Text = title ?? "";
+        bannerText.Text = text ?? "";
+        KcUi.SetVisible(bannerText, bannerText.Text.Length > 0);
+        banner.Background = Res(KcDraw.StatusTint[l]);
+        banner.BorderBrush = Res(KcDraw.StatusEdge[l]);
+        bannerMark.Fill = Res(KcDraw.StatusMark[l]);
+        bannerTitle.Foreground = Res(KcDraw.StatusInk[l]);
+        bannerText.Foreground = Res(KcDraw.StatusInk[l]);
+        bannerIcon.Data = Geometry.Parse(KcDraw.StatusIconData[l]);
+        KcUi.SetVisible(banner, bannerTitle.Text.Length > 0);
+    }
+
+    void FillSteps(Panel panel, List<FrameworkElement> rows, string[] details, int[] states)
+    {
+        panel.Children.Clear();
+        rows.Clear();
+        for (int i = 0; i < stepTitles.Length; i++)
+        {
+            stepStates[i] = AtInt(states, i);
+            Grid mark = new Grid();
+            mark.Width = 26;
+            mark.Height = 26;
+            mark.Margin = new Thickness(0, 0, 12, 0);
+            mark.VerticalAlignment = VerticalAlignment.Top;
+            mark.Children.Add(new Ellipse());
+            TextBlock number = Text((i + 1).ToString(), 12.5, FontWeights.Bold, "KcText");
+            number.HorizontalAlignment = HorizontalAlignment.Center;
+            number.VerticalAlignment = VerticalAlignment.Center;
+            mark.Children.Add(number);
+            Path icon = new Path();
+            icon.Style = (Style)window.FindResource("KcStatusIcon");
+            icon.RenderTransformOrigin = new Point(0.5, 0.5);
+            icon.RenderTransform = new ScaleTransform(0.8, 0.8);
+            icon.HorizontalAlignment = HorizontalAlignment.Center;
+            icon.VerticalAlignment = VerticalAlignment.Center;
+            mark.Children.Add(icon);
+            StackPanel texts = new StackPanel();
+            TextBlock t = Text(stepTitles[i], 13.5, FontWeights.SemiBold, "KcText");
+            t.TextWrapping = TextWrapping.Wrap;
+            texts.Children.Add(t);
+            TextBlock d = Text(At(details, i), 12, FontWeights.Normal, "KcTextFaint");
+            d.FontFamily = (FontFamily)window.FindResource("KcMonoFont");
+            d.TextWrapping = TextWrapping.Wrap;
+            d.Margin = new Thickness(0, 2, 0, 0);
+            texts.Children.Add(d);
+            DockPanel row = new DockPanel();
+            row.Margin = new Thickness(0, 0, 0, 12);
+            DockPanel.SetDock(mark, Dock.Left);
+            row.Children.Add(mark);
+            row.Children.Add(texts);
+            row.Tag = mark;
+            rows.Add(row);
+            panel.Children.Add(row);
+            UpdateStepRow(rows, i);
+        }
+    }
+
+    void UpdateStepRow(List<FrameworkElement> rows, int index)
+    {
+        if (index >= rows.Count)
+        {
+            return;
+        }
+        Grid mark = (Grid)rows[index].Tag;
+        Ellipse circle = (Ellipse)mark.Children[0];
+        TextBlock number = (TextBlock)mark.Children[1];
+        Path icon = (Path)mark.Children[2];
+        int state = stepStates[index];
+        circle.StrokeThickness = 1.5;
+        if (state == StepDone || state == StepFailed)
+        {
+            circle.Fill = Res(state == StepDone ? "KcOkMark" : "KcNgMark");
+            circle.Stroke = circle.Fill;
+            icon.Data = Geometry.Parse(KcDraw.StatusIconData[state == StepDone ? 1 : 2]);
+            icon.Visibility = Visibility.Visible;
+            number.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            bool active = state == StepActive;
+            circle.Fill = Res(active ? "KcAccent" : "KcSurface");
+            circle.Stroke = Res(active ? "KcAccentLight" : "KcBorder");
+            number.Foreground = Res(active ? "KcOnAccent" : "KcTextMuted");
+            icon.Visibility = Visibility.Collapsed;
+            number.Visibility = Visibility.Visible;
+        }
+        rows[index].Opacity = state == StepPending ? 0.75 : 1.0;
+    }
+
+    void AppendLogCore(string text, int level, bool partial)
+    {
+        System.Windows.Documents.BlockCollection blocks = logBox.Document.Blocks;
+        Brush ink = Res(LineInk[KcDraw.Clamp(level, 0, LineInk.Length - 1)]);
+        // follow the end of the log only while it is shown (so a selection to copy is not scrolled away)
+        bool atEnd = logBox.VerticalOffset + logBox.ViewportHeight >= logBox.ExtentHeight - 2;
+        System.Windows.Documents.Paragraph p;
+        if (lastLogPartial && blocks.LastBlock is System.Windows.Documents.Paragraph)
+        {
+            p = (System.Windows.Documents.Paragraph)blocks.LastBlock;
+            p.Inlines.Clear();
+        }
+        else
+        {
+            p = new System.Windows.Documents.Paragraph();
+            p.Margin = new Thickness(0);
+            blocks.Add(p);
+            while (blocks.Count > MaxLogLines)
+            {
+                blocks.Remove(blocks.FirstBlock);
+            }
+        }
+        System.Windows.Documents.Run run = new System.Windows.Documents.Run(text ?? "");
+        run.Foreground = ink;
+        p.Inlines.Add(run);
+        lastLogPartial = partial;
+        if (atEnd)
+        {
+            logBox.ScrollToEnd();
+        }
+    }
+
+    void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (closeGuard && !forceClose)
+        {
+            e.Cancel = true;
+            Enqueue("close");
+        }
+    }
+
+    // Swallows the keys while this window is in front; Ctrl+C / Ctrl+A still reach the log to copy it.
+    static void SwallowKeyButCopy(object sender, KeyEventArgs e)
+    {
+        if (Keyboard.Modifiers == ModifierKeys.Control && (e.Key == Key.C || e.Key == Key.A))
+        {
+            return;
+        }
+        e.Handled = true;
+    }
+
+    void OnSourceInitialized(object sender, EventArgs e)
+    {
+        IntPtr hwnd = new WindowInteropHelper(window).Handle;
         KcUi.ApplyDarkTitleBar(hwnd);
         HwndSource.FromHwnd(hwnd).AddHook(WndProc);
     }

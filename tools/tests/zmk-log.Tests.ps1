@@ -240,24 +240,18 @@ Test-Case '期待値: ZMK の機種はデバイス名とレイヤーごとの表
     }
 }
 
-# flash-zmk.ps1 は、$KEYBOARDS のセントラルの名前に _studio / _logging を付けてダウンロードする。
+# 書き込みツール (lib/flash-plan.ps1) は、$FlashKeyboards のセントラルの名前に _studio / _logging を付けてダウンロードする。
 # その名前が、各リポジトリの build.yaml (期待値の studio_artifacts / logging_artifacts) にあること
-Test-Case 'アセット名: flash-zmk のセントラル + _studio / _logging が build.yaml にある' {
-    $tokens = $null
-    $errors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ToolsDir 'flash-zmk.ps1'), [ref]$tokens, [ref]$errors)
-    $assign = $ast.Find({
-            param($n)
-            $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$KEYBOARDS'
-        }, $true)
-    Assert-True ($null -ne $assign) '$KEYBOARDS が見つからない'
-    $table = $assign.Right.Find({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
+Test-Case 'アセット名: 書き込みツールのセントラル + _studio / _logging が build.yaml にある' {
+    . (Join-Path $script:ToolsDir 'lib\flash-plan.ps1')
     $count = 0
-    foreach ($pair in $table.KeyValuePairs) {
-        $id = ([string]$pair.Item1.Value).ToLowerInvariant()
-        $inner = $pair.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
-        $rightPair = @($inner.KeyValuePairs | Where-Object { $_.Item1.Value -eq 'Right' })[0]
-        $right = [string]$rightPair.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true).Value
+    foreach ($key in @($script:FlashKeyboards.Keys)) {
+        $k = $script:FlashKeyboards[$key]
+        if ($k.Kind -ne 'zmk') {
+            continue
+        }
+        $id = ([string]$key).ToLowerInvariant()
+        $right = [string]$k.Right
         $names = @($right)
         if ($right.Contains('{v}')) { $names = @($right.Replace('{v}', 'trackball'), $right.Replace('{v}', 'non_trackball')) }
         $e = Get-KcExpected $id $script:ExpectedDir

@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     次の手順で、左右 2 台に同じファームウェアを書き込みます。
-      1. .hex を指定しなければ、keyball の firmware-latest リリース (custom ブランチの最新ビルド) を
-         ダウンロードする
+      1. .hex を指定しなければ、keyball のリリース (既定は firmware-latest = custom ブランチの最新ビルド。
+         -Tag / -Pr で PR や過去のビルド) をダウンロードする
       2. .hex (Intel HEX) を検証する (チェックサム / 書き込み先がブートローダより前に収まるか)
       3. avrdude が無ければ、公式の Windows 版 (バージョン固定・SHA256 確認済み) を tools\.cache に
          ダウンロードする
@@ -13,6 +13,8 @@
 
     caterina ブートローダは起動から約 8 秒で終了するので、COM ポートが現れたらすぐに書き込みます。
     Keyball は KQ-mini 経由では書き込めないので、PC に直接つないでください。
+
+    tools\flash-keyball.cmd をダブルクリックすると、書き込みツールのウィンドウ (flash.ps1) が開きます。
 
 .PARAMETER Path
     書き込む .hex ファイル。省略すると最新のファームウェアをダウンロードします。
@@ -26,11 +28,21 @@
 .PARAMETER WaitSeconds
     1 台ごとに、ブートローダが現れるまで待つ秒数。
 
+.PARAMETER Tag
+    ダウンロードするリリースのタグ (例: firmware-custom-1a2b3c4)。既定は firmware-latest (custom の最新)。
+    選べるタグは flash.ps1 -Keyboard Keyball39 -List で表示できます。
+
+.PARAMETER Pr
+    PR のビルド (firmware-pr-<番号>) を書き込みます。-Tag とは一緒に使えません。
+
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 keyball_keyball39_via.hex -Count 1
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 -Pr 19
 #>
 [CmdletBinding()]
 param(
@@ -42,13 +54,18 @@ param(
     [ValidateRange(1, 10)]
     [int]$Count = 2,
 
-    [int]$WaitSeconds = 120
+    [int]$WaitSeconds = 120,
+
+    [string]$Tag,
+
+    [int]$Pr = 0
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'lib\firmware-latest.ps1')
+. (Join-Path $PSScriptRoot 'lib\firmware-release.ps1')
+. (Join-Path $PSScriptRoot 'lib\flash-plan.ps1')
 
 $CACHE_DIR = Join-Path $PSScriptRoot '.cache'
 
@@ -243,8 +260,9 @@ function Invoke-Avrdude([string]$Exe, [string]$WorkDir, [string]$Port) {
 # ---------------------------------------------------------------------------
 if (-not $Path) {
     try {
-        $Path = Get-FirmwareLatest -Repo 'ryo-aoki-pc/keyball' -Asset 'keyball_keyball39_via.hex' `
-            -OutDir (Join-Path $CACHE_DIR 'firmware')
+        $keyball = $script:FlashKeyboards['Keyball39']
+        $Path = Get-FirmwareAsset -Repo $keyball.Repo -Asset $keyball.Asset -OutDir (Join-Path $CACHE_DIR 'firmware') `
+            -Tag (Get-FirmwareTag $Tag $Pr)
     } catch {
         Stop-WithError $_.Exception.Message
     }

@@ -361,7 +361,7 @@ if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace') {
                 [void](Add-KcResult -Results $results -Category ('{0} (Studio)' -f $expected.name) -Item 'キーマップの読み出し' -Status SKIP `
                         -Actual 'ZMK Studio 版が USB で見つかりません' -Hint (
                         "キーマップを読み出すには、右手側に ZMK Studio 版 ($artifacts) を書き込み、USB でつないでください。`n" +
-                        'tools/flash-zmk.cmd で機種と「3. 右手側 (セントラル) だけ」を選び、ファイルの一覧で s を押すと Studio 版になります。実動作テストは Studio 版でなくてもできます'))
+                        'tools/flash.cmd で機種を選び、書き込む内容を「右手側 (セントラル) だけ」、右手側の版を「Studio 版」にして書き込んでください。実動作テストは Studio 版でなくてもできます'))
             } else {
                 $t = $null
                 try {

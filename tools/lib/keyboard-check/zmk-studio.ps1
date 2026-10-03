@@ -1,7 +1,7 @@
 ﻿# ZMK Studio (ZMK v0.3.0) の RPC による読み出し検査。keyboard-check.ps1 から dot-source して使う。
 # expected.ps1 と results.ps1 が先に読み込まれている前提。
 #
-# Studio 版のファーム (flash-zmk の「s」/ -Studio) を書いた右手側 (セントラル) を USB でつなぐと、
+# Studio 版のファーム (書き込みツールの右手側の版「Studio 版」/ flash-zmk.ps1 -Studio) を書いた右手側 (セントラル) を USB でつなぐと、
 # USB のシリアルポートで RPC を受け付ける (CONFIG_ZMK_STUDIO_LOCKING=n なのでアンロックは不要)。
 #   フレーム: 0xAB (SOF) + データ + 0xAD (EOF)。データ中の 0xAB / 0xAC / 0xAD は 0xAC (ESC) を前に付ける
 #   データ: zmk.studio.Request / Response (protobuf、zmk-studio-messages @ 6cb4c28)
@@ -550,7 +550,7 @@ function Invoke-KcZmkReadout {
     $lock = Read-KcStudioLockState $Session
     if ($lock -ne 1) {
         [void](Add-KcResult -Results $Results -Category $cat -Item 'Studio のロック' -Status WARN -Actual 'ロック中' `
-                -Hint 'CONFIG_ZMK_STUDIO_LOCKING=n の Studio 版ではロックされないはずです。tools/flash-zmk.cmd で Studio 版 (s) を書き込み直してください')
+                -Hint 'CONFIG_ZMK_STUDIO_LOCKING=n の Studio 版ではロックされないはずです。tools/flash.cmd で Studio 版を書き込み直してください')
     }
 
     $names = New-KcZmkNames $Common $expected
@@ -630,7 +630,7 @@ function Invoke-KcZmkReadout {
         }
     }
     $hint = "ZMK Studio で変更して保存した内容が残っています。Studio の「Restore Stock Settings」か、`n" +
-    'tools/flash-zmk.cmd の「設定リセットしてから左右に書き込む」で元に戻ります'
+    'tools/flash.cmd の「設定リセットしてから左右に書き込む」で元に戻ります'
     Add-KcKeymapResult $Results $cat $diffs.ToArray() $total $hint
     if ($reordered.Count -gt 0) {
         [void](Add-KcResult -Results $Results -Category $cat -Item 'レイヤーの順番' -Status WARN -Details $reordered `
