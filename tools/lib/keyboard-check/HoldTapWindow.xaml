@@ -1,7 +1,7 @@
 <!--
   Content of the tap-hold timing window of tools/scripts/keyboard-check.ps1 -Mode HoldTap (KcHoldTapForm in
-  InputTestForm.cs): the target key, the presets, the key presses read from the logging firmware and the
-  settings on the left; the result and the timeline (KcTimelineView draws ChartCanvas) on the right.
+  InputTestForm.cs): the settings (flavor and tapping term) on the left; the result and the timeline
+  (KcTimelineView draws ChartCanvas) of the last hold-tap press on the right.
   Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
   Theme keys (Theme.xaml) are referenced with DynamicResource because the theme is merged into the
   window after this content is parsed. ASCII only: texts are set from PowerShell.
@@ -15,11 +15,11 @@
     <RowDefinition Height="Auto"/>
   </Grid.RowDefinitions>
 
-  <!-- header: title and keyboard; the log port (logging firmware) on the right -->
+  <!-- header: title and what to do; the log port (logging firmware) on the right -->
   <Border Grid.Row="0" Style="{DynamicResource KcHeader}">
     <DockPanel>
       <Border x:Name="PortChip" DockPanel.Dock="Right" Style="{DynamicResource KcChip}" Margin="0,0,28,0"
-              Visibility="Collapsed">
+              VerticalAlignment="Center" Visibility="Collapsed">
         <StackPanel Orientation="Horizontal">
           <Ellipse x:Name="PortMark" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"/>
           <TextBlock x:Name="PortText" FontSize="12.5" VerticalAlignment="Center" Foreground="{DynamicResource KcTextMuted}"/>
@@ -27,7 +27,7 @@
       </Border>
       <StackPanel Margin="28,14,28,14">
         <TextBlock x:Name="TitleText" Style="{DynamicResource KcHeaderTitle}"/>
-        <TextBlock x:Name="SubtitleText" FontSize="13" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
+        <TextBlock x:Name="SubtitleText" FontSize="13" Margin="0,3,0,0" TextWrapping="Wrap"
                    Foreground="{DynamicResource KcTextMuted}"/>
       </StackPanel>
     </DockPanel>
@@ -35,35 +35,36 @@
 
   <Grid Grid.Row="1" Margin="20,16,20,14">
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="330"/>
+      <ColumnDefinition Width="280"/>
       <ColumnDefinition Width="14"/>
       <ColumnDefinition Width="*" MinWidth="420"/>
     </Grid.ColumnDefinitions>
 
-    <!-- left: what to look at, and the settings -->
-    <Border x:Name="SideCard" Grid.Column="0" Style="{DynamicResource KcCard}" Padding="14,12,6,12">
-      <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" Padding="0,0,8,0">
+    <!-- left: the settings of the hold-tap behavior of the last press -->
+    <Border x:Name="SideCard" Grid.Column="0" Style="{DynamicResource KcCard}" Padding="14,12,14,12">
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
         <StackPanel>
-          <TextBlock x:Name="KeysCaption" Style="{DynamicResource KcSectionCaption}" Margin="0,0,0,8"/>
-          <StackPanel x:Name="KeyPanel"/>
-          <TextBlock x:Name="PresetsCaption" Style="{DynamicResource KcSectionCaption}" Margin="0,14,0,8"/>
-          <StackPanel x:Name="PresetPanel"/>
-          <StackPanel x:Name="EpisodesBox" Margin="0,14,0,0" Visibility="Collapsed">
-            <TextBlock x:Name="EpisodesCaption" Style="{DynamicResource KcSectionCaption}" Margin="0,0,0,8"/>
-            <StackPanel x:Name="FollowPanel"/>
-            <TextBlock x:Name="EpisodesEmpty" FontSize="12" TextWrapping="Wrap" Margin="2,6,0,0"
-                       Foreground="{DynamicResource KcTextFaint}"/>
-            <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto" Focusable="False" Margin="0,6,0,0">
-              <StackPanel x:Name="EpisodeList"/>
-            </ScrollViewer>
-          </StackPanel>
-          <DockPanel Margin="0,16,0,4">
-            <Button x:Name="ResetButton" DockPanel.Dock="Right" Style="{DynamicResource KcToolButton}"/>
-            <TextBlock x:Name="ParamsCaption" Style="{DynamicResource KcSectionCaption}" VerticalAlignment="Center"/>
+          <TextBlock x:Name="SettingsCaption" Style="{DynamicResource KcSectionCaption}" Margin="0,0,0,10"/>
+          <TextBlock x:Name="FlavorCaption" FontSize="12.5" FontWeight="SemiBold" Margin="0,0,0,5"
+                     Foreground="{DynamicResource KcText}"/>
+          <StackPanel x:Name="FlavorPanel"/>
+          <TextBlock x:Name="FlavorHint" FontSize="12" TextWrapping="Wrap" Margin="2,5,0,0"
+                     Foreground="{DynamicResource KcTextMuted}"/>
+          <DockPanel Margin="0,16,0,5">
+            <TextBlock x:Name="TermValue" DockPanel.Dock="Right" FontSize="12.5" FontWeight="SemiBold"
+                       VerticalAlignment="Center" Foreground="{DynamicResource KcAccentLight}"/>
+            <TextBlock x:Name="TermCaption" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource KcText}"/>
           </DockPanel>
-          <TextBlock x:Name="ParamsNote" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"
+          <Slider x:Name="TermSlider" Style="{DynamicResource KcSlider}" SmallChange="1" LargeChange="10"/>
+          <Border x:Name="ChangedTag" HorizontalAlignment="Left" CornerRadius="5" Padding="6,0,6,1" Margin="0,14,0,0"
+                  BorderThickness="1" Background="{DynamicResource KcWarnTint}" BorderBrush="{DynamicResource KcWarnEdge}"
+                  Visibility="Collapsed">
+            <TextBlock x:Name="ChangedText" FontSize="11.5" Foreground="{DynamicResource KcWarnInk}"/>
+          </Border>
+          <TextBlock x:Name="KeymapText" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"
                      Foreground="{DynamicResource KcTextFaint}"/>
-          <StackPanel x:Name="ParamPanel"/>
+          <Button x:Name="ResetButton" HorizontalAlignment="Left" Margin="0,10,0,0" Style="{DynamicResource KcToolButton}"/>
         </StackPanel>
       </ScrollViewer>
     </Border>
@@ -104,8 +105,6 @@
   <Border x:Name="Footer" Grid.Row="2" Style="{DynamicResource KcFooter}">
     <DockPanel LastChildFill="True">
       <Button x:Name="CloseButton" DockPanel.Dock="Right" Style="{DynamicResource KcPrimaryButton}"/>
-      <Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{DynamicResource KcSecondaryButton}"/>
-      <Button x:Name="ClearButton" DockPanel.Dock="Right" Style="{DynamicResource KcSecondaryButton}"/>
       <TextBlock x:Name="StatusText" FontSize="13.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                  Foreground="{DynamicResource KcTextMuted}"/>
     </DockPanel>
