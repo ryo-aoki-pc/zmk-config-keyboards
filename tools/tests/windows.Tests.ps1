@@ -2,7 +2,13 @@
 
 . (Join-Path $script:KcLib 'expected.ps1')
 . (Join-Path $script:KcLib 'rawhid.ps1')
+. (Join-Path $script:KcLib 'input-eval.ps1')
+. (Join-Path $script:KcLib 'behavior-eval.ps1')
+. (Join-Path $script:KcLib 'zmk-studio.ps1')
+. (Join-Path $script:KcLib 'zmk-log.ps1')
 . (Join-Path $script:KcLib 'input-test.ps1')
+. (Join-Path $script:KcLib 'behavior-test.ps1')
+. (Join-Path $script:KcLib 'layer-trace.ps1')
 
 Test-Case 'RawHid.cs をコンパイルできる' {
     Import-KcCSharp 'RawHid.cs' 'KcRawHid'
@@ -212,4 +218,131 @@ Test-Case '記録用のウィンドウを描画できる' -WindowsOnly {
     } finally {
         $form.Dispose()
     }
+}
+
+# 要素の下端がボタンの帯より上にあるか
+function Assert-UiAboveFooter($Root, [string[]]$Names) {
+    $footerTop = $Root.FindName('Footer').TranslatePoint((New-Object System.Windows.Point 0, 0), $Root).Y
+    foreach ($name in $Names) {
+        $e = $Root.FindName($name)
+        if ($e.Visibility -ne [System.Windows.Visibility]::Visible) { continue }
+        $bottom = $e.TranslatePoint((New-Object System.Windows.Point 0, 0), $Root).Y + $e.ActualHeight
+        Assert-True ($bottom -le $footerTop + 0.5) ('{0} がボタンの帯に重ならない ({1} > {2})' -f $name, $bottom, $footerTop)
+    }
+}
+
+Test-Case 'テスト用のウィンドウ: レイヤー・ビヘイビアの手順を描画できる (レイヤーの帯・チップ・キーキャップ、最小の大きさ)' -WindowsOnly {
+    Import-KcInputForm
+    $expected = Get-KcExpected 'lism' $script:ExpectedDir
+    $common = Get-KcExpected 'common' $script:ExpectedDir
+    $scan = New-KcScanTable $common
+    $form = New-Object KcInputTestForm
+    try {
+        Initialize-KcInputForm $form $expected
+        $w = $form.Window
+        Show-UiOffscreen $w
+        $root = $w.Content
+        $beh = $expected.interactive.behaviors
+        $ctx = @{
+            Form = $form; Expected = $expected; Common = $common; ScanTable = $scan; Behaviors = $beh
+            KeyPositions = @($expected.physical.keys | ForEach-Object { [int]$_.pos }); LayerTally = @{ 1 = @{ Pass = 2; Fail = 0; Skip = 0; Total = 2 }; 6 = @{ Pass = 0; Fail = 1; Skip = 0; Total = 1 } }
+            TestedLayers = @(0, 1, 2, 3, 4, 5, 6)
+        }
+        $form.SetExtraLegendTexts('押したまま (レイヤー)', '押したまま (修飾)', '押さない')
+        $sc = @($beh.scenarios | Where-Object { $_.id -eq 'morph-mm_vim_u' })[0]
+        $step = @($sc.steps)[1]
+        Show-KcBehaviorStep $ctx $sc $step 'モッドモーフ (4 / 13): モッドモーフ mm_vim_u — 手順 2 / 2'
+        $form.SetProgress(20, 56)
+        # Ctrl を押したまま、マスクされて PgUp だけ (合格)
+        $ok = @((New-KcKeyEvent 0 0x1D 0 $false), (New-KcKeyEvent 5 0x1D 0 $true), (New-KcKeyEvent 6 0x49 0xE0 $false), (New-KcKeyEvent 30 0x49 0xE0 $true))
+        $t = Update-KcBehaviorOutputs $ctx $step $ok
+        Assert-Equal 'PASS' $t.Status
+        Show-KcStepResult $ctx 'PASS' ('OK: ' + $t.Actual)
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'keyboard-check-5-behavior'
+        Assert-True ($root.FindName('LayerStrip').Visibility -eq [System.Windows.Visibility]::Visible) 'レイヤーの帯'
+        Assert-True ($root.FindName('SequencePanel').Children.Count -ge 3) '手順のチップ'
+
+        # &to の手順 (入る → 全部離す → タップ)、違う入力、最小の大きさ
+        $to = @($beh.scenarios | Where-Object { $_.kind -eq 'to_layer' })[0]
+        Show-KcBehaviorStep $ctx $to @($to.steps)[0] 'レイヤーの切り替え (&to) (1 / 4): VIM_VISUAL への切り替え (1) — 手順 1 / 4'
+        $bad = @((New-KcKeyEvent 0 0x2F 0 $false), (New-KcKeyEvent 9 0x2F 0 $true))
+        $t2 = Update-KcBehaviorOutputs $ctx @($to.steps)[0] $bad
+        Assert-Equal 'FAIL' $t2.Status
+        Show-KcStepResult $ctx 'FAIL' ($t2.Message + ' もう一度お願いします')
+        $w.Width = $w.MinWidth
+        $w.Height = $w.MinHeight
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'keyboard-check-6-behavior-min'
+        Assert-True ($root.FindName('KeyboardCard').ActualHeight -ge 100) ('キーボード図の高さ: {0}' -f $root.FindName('KeyboardCard').ActualHeight)
+        Assert-UiAboveFooter $root @('OutputPanel', 'StatusBanner')
+
+        # グループの区切りと後片付け
+        $form.ClearKeyBadges()
+        $form.ResetKeyLegends()
+        $form.SetSequence([string[]]@(), [string[]]@(), [int[]]@(), [string[]]@())
+        $form.ClearOutputs()
+        $form.SetLayerPath([string[]]@(), [int[]]@())
+        $form.SetLayerOverview('', [string[]]@(), [int[]]@())
+        [KcUi]::DoEvents()
+        Assert-True ($root.FindName('LayerStrip').Visibility -ne [System.Windows.Visibility]::Visible) 'レイヤーの帯を隠す'
+    } finally {
+        $form.Dispose()
+    }
+}
+
+Test-Case 'レイヤーの動きを見るウィンドウを描画できる (ログから、レイヤーの解決・時系列)' -WindowsOnly {
+    Import-KcInputForm
+    $expected = Get-KcExpected 'lism' $script:ExpectedDir
+    $common = Get-KcExpected 'common' $script:ExpectedDir
+    $form = New-Object KcLayerTraceForm
+    try {
+        $keys = @($expected.physical.keys)
+        $form.SetButtonTexts('終了', '一時停止', 'クリア', 'ログを保存')
+        $form.SetKeyboardName('LisM')
+        $form.SetCaptions('レイヤー', '表示: BASE', '送ったキー', '押したキー (新しい順)')
+        $form.SetTexts('レイヤーの動きを見る', 'キーボードのキーを自由に押すと、そのキーがどのレイヤーで、どう解決されたかが出ます。')
+        $form.SetKeys([int[]]@($keys | ForEach-Object { [int]$_.pos }), [double[]]@($keys | ForEach-Object { [double]$_.x }),
+            [double[]]@($keys | ForEach-Object { [double]$_.y }), [double[]]@($keys | ForEach-Object { [double]$_.w }),
+            [double[]]@($keys | ForEach-Object { [double]$_.h }), [string[]]@($keys | ForEach-Object { [string]$_.legend }))
+        $form.SetPort('COM7 ログ受信中', 1)
+        Show-UiOffscreen $form.Window
+        $view = @{
+            Form = $form; Expected = $expected; ScanTable = (New-KcScanTable $common); State = (New-KcLayerTrace $expected)
+            KeyPositions = @($keys | ForEach-Object { [int]$_.pos }); ShownLayer = -1; LastSeq = 0
+            Seqs = (New-Object 'System.Collections.Generic.List[int]'); Paused = $false; CacheDir = ''
+        }
+        $log = @(
+            '[00:00:01.000,000] <dbg> zmk: zmk_physical_layouts_kscan_process_msgq: Row: 3, col: 0, position: 36, pressed: true',
+            '[00:00:01.000,100] <dbg> zmk: zmk_keymap_apply_position_state: layer_id: 0 position: 36, binding name: momentary_layer',
+            '[00:00:01.000,200] <dbg> zmk: mo_keymap_binding_pressed: position 36 layer 2',
+            '[00:00:01.000,300] <dbg> zmk: set_layer_state: layer_changed: layer 2 state 1',
+            '[00:00:01.100,000] <dbg> zmk: peripheral_event_work_callback: Trigger key position state change for 10',
+            '[00:00:01.100,100] <dbg> zmk: zmk_keymap_apply_position_state: layer_id: 2 position: 10, binding name: key_press',
+            '[00:00:01.100,200] <dbg> zmk: on_keymap_binding_pressed: position 10 keycode 0x700E0',
+            '[00:00:01.100,300] <dbg> zmk: hid_listener_keycode_pressed: usage_page 0x07 keycode 0xE0 implicit_mods 0x00 explicit_mods 0x00',
+            '[00:00:01.200,000] <dbg> zmk: zmk_physical_layouts_kscan_process_msgq: Row: 0, col: 1, position: 6, pressed: true',
+            '[00:00:01.200,100] <dbg> zmk: zmk_keymap_apply_position_state: layer_id: 2 position: 6, binding name: MM_VIM_U',
+            '[00:00:01.200,200] <dbg> zmk: on_keymap_binding_pressed: position 6 keycode 0x7004B',
+            '[00:00:01.200,300] <dbg> zmk: hid_listener_keycode_pressed: usage_page 0x07 keycode 0x4B implicit_mods 0x00 explicit_mods 0x01'
+        )
+        foreach ($l in $log) {
+            Update-KcLayerTrace $view.State (ConvertFrom-KcZmkLogLine $l)
+        }
+        Update-KcTraceView $view
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'keyboard-check-7-trace'
+        $root = $form.Window.Content
+        Assert-Equal 3 $root.FindName('Timeline').Items.Count '時系列'
+        Assert-True ($root.FindName('CascadePanel').Children.Count -ge 2) 'レイヤーの段'
+        Assert-Equal '' $form.TakeAction()
+        $form.Window.Width = $form.Window.MinWidth
+        $form.Window.Height = $form.Window.MinHeight
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'keyboard-check-8-trace-min'
+    } finally {
+        $form.Dispose()
+    }
+    Assert-True $form.IsClosed '閉じた'
+    Assert-Equal 'stop' $form.TakeAction() '閉じたら終了'
 }

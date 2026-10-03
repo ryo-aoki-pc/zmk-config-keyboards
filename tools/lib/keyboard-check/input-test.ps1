@@ -1,5 +1,5 @@
-﻿# 実動作テスト (GUI)。テスト用のウィンドウ (InputTestForm.cs) で、キーのタップ・AML・スクロール・
-# トラックボールの正規化 (楕円・速さ) を順に行う。Windows のみ。
+﻿# 実動作テスト (GUI)。テスト用のウィンドウ (InputTestForm.cs) で、キーのタップ・レイヤー・ビヘイビア
+# (behavior-test.ps1)・AML・スクロール・トラックボールの正規化 (楕円・速さ) を順に行う。Windows のみ。
 # keyboard-check.ps1 から dot-source して使う。expected.ps1 / results.ps1 / rawhid.ps1 / input-eval.ps1 /
 # trackball-calib.ps1 が先に読み込まれている前提。
 #
@@ -171,18 +171,27 @@ function Add-KcInputResult($Ctx, [string]$Category, [string]$Item, [string]$Stat
 # デバイスの特定
 # ---------------------------------------------------------------------------
 
+# このウィンドウが前面になるまで待つ (前面でないと、マクロの Ctrl+X などがほかのアプリに届く)
+function Wait-KcForeground($Ctx, [string]$Why = 'キーの入力をこのウィンドウで受け取るためです (ほかのアプリにキーが入力されないようにします)。') {
+    if ($Ctx.Form.IsForeground) {
+        return 'done'
+    }
+    $Ctx.Form.SetTexts('準備', 'このウィンドウを一度クリックしてください', $Why)
+    $Ctx.Form.Activate()
+    while (-not $Ctx.Form.IsForeground) {
+        Invoke-KcPump
+        $a = $Ctx.Form.TakeAction()
+        if ($a -eq 'abort') {
+            return 'abort'
+        }
+    }
+    return 'resumed'
+}
+
 function Select-KcKeyboardDevice($Ctx) {
     # キーの入力をこのウィンドウで受け取る (Alt / Win を押してもメニューが開かない) ため、前面にする
-    if (-not $Ctx.Form.IsForeground) {
-        $Ctx.Form.SetTexts('準備', 'このウィンドウを一度クリックしてください',
-            'キーの入力をこのウィンドウで受け取るためです (コンソールにキーが入力されないようにします)。')
-        $Ctx.Form.Activate()
-        while (-not $Ctx.Form.IsForeground) {
-            Invoke-KcPump
-            if ($Ctx.Form.TakeAction() -eq 'abort') {
-                return 'abort'
-            }
-        }
+    if ((Wait-KcForeground $Ctx 'キーの入力をこのウィンドウで受け取るためです (コンソールにキーが入力されないようにします)。') -eq 'abort') {
+        return 'abort'
     }
     $Ctx.Form.SetTexts('準備: キーボードの特定', 'テストするキーボードのキーを 1 つ押してください',
         "Shift など、押しても何も起きないキーがおすすめです。`nPC 本体のキーボードやマウスには触らないでください。")
@@ -735,8 +744,8 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
 # 全体
 # ---------------------------------------------------------------------------
 
-# $Options: @{ Sections = @('Keys','Trackball','Calibrate'); Balls = @('right'); Speed = $bool; Diameter = mm または $null;
-#             Strength = 0〜1; SpeedReference = 基準の実効 CPI または $null; CachePath }
+# $Options: @{ Sections = @('Keys','Behaviors','Trackball','Calibrate'); Balls = @('right'); Speed = $bool; Diameter = mm または $null;
+#             Strength = 0〜1; SpeedReference = 基準の実効 CPI または $null; CachePath; ReadoutMismatch = @{ "レイヤー:位置" = $true } }
 function Invoke-KcInputTest {
     param(
         [Parameter(Mandatory = $true)] $Expected,
@@ -750,6 +759,8 @@ function Invoke-KcInputTest {
         Category = ('{0}: 実動作' -f $Expected.name); CalibCategory = ('{0}: トラックボールの正規化' -f $Expected.name)
         CalibEntries = (New-Object 'System.Collections.Generic.List[object]'); SpeedReference = $null; Form = $null
         AmlTimeoutPassed = $false
+        # レイヤー・ビヘイビアのテスト (behavior-test.ps1)。Mismatch: 読み出し検査で違っていた "レイヤー:位置"
+        Mismatch = (Get-KcProp $Options 'ReadoutMismatch' @{})
     }
     if ($null -ne $Options.SpeedReference) {
         $ctx.SpeedReference = [pscustomobject]@{ Cpi = [double]$Options.SpeedReference; PerRev = $null; Source = '-SpeedReference' }
@@ -758,6 +769,7 @@ function Invoke-KcInputTest {
     }
     $sections = @($Options.Sections)
     $doKeys = $sections -contains 'Keys'
+    $doBehaviors = $sections -contains 'Behaviors'
     $doBall = $sections -contains 'Trackball'
     $doCalib = $sections -contains 'Calibrate'
     $tb = $Expected.interactive.trackball
@@ -767,7 +779,7 @@ function Invoke-KcInputTest {
     $consoleMode = [KcConsoleMode]::DisableQuickEdit()
     try {
         $form.MaskWinKey($true)
-        if ($doKeys -or $doBall) {
+        if ($doKeys -or $doBall -or $doBehaviors) {
             # トラックボールの正規化だけのときは、キーを押さないので特定しない
             $outcome = Select-KcKeyboardDevice $ctx
             if ($outcome -eq 'done') {
@@ -776,6 +788,9 @@ function Invoke-KcInputTest {
         }
         if ($outcome -eq 'done' -and $doKeys -and @($Expected.interactive.taps).Count -gt 0) {
             $outcome = Invoke-KcTapTest $ctx
+        }
+        if ($outcome -eq 'done' -and $doBehaviors) {
+            $outcome = Invoke-KcBehaviorTest $ctx
         }
         if ($outcome -eq 'done' -and ($doBall -or $doCalib)) {
             $outcome = Select-KcMouseDevice $ctx

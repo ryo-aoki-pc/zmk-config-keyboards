@@ -25,7 +25,7 @@ function Get-UiClassText([string]$ClassName) {
 }
 
 Test-Case 'XAML は XML として読める' {
-    foreach ($f in @('Theme.xaml', 'InputTestWindow.xaml', 'InputMonitorWindow.xaml')) {
+    foreach ($f in @('Theme.xaml', 'InputTestWindow.xaml', 'InputMonitorWindow.xaml', 'LayerTraceWindow.xaml')) {
         $doc = New-Object System.Xml.XmlDocument
         $doc.Load((Join-Path $script:UiDir $f))
         Assert-True ($null -ne $doc.DocumentElement) $f
@@ -47,7 +47,8 @@ Test-Case 'Theme.xaml: キーが重複せず、StaticResource は定義の後で
 }
 
 Test-Case 'C# が探す要素が、ウィンドウの XAML にある' {
-    foreach ($w in @(@{ Class = 'KcInputTestForm'; Xaml = 'InputTestWindow.xaml' }, @{ Class = 'KcInputMonitorForm'; Xaml = 'InputMonitorWindow.xaml' })) {
+    foreach ($w in @(@{ Class = 'KcInputTestForm'; Xaml = 'InputTestWindow.xaml' }, @{ Class = 'KcInputMonitorForm'; Xaml = 'InputMonitorWindow.xaml' },
+            @{ Class = 'KcLayerTraceForm'; Xaml = 'LayerTraceWindow.xaml' })) {
         $code = Get-UiClassText $w.Class
         Assert-True ($code.Contains(('KcUi.CreateWindow("{0}"' -f $w.Xaml))) ('{0} は {1} を読み込む' -f $w.Class, $w.Xaml)
         $xaml = [System.IO.File]::ReadAllText((Join-Path $script:UiDir $w.Xaml))
@@ -62,7 +63,7 @@ Test-Case 'C# が探す要素が、ウィンドウの XAML にある' {
 Test-Case 'XAML と C# が使うテーマのキーが、Theme.xaml にある' {
     $keys = Get-UiThemeKeys
     $missing = @()
-    foreach ($f in @('InputTestWindow.xaml', 'InputMonitorWindow.xaml')) {
+    foreach ($f in @('InputTestWindow.xaml', 'InputMonitorWindow.xaml', 'LayerTraceWindow.xaml')) {
         $xaml = [System.IO.File]::ReadAllText((Join-Path $script:UiDir $f))
         foreach ($k in (Get-UiMatches $xaml '\{(?:Dynamic|Static)Resource (\w+)\}')) {
             if ($keys -notcontains $k) {

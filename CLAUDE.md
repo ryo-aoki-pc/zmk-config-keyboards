@@ -40,7 +40,7 @@ KQ-mini と Keyball39 は組み合わせて使い、役割を分担している:
 `tools/` のスクリプトは `https://github.com/<repo>/releases/download/firmware-latest/<asset>` からダウンロードする。そのため書き込まれるのは `custom` の最新ビルドで、このリポジトリが参照しているコミットとは限らない。
 
 アセット名はリポジトリをまたいだ取り決めになっている:
-- `tools/flash-zmk.ps1` の `$KEYBOARDS` 表には、ZMK の各リポジトリの `build.yaml` の `artifact-name` が直接書かれている。`{v}` は LisM の `trackball` / `non_trackball` の版を表すプレースホルダで、ZMK Studio 版では、スクリプトが右手側 (セントラル) の名前の末尾に `_studio` を付ける (Studio 版があるのはセントラルだけ)。設定リセットのアセット名 (XIAO は `settings_reset-seeeduino_xiao_ble-zmk`、BMP は `settings_reset-bmp_boost-zmk`) は、`$KEYBOARDS` の各機種の `Mcu` が指す `$MCUS` の `SettingsReset` に直接書かれている。
+- `tools/flash-zmk.ps1` の `$KEYBOARDS` 表には、ZMK の各リポジトリの `build.yaml` の `artifact-name` が直接書かれている。`{v}` は LisM の `trackball` / `non_trackball` の版を表すプレースホルダで、ZMK Studio 版では、スクリプトが右手側 (セントラル) の名前の末尾に `_studio` を付け、ログ版 (`zmk-usb-logging`。`keyboard-check` の `-Mode Trace` 用) では `_logging` を付ける (Studio 版とログ版があるのはセントラルだけ。両方を入れた版は無い)。設定リセットのアセット名 (XIAO は `settings_reset-seeeduino_xiao_ble-zmk`、BMP は `settings_reset-bmp_boost-zmk`) は、`$KEYBOARDS` の各機種の `Mcu` が指す `$MCUS` の `SettingsReset` に直接書かれている。
 - Keyball と KQ-mini のアセット名は、それぞれのスクリプトに直接書かれている。
 
 submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) を変えるときは、スクリプトと README の URL の表も更新する。
@@ -72,9 +72,11 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 - 期待値: `tools/expected/generate.py` (Python 3.10 以上、標準ライブラリだけ) が submodule の `.keymap` / overlay / `.conf` / `keymap.c` と `zmk-keymap-docgen` の `zmk_to_vial.py` から `tools/expected/*.json` を生成し、コミットしておく。機種を足すときは `ZMK_BOARDS` と `keyboard-check.ps1` の `$boards`、CI の submodule の一覧を揃える。
 - 読み出し検査: KQ-mini は Vial、Keyball39 は VIA (ryo-aoki-pc/keyball#12 で足した読み取り専用のコマンド `08 00 01`〜`03` を含む)、ZMK は ZMK Studio の RPC。送るのは読み取りのコマンドだけで、`lib/keyboard-check/qmk.ps1` の許可リストで縛っている。Vial の unlock (`FE 06`) や VIA / Studio の set 系は送らないこと。
 - 実動作テストとトラックボールの正規化: `lib/keyboard-check/InputTestForm.cs` (Raw Input) のウィンドウで入力を記録し、`input-eval.ps1` / `trackball-calib.ps1` の純粋関数で判定する。ファームのカーソルの加速は `Remove-KcAccel` で取り除いてから計算する (加速の処理を変えたら、`tests/trackball-calib.Tests.ps1` のファームを真似た計算も合わせる)。
+- レイヤー・ビヘイビアのテスト: `tools/expected/behaviors.py` が ZMK v0.3.0 の動き (レイヤー、`&mo` / `&lt` / `&to`、hold-tap、mod-morph のマスクと keep-mods、tap-dance、マクロ) を真似て、手順と「PC に届く入力 (ストローク)」の期待値を作る (`interactive.behaviors`)。KQ-mini は LisM の手順を Keyball39 の位置に置き換える。押すと状態が変わるキー (`&bt` `&out` `&sys_reset` `&bootloader` `&studio_unlock`) とその隣、Win / Alt の押したまま、システムが反応する組み合わせ (Ctrl+Esc、Alt+Tab など) は手順に入れず、入ったら生成をエラーにする (`test_behaviors.py` が全機種で確かめる)。判定は `lib/keyboard-check/behavior-eval.ps1` (純粋関数)、流れと表示は `behavior-test.ps1`。ZMK の動きの真似を変えたら、`tests/behavior-eval.Tests.ps1` の全シナリオの合成 (PASS と 1 文字変えた FAIL) が通ることを確かめる。
+- レイヤーの動きを見る (`-Mode Trace`): ZMK のログ版ファーム (`*_logging`) が USB の COM ポートに出すログを `lib/keyboard-check/zmk-log.ps1` (純粋関数。`tests/zmk-log.Tests.ps1` が ZMK v0.3.0 の書式のログで確かめる) で解析し、`layer-trace.ps1` が `KcLayerTraceForm` (`LayerTraceWindow.xaml`) に出す。COM ポートは読むだけで、何も送らない。ログの書式は ZMK のバージョンで変わるので、ZMK を上げたら正規表現を確かめる。
 - テスト: `python tools/expected/generate.py --check`、`python -m unittest discover -s tools/expected`、`tools/tests/run.ps1` (Pester は使わない。Linux の `pwsh` でも Windows 専用のテスト以外は動く。`input-monitor` のテストもここで走る)。CI は `.github/workflows/keyboard-check.yml` (Linux と Windows PowerShell 5.1)。
 - `.cs` は ASCII だけで書き、Windows PowerShell 5.1 の `Add-Type` がコンパイルできる C# 5 の構文にする (警告もエラーになる)。
-- テスト用・記録用のウィンドウは WPF (ダークテーマ)。見た目は `lib/keyboard-check/` の `Theme.xaml` (色・ボタンなどのスタイル) と `InputTestWindow.xaml` / `InputMonitorWindow.xaml` (中身) にあり、`InputTestForm.cs` が `XamlReader` で読み込む (`x:Class` は使わず、名前の付いた要素を `KcUi.Find` で探す)。ウィンドウの XAML からテーマのキーは `DynamicResource` で参照する。XAML も ASCII だけで書き、表示する文字列は PowerShell から渡す。`Import-KcInputForm` (`input-test.ps1`) が `[KcUi]::XamlDir` を設定し、ウィンドウを作る前に `[KcUi]::EnsureDpiAware()` を呼ぶ。テスト用のウィンドウは PowerShell のスレッドで `[KcUi]::DoEvents()` で回す。`tests/ui.Tests.ps1` が XAML と C# の名前・キーの食い違いを (Linux でも) 調べ、`tests/windows.Tests.ps1` が画面外に描画する。`$env:KC_SCREENSHOT_DIR` を設定すると、描いた PNG が残る (CI は artifact `window-screenshots` に上げる)。
+- テスト用・記録用のウィンドウは WPF (ダークテーマ)。見た目は `lib/keyboard-check/` の `Theme.xaml` (色・ボタンなどのスタイル) と `InputTestWindow.xaml` / `InputMonitorWindow.xaml` / `LayerTraceWindow.xaml` (中身) にあり、`InputTestForm.cs` が `XamlReader` で読み込む (`x:Class` は使わず、名前の付いた要素を `KcUi.Find` で探す)。ウィンドウの XAML からテーマのキーは `DynamicResource` で参照する。XAML も ASCII だけで書き、表示する文字列は PowerShell から渡す。`Import-KcInputForm` (`input-test.ps1`) が `[KcUi]::XamlDir` を設定し、ウィンドウを作る前に `[KcUi]::EnsureDpiAware()` を呼ぶ。テスト用のウィンドウは PowerShell のスレッドで `[KcUi]::DoEvents()` で回す。キーボードの図は `KcKeyboardView`、チップ・キーキャップ・矢印は `KcDraw`、Win キーのフックは `KcWinKeyMask` にあり、`KcInputTestForm` と `KcLayerTraceForm` が共有する。`tests/ui.Tests.ps1` が XAML と C# の名前・キーの食い違いを (Linux でも) 調べ、`tests/windows.Tests.ps1` が画面外に描画する。`$env:KC_SCREENSHOT_DIR` を設定すると、描いた PNG が残る (CI は artifact `window-screenshots` に上げる)。
 
 ### PowerShell の約束事 (必須)
 
@@ -84,6 +86,7 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 - `lib/` 以外のスクリプトは、日本語のコメントベースのヘルプで始まり、`param` の直後で `Set-StrictMode -Version 2.0` と `$ErrorActionPreference = 'Stop'` を設定する。
 - 書き込みスクリプトは、失敗したら赤字で `失敗: …` と表示し、終了コード 1 で終了する。`flash-uf2.ps1`・`flash-zmk.ps1`・`flash-keyball.ps1` は、それぞれのスクリプト内で定義した `Stop-WithError` でこれを行う (`lib/` には無く、`flash-kq-mini.ps1` には定義されていない)。成功時は `成功` または `完了` と表示し、終了コード 0 で終了する。呼び出し側は `$LASTEXITCODE` を確認する。
 - これらのスクリプトは、ドライブの列挙・シリアルポート・HID・PnP といった Windows のデバイス API を使うため、Linux のコンテナでは動作を確認できない。
+- Linux の `pwsh` (7.4) では、`New-Object` で作った `List` を `@()` で包むと「Argument types do not match」で失敗することがある。`foreach` で回すか `.ToArray()` を使う (5.1 では起きないので、Linux のテストでだけ落ちる)。
 
 ## README の保守
 

@@ -10,7 +10,7 @@ $kq = Get-KcExpected 'kq-mini' $script:ExpectedDir
 Test-Case '期待値の JSON を読める' {
     foreach ($id in @('common', 'kq-mini', 'keyball39', 'lism', 'kukey42', 'aroundfortyrb', 'pyuron', 'roba', 'torabo-tsuki-lp')) {
         $d = Get-KcExpected $id $script:ExpectedDir
-        Assert-Equal 1 $d.schema "$id の schema"
+        Assert-Equal 2 $d.schema "$id の schema"
         Assert-Equal $id $d.id "$id の id"
     }
     Assert-Equal 'Mod-Tap' $lism.readout.zmk.bindings[0][10].b

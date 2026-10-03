@@ -29,6 +29,10 @@
 .PARAMETER Studio
     右手側 (セントラル) に ZMK Studio 対応版を書き込みます。
 
+.PARAMETER Logging
+    右手側 (セントラル) にログ版 (USB の COM ポートにデバッグログを出す版。tools/keyboard-check.cmd の
+    「レイヤーの動きを見る」用) を書き込みます。-Studio とは一緒に使えません。
+
 .PARAMETER LeftVariant
     LisM の左手側の版 (trackball / non_trackball)。
 
@@ -46,6 +50,9 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 -Keyboard Pyuron -Mode Right -Studio
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 -Keyboard LisM -Mode Right -Logging
 #>
 [CmdletBinding()]
 param(
@@ -59,6 +66,8 @@ param(
     [string]$Mode,
 
     [switch]$Studio,
+
+    [switch]$Logging,
 
     [ValidateSet('trackball', 'non_trackball')]
     [string]$LeftVariant,
@@ -78,7 +87,7 @@ $ErrorActionPreference = 'Stop'
 # 機種ごとの設定と既定値
 # ---------------------------------------------------------------------------
 # Right / Left は build.yaml の artifact-name。{v} は LisM のトラックボール有無 (trackball / non_trackball)。
-# セントラルの ZMK Studio 対応版は、Right の後ろに _studio が付く。Mcu は下の $MCUS のキー。
+# セントラルの ZMK Studio 対応版は Right の後ろに _studio、ログ版は _logging が付く。Mcu は下の $MCUS のキー。
 $KEYBOARDS = [ordered]@{
     LisM              = @{ Repo = 'ryo-aoki-pc/zmk-config-LisM'; Right = 'lism_right_central_{v}'; Left = 'lism_left_peripheral_{v}'; Mcu = 'XIAO' }
     AroundFortyRB     = @{ Repo = 'ryo-aoki-pc/zmk-config-AroundFortyRB'; Right = 'AroundForty-RB_right_central'; Left = 'AroundForty-RB_left_peripheral'; Mcu = 'XIAO' }
@@ -154,9 +163,10 @@ function Select-Item([string]$Title, [string[]]$Keys, [string[]]$Labels, [string
     }
 }
 
-function Get-FlashPlan($Config, [string]$StepMode, [bool]$UseStudio, [string]$Right, [string]$Left) {
+# $Central: セントラルの版 ('' = 通常版 / 'studio' = ZMK Studio 対応版 / 'logging' = ログ版)
+function Get-FlashPlan($Config, [string]$StepMode, [string]$Central, [string]$Right, [string]$Left) {
     $centralName = $Config.Right.Replace('{v}', $Right)
-    if ($UseStudio) { $centralName += '_studio' }
+    if ($Central) { $centralName += '_' + $Central }
     $peripheralName = $Config.Left.Replace('{v}', $Left)
     $settingsReset = $MCUS[$Config.Mcu].SettingsReset
 
@@ -216,14 +226,19 @@ $hasVariants = $config.Right.Contains('{v}')
 if (-not $hasVariants -and ($LeftVariant -or $RightVariant)) {
     Write-Warning "$Keyboard にはトラックボールの有無による版が無いため、-LeftVariant / -RightVariant は無視します。"
 }
-$useStudio = $DEFAULT_STUDIO -or [bool]$Studio
+if ($Studio -and $Logging) {
+    Stop-WithError '-Studio と -Logging は一緒に使えません。'
+}
+$central = ''
+if ($DEFAULT_STUDIO -or $Studio) { $central = 'studio' }
+if ($Logging) { $central = 'logging' }
 $right = if ($RightVariant) { $RightVariant } else { $DEFAULT_LISM_RIGHT }
 $left = if ($LeftVariant) { $LeftVariant } else { $DEFAULT_LISM_LEFT }
 
 $hasCentral = $Mode -in @('Both', 'ResetBoth', 'Right')
 $hasPeripheral = $Mode -in @('Both', 'ResetBoth', 'Left')
 while ($true) {
-    $steps = @(Get-FlashPlan $config $Mode $useStudio $right $left)
+    $steps = @(Get-FlashPlan $config $Mode $central $right $left)
     Write-Host ''
     Write-Host "書き込む内容: $Keyboard ($($config.Repo) の firmware-latest)"
     Show-FlashPlan $steps
@@ -231,7 +246,8 @@ while ($true) {
 
     $options = @('Enter: 開始')
     if ($hasCentral) {
-        $options += if ($useStudio) { 's: 通常版に切り替え' } else { 's: ZMK Studio 対応版に切り替え' }
+        $options += if ($central -eq 'studio') { 's: 通常版に切り替え' } else { 's: ZMK Studio 対応版に切り替え' }
+        $options += if ($central -eq 'logging') { 'g: 通常版に切り替え' } else { 'g: ログ版 (レイヤーの動きを見る用) に切り替え' }
     }
     if ($hasVariants -and $hasCentral) { $options += 'r: 右のトラックボール有無を切り替え' }
     if ($hasVariants -and $hasPeripheral) { $options += 'l: 左のトラックボール有無を切り替え' }
@@ -241,7 +257,8 @@ while ($true) {
     $answer = (Read-Answer '選択').ToLowerInvariant()
     if ($answer -eq '') { break }
     elseif ($answer -eq 'q') { Write-Host '中止しました。'; exit 1 }
-    elseif ($answer -eq 's' -and $hasCentral) { $useStudio = -not $useStudio }
+    elseif ($answer -eq 's' -and $hasCentral) { if ($central -eq 'studio') { $central = '' } else { $central = 'studio' } }
+    elseif ($answer -eq 'g' -and $hasCentral) { if ($central -eq 'logging') { $central = '' } else { $central = 'logging' } }
     elseif ($answer -eq 'r' -and $hasVariants -and $hasCentral) { $right = Switch-Variant $right }
     elseif ($answer -eq 'l' -and $hasVariants -and $hasPeripheral) { $left = Switch-Variant $left }
     else { Write-Host '  表示されている文字を入力してください。' -ForegroundColor Yellow }

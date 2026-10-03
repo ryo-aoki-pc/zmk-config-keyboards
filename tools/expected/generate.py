@@ -28,7 +28,12 @@ sys.dont_write_bytecode = True  # submodule に __pycache__ を作らない
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-SCHEMA = 1
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+
+import behaviors  # noqa: E402  (tools/expected/behaviors.py)
+
+SCHEMA = 2
 GENERATOR = 'tools/expected/generate.py'
 
 # 名前 → submodule のパス
@@ -215,6 +220,7 @@ THRESHOLDS = {
     'speed_repeat_tolerance': 0.10,   # 回転数の計測を 2 回したときの差
     'scaler_max_denominator': 16,     # zip_x_scaler などの分母の上限
     'tap_settle_ms': 300,             # キーを離してから判定するまでの待ち
+    'behavior_settle_ms': 700,        # レイヤー・ビヘイビアのテストで、期待の数の入力が出てから判定するまでの待ち (マクロの待ちを含む)
     'aml_timeout_margin_ms': 2000,    # AML のタイムアウトを確かめるときの余裕
 }
 
@@ -863,6 +869,7 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
     # Studio 版のアーティファクト (build.yaml)
     build = read_text(base / 'build.yaml')
     studio = re.findall(r'(?m)^\s*artifact-name:\s*(\S+_studio)\s*$', build)
+    logging = re.findall(r'(?m)^\s*artifact-name:\s*(\S+_logging)\s*$', build)
 
     # 実動作テスト: BASE のタップ
     taps, skipped = [], []
@@ -962,7 +969,7 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
         'sources': [sources.source_entry(board['sub'], files),
                     sources.source_entry('docgen', ['keymap_docgen.py', 'zmk_to_vial.py'])],
         'device': {'usb_vid': '1D50', 'usb_pid': '615E', 'product': zmk_product(board, base),
-                   'studio_artifacts': studio},
+                   'studio_artifacts': studio, 'logging_artifacts': logging},
         'layers': layers,
         'physical': {'layout_name': layout_name, 'keys': keys},
         'readout': {'zmk': {'layer_count': n_layers, 'key_count': key_count, 'bindings': bindings}},
@@ -976,9 +983,30 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
                 'firmware': firmware,
             },
             'output_switch': output_switch,
+            'behaviors': zmk_behaviors(board, km, zv, keys, mous, scrl),
         },
         'consistency': zmk_consistency(board, base, km, mous, scrl, firmware, amls, baseline_accel, baseline_aml),
     }
+
+
+def zmk_behaviors(board: dict, km: ZmkKeymap, zv, keys: list[dict], mous: int, scrl: int) -> dict:
+    """実動作テストの「レイヤー・ビヘイビア」の手順と期待する入力 (behaviors.py のシミュレータで求める)"""
+    model = behaviors.Model.from_keymap(km, lambda t: zmk_keycode(zv, t))
+    names = [km.alias_by_index.get(i) or n for i, n in enumerate(km.layer_names)]
+    skip = {mous: 'AML (ボールを転がすと入るレイヤー) は、AML のテストで確かめる',
+            scrl: 'AML の中のスクロールのレイヤーは、AML のテストで確かめる'}
+    for i, layer in enumerate(km.layers):
+        heads = {behaviors.split_binding(b)[0] for b in layer} - {'trans', 'none', 'mo', 'lt'}
+        if heads and heads <= behaviors.DANGER_HEADS:
+            skip.setdefault(i, 'Bluetooth の接続先や出力が変わるキーだけなので押さない')
+    b = behaviors.Builder(model, keys, names, hid_label, skip, board['id'])
+    try:
+        b.build()
+    except (behaviors.Danger, behaviors.Unsupported, ValueError) as e:
+        raise GenError(f'{board["name"]}: レイヤー・ビヘイビアのテストを作れません: {e}') from e
+    data = b.to_json()
+    data['devices'] = behaviors.devices(model)
+    return data
 
 
 # ============================================================================
@@ -1270,6 +1298,9 @@ def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict, baseline_accel: d
                 'firmware': kb.firmware(),
             },
             'output_switch': None,
+            'behaviors': {'layers': [], 'scenarios': [], 'combos': 0, 'not_tested': [
+                {'what': 'レイヤー・ビヘイビア', 'reason': 'Keyball39 は LisM の BASE のキーをそのまま送るだけ (レイヤー・タップホールド・'
+                                                          'タップダンスなどは KQ-mini が担当)。KQ-mini につないで検査してください'}]},
         },
         'consistency': consistency,
     }
@@ -1279,7 +1310,7 @@ def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict, baseline_accel: d
 KQ_OS_CUSTOM = ['DISABLE_KEY_OS_OVERRIDE', 'ENABLE_US_KEY_ON_JP_OS_OVERRIDE', 'ENABLE_JP_KEY_ON_US_OS_OVERRIDE']
 
 
-def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball) -> dict:
+def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball, lism_behaviors: dict) -> dict:
     lism = sources.path('LisM')
     keymap = lism / 'config/lism.keymap'
     vialmap = lism / 'config/lism.vialmap.json'
@@ -1415,9 +1446,33 @@ def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball) -> dict:
                                               'listener': 'KQ-mini はマウスを等倍で中継する (倍率は変えられない)'}],
             },
             'output_switch': None,
+            'behaviors': kq_behaviors(conv, zv, kb, keys, lism_behaviors),
         },
         'consistency': [],
     }
+
+
+def kq_behaviors(conv, zv, kb: Keyball, keys: list[dict], lism_behaviors: dict) -> dict:
+    """LisM のレイヤー・ビヘイビアのテストを、Keyball39 の位置に置き換える。
+    LisM の位置 → (zmk_to_vial の position_matrix) KQ-mini の行列 ← (hid_to_matrix) Keyball の BASE のキーコード"""
+    by_cell: dict[tuple[int, int], list[int]] = {}
+    for k in keys:
+        if not k['present']:
+            continue
+        code = kb.cell(0, k['pos'])
+        if 0x04 <= code <= 0xE7:
+            by_cell.setdefault(tuple(zv.hid_to_matrix(code)), []).append(k['pos'])
+    pos_map = {}
+    for lpos, cell in sorted(conv.position_matrix.items()):
+        if cell is None:
+            continue
+        cands = by_cell.get(tuple(cell), [])
+        if cands:
+            pos_map[lpos] = lpos if lpos in cands else cands[0]
+    data = behaviors.translate(lism_behaviors, pos_map, keys, set(conv.layer_map))
+    data['note'] = ('LisM のキーマップから作った手順を、Keyball39 の位置に置き換えたもの。KQ-mini のキーオーバーライドは、'
+                    '修飾キーより先に、タップしたキーを離す')
+    return data
 
 
 # ============================================================================
@@ -1471,7 +1526,7 @@ def generate(sources: Sources) -> dict[str, str]:
             lism = data
     kb = Keyball(sources, kd, zv, vd)
     out['keyball39.json'] = gen_keyball(kb, sources, lism['interactive']['trackball']['aml'], baseline)
-    out['kq-mini.json'] = gen_kq_mini(sources, kd, zv, kb)
+    out['kq-mini.json'] = gen_kq_mini(sources, kd, zv, kb, lism['interactive']['behaviors'])
     return {name: dumps(data) + '\n' for name, data in out.items()}
 
 

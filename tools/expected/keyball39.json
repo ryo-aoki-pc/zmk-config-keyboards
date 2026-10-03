@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "generator": "tools/expected/generate.py",
   "id": "keyball39",
   "name": "Keyball39",
@@ -199,7 +199,15 @@
         }
       ]
     },
-    "output_switch": null
+    "output_switch": null,
+    "behaviors": {
+      "layers": [],
+      "scenarios": [],
+      "combos": 0,
+      "not_tested": [
+        {"what": "レイヤー・ビヘイビア", "reason": "Keyball39 は LisM の BASE のキーをそのまま送るだけ (レイヤー・タップホールド・タップダンスなどは KQ-mini が担当)。KQ-mini につないで検査してください"}
+      ]
+    }
   },
   "consistency": [
     {"level": "ok", "message": "AML のタイムアウト AUTO_MOUSE_TIME = 10000 (LisM 10000)"},

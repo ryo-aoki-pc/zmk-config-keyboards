@@ -507,6 +507,9 @@ function Test-KcZmkBindingMatch($Expected, [string]$ActualName, [long]$P1, [long
 }
 
 # $ExpectedByName: @{ 'LisM' = <lism.json>; ... }。デバイス名から期待値を選ぶ。選んだ期待値を返す
+# 読み出し検査で違っていた位置 ("レイヤー:位置")。実動作テストのレイヤー・ビヘイビアで、その位置を使う手順を飛ばす
+$script:KcZmkMismatch = @{}
+
 function Invoke-KcZmkReadout {
     param(
         [Parameter(Mandatory = $true)] $Session,
@@ -516,6 +519,7 @@ function Invoke-KcZmkReadout {
         $Preferred = $null
     )
     $cat = 'ZMK Studio'
+    $script:KcZmkMismatch = @{}
     try {
         $info = Read-KcStudioDeviceInfo $Session 3000
     } catch [System.TimeoutException] {
@@ -621,6 +625,7 @@ function Invoke-KcZmkReadout {
                     $actText = Format-KcZmkBinding $an $a.P1 $a.P2 $names
                 }
                 $diffs.Add(('{0} / 位置 {1}{2}: 期待 {3} / 実際 {4}' -f $lname, $p, $legend, $eb[$p].src, $actText))
+                $script:KcZmkMismatch[('{0}:{1}' -f $l, $p)] = $true
             }
         }
     }
