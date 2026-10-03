@@ -33,7 +33,7 @@
 | --- | --- |
 | ZMK | zmkfirmware **v0.3.0** を `config/west.yml` で固定 |
 | ドキュメント生成 | `tools/keymap-docgen` submodule (ZMK の 6 リポジトリ・keyball・vial-qmk-kq-mini で同一コミット) による KEYMAP.html / KEYMAP.xlsx 自動生成。レイアウトの JSON の `row` / `col` は `y` / `x` と同じにする (KEYMAP.xlsx の配置に使う) |
-| ワークフロー | build.yml / keymap-docs.yml / release.yml を共通化 (keymap-docs.yml はキーマップとレイアウトの JSON のパス以外同一。torabo-tsuki-lp だけレイアウトを `-l config/info.json` で渡す)。firmware-latest はタグを消さずに付け替えてリリースを作り直し、ダウンロードできることを確かめる (keyball / vial-qmk-kq-mini の build ワークフローも同じ処理) |
+| ワークフロー | build.yml / keymap-docs.yml / release.yml を共通化 (keymap-docs.yml はキーマップとレイアウトの JSON のパス以外同一。torabo-tsuki-lp だけレイアウトを `-l config/info.json` で渡す)。firmware-latest はタグを消さずに付け替えてリリースを作り直し、ダウンロードできることを確かめる。PR のビルド (firmware-pr-<番号>) と custom のビルドの履歴 (firmware-custom-<sha7>) もリリースに置き、それぞれ新しいものから 30 件を残す (`.github/scripts/firmware-release.sh`。keyball / vial-qmk-kq-mini の build ワークフローも同じ処理) |
 | ファイル構成 | `.conf` は `boards/shields/<NAME>/`、ハード・役割は `Kconfig.defconfig`、Studio とセントラル役割は `build.yaml` の `cmake-args` |
 | アーティファクト | 全エントリに `artifact-name` を付与し、Studio 版 / 非 Studio 版の両方を生成 |
 | ローカルビルド | `Makefile` + `scripts/` + `.devcontainer/` (`make` / `make single` など) |
@@ -176,39 +176,98 @@ git commit -m "Update submodules"
 
 ## ファームウェアの書き込み (Windows)
 
-`tools/` の書き込みスクリプトを使います。ファイルの検証から成否の判定まで、スクリプトが行います。
+`tools/flash.cmd` (書き込みツール) をダブルクリックするとウィンドウが開きます。機種とビルドを選び、画面の案内に従って書き込みます。ファイルの検証から成否の判定まで、ツールが行います。
+選べるビルドは、最新 (custom ブランチの最新ビルド) のほか、PR のビルドと custom の過去のビルドです ([過去のビルドと PR のビルド](#過去のビルドと-pr-のビルド))。
 
-| キーボード | マイコン / ブートローダ | ファイル | スクリプト |
-| --- | --- | --- | --- |
-| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
-| torabo-tsuki-lp | BLE Micro Pro Boost (nRF52840) / BLE Micro Pro の UF2 (`BLEMICROPRO` ドライブ) | `.uf2` | `tools/flash-zmk.cmd` (ダブルクリック)、または `tools/flash-uf2.cmd` (ファイルをドロップ) |
-| Keyboard Quantizer Mini | RP2040 / ROM ブートローダ (`RPI-RP2` ドライブ) | `.uf2` | `tools/flash-kq-mini.cmd` (ダブルクリック) |
-| Keyball39 | Pro Micro (ATmega32U4) / caterina | `.hex` | `tools/flash-keyball.cmd` (ダブルクリック) |
+| キーボード | マイコン / ブートローダ | ファイル | ダブルクリック | ファイルのドロップ |
+| --- | --- | --- | --- | --- |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash.cmd` (または `tools/flash-zmk.cmd`) | `tools/flash-uf2.cmd` (または `tools/flash-zmk.cmd`) |
+| torabo-tsuki-lp | BLE Micro Pro Boost (nRF52840) / BLE Micro Pro の UF2 (`BLEMICROPRO` ドライブ) | `.uf2` | `tools/flash.cmd` (または `tools/flash-zmk.cmd`) | `tools/flash-uf2.cmd` (または `tools/flash-zmk.cmd`) |
+| Keyboard Quantizer Mini | RP2040 / ROM ブートローダ (`RPI-RP2` ドライブ) | `.uf2` | `tools/flash.cmd` (または `tools/flash-kq-mini.cmd`) | `tools/flash-kq-mini.cmd` |
+| Keyball39 | Pro Micro (ATmega32U4) / caterina | `.hex` | `tools/flash.cmd` (または `tools/flash-keyball.cmd`) | `tools/flash-keyball.cmd` |
+
+`tools/flash-zmk.cmd` / `tools/flash-keyball.cmd` / `tools/flash-kq-mini.cmd` をダブルクリックしても、同じウィンドウが開きます (Keyball39 / KQ-mini は、その機種を選んだ状態で開く)。
+
+### 書き込みツール (`tools/flash.cmd`)
+
+1. `tools/flash.cmd` をダブルクリックする。コンソールの画面と、書き込みツールのウィンドウが開く。コンソールは、書き込みが終わるまで閉じない (閉じると書き込みも止まる)
+2. 左の一覧で機種を選ぶ (前回選んだ機種が選ばれている)
+3. 中央の一覧でビルドを選ぶ。最新が先頭で、あとはビルドした日時の新しい順に並ぶ
+
+   | バッジ | ビルド | タグ |
+   | --- | --- | --- |
+   | 最新 | custom ブランチの最新ビルド (既定) | `firmware-latest` |
+   | PR #番号 | PR のビルド。PR を custom にマージした状態のコミットをビルドしたもの。右に PR の状態 (オープン / マージ済み / クローズ) が出る | `firmware-pr-<番号>` |
+   | custom | custom ブランチの過去のビルド | `firmware-custom-<sha7>` |
+
+   - 各ビルドには、タイトル (PR のタイトル、またはコミットの件名)、コミット (PR は PR の先頭のコミット)、ビルドした日時、PR のブランチが出る
+   - 上の「すべて / PR / custom」で絞り込める。「更新」で一覧を GitHub から取り直す
+4. 右の欄で、書き込む内容を選ぶ
+   - ZMK: 書き込む内容 (下の表)、右手側 (セントラル) の版 (通常版 / Studio 版 / ログ版)、LisM は左右のトラックボールの有無
+   - Keyball39: 台数 (左右 2 台 / 片側 1 台)
+   - その下に、書き込む手順とファイルが出る。選んだビルドに無いファイル (後から足したログ版など) があると、理由が出て書き込めない
+5. 「書き込む」を押す。必要なファイルを先にすべてダウンロードしてから、手順ごとに書き込む
+   - 上の案内に従って、表示された側をブートローダにする ([XIAO をブートローダにする方法](#xiao-をブートローダにする方法)、[torabo-tsuki-lp (BLE Micro Pro Boost) をブートローダにする方法](#torabo-tsuki-lp-ble-micro-pro-boost-をブートローダにする方法))
+   - ログに書き込みスクリプトの出力が出る (成功は緑、失敗は赤)。成否の判定は、各スクリプト (`flash-uf2.ps1` / `flash-keyball.ps1`) が行う
+   - 「中止」でいつでも止められる。失敗や中止の後は「再試行」で、その手順からやり直せる (ダウンロードはやり直さない)
+   - torabo-tsuki-lp の設定リセットは、書き込んだ後に一度起動させる必要がある。案内に従ってから「続ける」を押す
+6. 「完了」と出たら終わり。「戻る」で、別の機種やビルドを書き込める
+
+書き込む内容 (ZMK):
+
+| 書き込む内容 | 書き込む順番 |
+| --- | --- |
+| 左右に書き込む (既定) | 右 → 左 |
+| 設定リセットしてから左右に書き込む | 右 (設定リセット → セントラル) → 左 (設定リセット → ペリフェラル) |
+| 右手側 (セントラル) だけ | 右 |
+| 左手側 (ペリフェラル) だけ | 左 |
+| 設定リセットだけ | 右 → 左 |
+
+補足:
+
+- **既定値**: 書き込む内容と右手側の版は、機種を選ぶたびに「左右に書き込む」「通常版」に戻る (ログ版などを誤って書き込まないため)。機種、LisM のトラックボールの有無、Keyball の台数は前回のものを覚える (`tools/.cache/flash-settings.json`)
+- **書き込むキーボードから入力したキー** (ブートローダにするときの `Q` / `P` など) は、ウィンドウが受け取って捨てる。ウィンドウの選択は変わらない
+- **ビルドの一覧**は GitHub API から取る。認証なしでは 1 時間に 60 回まで (1 機種で 2〜3 回使う。同じ機種は 10 分間取り直さない)
+  - 上限に達したときや、オフラインのときは、前回取得した一覧を出す。それも無ければ最新だけを出す (理由は一覧の上に出る)
+  - 環境変数 `GITHUB_TOKEN` (または `GH_TOKEN`) に GitHub のトークンを入れておくと、上限が 1 時間に 5000 回になる (公開リポジトリを読むだけなので、権限を付けないトークンでよい)
+- ダウンロードしたファイルは `tools/.cache/firmware/` に保存される (git の管理外)
+
+コマンドラインから実行する場合 (`-List` はウィンドウを出さずに、その機種のビルドとタグの一覧を表示する。ファイルを指定すると、ウィンドウを出さずにそのファイルだけを書き込む):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\flash.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp|Keyball39|KQ-mini] [-List] [<ファイル.uf2 / .hex>]
+```
 
 ### Keyboard Quantizer Mini (`tools/flash-kq-mini.cmd`)
 
-1. KQ-mini を PC につないだまま、`tools/flash-kq-mini.cmd` をダブルクリックする
-2. スクリプトが自動で次の処理を行う
-   - [最新のファームウェア](#最新ファームウェアの取得元-firmware-latest-リリース) をダウンロードする
+1. KQ-mini を PC につないだまま、`tools/flash.cmd` (または `tools/flash-kq-mini.cmd`) をダブルクリックし、KQ-mini とビルドを選んで「書き込む」を押す
+2. ツールが自動で次の処理を行う
+   - 選んだビルド (既定は [最新のファームウェア](#最新ファームウェアの取得元-firmware-latest-リリース)) をダウンロードする
    - KQ-mini をブートローダに切り替える (KQ-mini のシリアルポートに `dfu` コマンドを送る)
    - ファームウェアを書き込む
-3. 「成功」と表示されれば完了。KQ-mini の LED が点灯して入力できるようになるまで、数十秒かかることがある
+3. 「完了」と表示されれば終わり。KQ-mini の LED が点灯して入力できるようになるまで、数十秒かかることがある
 
-- 自動で切り替わらないとき: KQ-mini の FUNC レイヤーの `QK_BOOT` キーを押す。スクリプトはそのまま `RPI-RP2` ドライブが現れるのを待つ
+- 自動で切り替わらないとき: KQ-mini の FUNC レイヤーの `QK_BOOT` キーを押す。ツールはそのまま `RPI-RP2` ドライブが現れるのを待つ
 - キーマップ: LisM 基準のキーマップとタップホールド設定は、書き込み後の初回起動時に EEPROM へ自動で適用される (Vial での読み込みは不要)
 - 手元の `.uf2` を書き込むとき: そのファイルを `tools/flash-kq-mini.cmd` にドラッグ＆ドロップする
+
+コマンドラインから実行する場合 (ウィンドウを出さずに書き込む。`-Pr` で PR のビルド、`-Tag` で過去のビルド):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\flash-kq-mini.ps1 [<ファイル.uf2>] [-Pr <番号> | -Tag <タグ>]
+```
 
 ### Keyball39 (`tools/flash-keyball.cmd`)
 
 Keyball は KQ-mini 経由では書き込めません (KQ-mini はキー入力だけを中継するため)。書き込むときは PC に直接つなぎます。
 
-1. `tools/flash-keyball.cmd` をダブルクリックする。次の 2 つを自動でダウンロードする
-   - [最新のファームウェア](#最新ファームウェアの取得元-firmware-latest-リリース)
+1. `tools/flash.cmd` (または `tools/flash-keyball.cmd`) をダブルクリックし、Keyball39 とビルド、台数 (既定は左右 2 台) を選んで「書き込む」を押す。次の 2 つを自動でダウンロードする
+   - 選んだビルド (既定は [最新のファームウェア](#最新ファームウェアの取得元-firmware-latest-リリース))
    - avrdude (初回のみ)。公式の Windows 版 v8.3 を SHA256 で確認してから使う
-2. 「1 / 2 台目」と表示されたら、片側を KQ-mini から外して USB ケーブルで PC に直接つなぎ、ブートローダを起動する。方法は次のどちらか
+2. 「1 台目」と表示されたら、片側を KQ-mini から外して USB ケーブルで PC に直接つなぎ、ブートローダを起動する。方法は次のどちらか
    - リセットスイッチを押す。認識されなければ素早く 2 回押す
    - 左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿す (Bootmagic)
-3. COM ポートが現れるとすぐに書き込まれる。「成功」と表示されたら、もう片側も同じように書き込む
+3. COM ポートが現れるとすぐに書き込まれる。成功したら、「2 台目」でもう片側も同じように書き込む
 4. 「完了」と表示されたら、Keyball を KQ-mini に接続し直す
 
 補足:
@@ -219,13 +278,13 @@ Keyball は KQ-mini 経由では書き込めません (KQ-mini はキー入力�
 - **QMK 0.34.6 のファームウェアを初めて書き込んだとき** ([ryo-aoki-pc/keyball#17](https://github.com/ryo-aoki-pc/keyball/pull/17) で QMK を 0.22.14 から上げた)
   - 初回の起動で EEPROM が 1 回だけ初期化され、CPI などの Keyball の設定は既定値に戻る (QMK の EEPROM の形式の番号が変わったため)
   - 左右の通信の形式も QMK のバージョンで変わるので、左右とも書き込む
-- **書き込みに失敗したとき**: caterina ブートローダは約 8 秒で終了する。失敗したらもう一度リセットスイッチを押す (1 台につき 3 回まで再試行する)
+- **書き込みに失敗したとき**: caterina ブートローダは約 8 秒で終了する。失敗したらもう一度リセットスイッチを押す (1 台につき 3 回まで再試行する)。それでも失敗したら「再試行」を押す
 - **手元の `.hex` を書き込むとき**: そのファイルを `tools/flash-keyball.cmd` にドラッグ＆ドロップする
 
-コマンドラインから実行する場合 (`-Count 1` で片側だけ書き込む、`-Avrdude` で手元の avrdude を使う):
+コマンドラインから実行する場合 (ウィンドウを出さずに書き込む。`-Count 1` で片側だけ書き込む、`-Avrdude` で手元の avrdude を使う、`-Pr` で PR のビルド、`-Tag` で過去のビルド):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.hex>] [-Count 1] [-Avrdude <avrdude.exe>]
+powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.hex>] [-Count 1] [-Avrdude <avrdude.exe>] [-Pr <番号> | -Tag <タグ>]
 ```
 
 ### 最新ファームウェアの取得元 (`firmware-latest` リリース)
@@ -235,7 +294,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 - 固定タグ `firmware-latest` のプレリリースを作り直す
 - ファームウェアと `BUILD_INFO.txt` (コミット・ビルド日時) を置く
 
-スクリプトはここからダウンロードします。
+書き込みツールは、既定でここからダウンロードします。
 
 | キーボード | ダウンロード URL |
 | --- | --- |
@@ -254,8 +313,24 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 
 - 公開リポジトリのリリースなので、ログインや gh CLI は不要
 - Actions の Artifacts と違い、90 日で期限切れにならない
-- 書き込まれるのは custom ブランチの最新ビルド。このリポジトリが submodule で参照しているコミットとは限らない
+- 最新として書き込まれるのは custom ブランチの最新ビルド。このリポジトリが submodule で参照しているコミットとは限らない
 - ダウンロードしたファイルと avrdude は `tools/.cache/` に保存される (git の管理外)
+
+#### 過去のビルドと PR のビルド
+
+同じ CI は、`firmware-latest` のほかに次のプレリリースも作ります (各リポジトリの `.github/scripts/firmware-release.sh`)。
+書き込みツールは、GitHub API でリリースの一覧を取り、ビルドを選べるようにしています。ダウンロード URL は、上の表の `firmware-latest` をタグに置き換えたものです。
+
+| タグ | 中身 | 置き換え・削除 |
+| --- | --- | --- |
+| `firmware-custom-<sha7>` | custom ブランチの各ビルド (`<sha7>` はコミットの先頭 7 桁) | 新しいものから 30 件を残し、古いものは CI が削除する |
+| `firmware-pr-<番号>` | PR のビルド。PR を custom にマージした状態のコミット (`refs/pull/<番号>/merge`) をビルドしたもの | PR に push するたびに置き換わる。新しいものから 30 件を残す |
+
+- 選べるのは、この仕組みを入れた後 (2026 年 10 月) のビルドから。それより前のビルドは Actions の Artifacts にしか無い
+- PR のビルドを作るのは、同じリポジトリのブランチからの PR だけ (fork や Dependabot の PR は書き込み権限が無いので作らない)。keyball は、keyball39 のコードやワークフローを変える PR だけ
+- PR がマージ・クローズされても、PR のビルドは 30 件の枠から外れるまで残る (一覧にはマージ済み / クローズと出る)
+- リリースの本文の ```` ```text ```` ブロックと `BUILD_INFO.txt` には、`kind` (custom / pr)、`branch`、`pr`、`title` (PR のタイトル)、`head` (PR の先頭のコミット)、`commit` (ビルドしたコミット)、`subject` (コミットの件名)、`built`、`run` が書かれる。書き込みツールはこれを読んで一覧に出す
+- 最新と同じコミットの `firmware-custom-<sha7>` は一覧に出さない。最新を選ぶと、置き換わらないこちらのタグからダウンロードする (ダウンロードの途中で `firmware-latest` が置き換わっても混ざらないように)
 
 ### ZMK キーボード (`tools/flash-zmk.cmd` / `tools/flash-uf2.cmd`)
 
@@ -283,8 +358,8 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
     (左のキー入力は右手側 (セントラル) がキーマップで解釈し、BLE で左手側に切り替えを指示するため。
     右の電源が切れていると何も起きない)
 - 設定リセット用のファームウェアにはキーの処理が無いので、それが動いている側はリセットボタンでしか切り替えられない。
-  `tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」では、2 番目 (右手側のセントラル) と
-  4 番目 (左手側のペリフェラル) を書き込むときがこれにあたる。設定リセット後は左右のペアリングも切れるので、
+  書き込みツールの「設定リセットしてから左右に書き込む」では、2 番目 (右手側のセントラル) と
+  4 番目 (左手側のペリフェラル) を書き込むときがこれにあたる (ツールの案内にも出る)。設定リセット後は左右のペアリングも切れるので、
   3 番目 (左手側の設定リセット) は `Q` + USB で切り替える
 
 #### torabo-tsuki-lp (BLE Micro Pro Boost) をブートローダにする方法
@@ -297,43 +372,33 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 - 電源スイッチが OFF の状態でブートローダにしたときは、書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、
   USB ケーブルを差し直すと起動する。電源スイッチが OFF のままだと、再起動してもブートローダに戻る
 
-#### 最新版を書き込む (`tools/flash-zmk.cmd`)
+#### ZMK キーボードに書き込む (`tools/flash.cmd` / `tools/flash-zmk.cmd`)
 
-1. `tools/flash-zmk.cmd` をダブルクリックし、機種と書き込む内容を番号で選ぶ
+[書き込みツール](#書き込みツール-toolsflashcmd) で機種、ビルド、書き込む内容を選んで「書き込む」を押します。
 
-   | 番号 | 書き込む内容 | 書き込む順番 |
-   | --- | --- | --- |
-   | 1 (Enter) | 左右に書き込む | 右 → 左 |
-   | 2 | 設定リセットしてから左右に書き込む | 右 (設定リセット → セントラル) → 左 (設定リセット → ペリフェラル) |
-   | 3 | 右手側 (セントラル) だけ | 右 |
-   | 4 | 左手側 (ペリフェラル) だけ | 左 |
-   | 5 | 設定リセットだけ | 右 → 左 |
-
-2. 書き込むファイルの一覧が出るので、確認して Enter を押す。ここで次の切り替えもできる
-   - `s`: 右手側を ZMK Studio 対応版にするか (既定は通常版)
-   - `g`: 右手側をログ版 (`_logging`。[レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) 用) にするか。
-     Studio 版とログ版は、どちらか一方だけ。調べ終わったら通常版に戻す
-   - `r` / `l` (LisM のみ): 右 / 左のトラックボール有無 (既定は左右ともトラックボールあり)
-3. スクリプトが必要なファイルを [`firmware-latest`](#最新ファームウェアの取得元-firmware-latest-リリース) からまとめてダウンロードする
-4. 「[1/2] 右手側にセントラルを書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
+1. 「[1/2] 右手側: セントラル を書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
    (左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿す、リセットボタンを素早く 2 回押す、など。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
    書き込みと成否の判定は `flash-uf2.cmd` と同じ
    - torabo-tsuki-lp は、表示された側の電源スイッチを OFF にしてから USB ケーブルでつなぐ (もう片側の USB ケーブルは抜く)。
      書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直したときに起動する
-   - torabo-tsuki-lp の設定リセットは、書き込んだあとに一度起動させないと動かない。スクリプトの案内に従って
-     スイッチ ON で USB ケーブルを差し直し、数秒待ってから USB ケーブルを抜いてスイッチを OFF に戻し、Enter を押す
-5. すべて終わると「完了」と表示される。設定リセットを含んだ場合は、PC の Bluetooth 設定から古い登録を削除して再ペアリングする
+   - torabo-tsuki-lp の設定リセットは、書き込んだあとに一度起動させないと動かない。ツールの案内に従って
+     スイッチ ON で USB ケーブルを差し直し、数秒待ってから USB ケーブルを抜いてスイッチを OFF に戻し、「続ける」を押す
+2. すべて終わると「完了」と表示される。設定リセットを含んだ場合は、PC の Bluetooth 設定から古い登録を削除して再ペアリングする
 
-- **左右を間違えないこと**: 左右の XIAO (torabo-tsuki-lp は BMP) はブートローダの情報が同じなので、スクリプトからは見分けられない。表示された側だけをブートローダにする
-- **途中で失敗したとき**: そこで止まり、残りのファイルの場所を表示する。もう一度実行するか、表示されたファイルを `tools/flash-uf2.cmd` にドロップする
+- **右手側 (セントラル) の版**: 通常版のほか、ZMK Studio 対応版 (`_studio`) と、ログ版 (`_logging`。[レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) 用) を選べる。
+  Studio 版とログ版は、どちらか一方だけ。調べ終わったら通常版に戻す
+- **左右を間違えないこと**: 左右の XIAO (torabo-tsuki-lp は BMP) はブートローダの情報が同じなので、ツールからは見分けられない。表示された側だけをブートローダにする
+- **途中で失敗したとき**: そこで止まる。「再試行」でその手順から続けるか、「戻る」で選び直す
 - **手元の `.uf2` を書き込むとき**: そのファイルを `tools/flash-zmk.cmd` (または `tools/flash-uf2.cmd`) にドラッグ＆ドロップする
-- **既定値を変えるとき**: `tools/flash-zmk.ps1` 冒頭の `$DEFAULT_STUDIO` / `$DEFAULT_LISM_RIGHT` / `$DEFAULT_LISM_LEFT` を書き換える
 
-コマンドラインから実行する場合 (`-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに書き込む):
+コマンドラインから実行する場合 (`-Keyboard` と `-Mode` を両方指定すると、ウィンドウを出さずにコンソールで書き込む。どちらかを省くとウィンドウが開く。`-Pr` で PR のビルド、`-Tag` で過去のビルド):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio | -Logging] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
+powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio | -Logging] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball] [-Pr <番号> | -Tag <タグ>]
 ```
+
+コンソールで書き込むときは、必要なファイルを先にすべてダウンロードしてから、右 → 左の順に書き込みます。途中で失敗すると、残りのファイルの場所を表示します
+(もう一度実行するか、表示されたファイルを `tools/flash-uf2.cmd` にドロップする)。torabo-tsuki-lp の設定リセットの後は、案内に従ってから Enter を押します。
 
 #### エクスプローラでのコピー時に「予期しないエラー」が出る場合
 
@@ -392,7 +457,7 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 セントラル役割や Studio の指定方法を変えたとき
 ([ryo-aoki-pc/zmk-config-keyboards#10](https://github.com/ryo-aoki-pc/zmk-config-keyboards/pull/10) の統一後など) は、
 古い設定が残らないように次の順で書き込みます。
-`tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」を選ぶと、この手順をまとめて行えます。
+書き込みツール (`tools/flash.cmd`) で「設定リセットしてから左右に書き込む」を選ぶと、この手順をまとめて行えます。
 
 1. `settings_reset-seeeduino_xiao_ble-zmk.uf2` を左右両方に書き込む
    (torabo-tsuki-lp は `settings_reset-bmp_boost-zmk.uf2`。書き込んだあと、スイッチ ON で USB ケーブルを差し直して一度起動させる)
@@ -443,7 +508,7 @@ ZMK のキーボードでは、自由に押したキーのレイヤーの遷移�
 | --- | --- | --- |
 | Keyboard Quantizer Mini + Keyball39 | KQ-mini のキーマップ (全 8 レイヤー)、タップホールド設定 (tapping term など)、タップダンス、キーオーバーライド、コンボ、マクロ | KQ-mini を PC につなぐ。Vial は閉じる |
 | Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML (しきい値を含む)・カーソルの加速の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12)、AML のしきい値は [ryo-aoki-pc/keyball#16](https://github.com/ryo-aoki-pc/keyball/pull/16) 以降のファームで読める |
-| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash-zmk.cmd` のファイルの一覧で `s`)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash.cmd` で右手側の版を「Studio 版」にする)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
 
 ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) は ZMK Studio では読めないので、実動作テストで確かめます。
 
@@ -511,8 +576,8 @@ PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans
 
 準備:
 
-1. 右手側 (セントラル) にログ版を書き込む: `tools/flash-zmk.cmd` で機種と「3. 右手側 (セントラル) だけ」を選び、ファイルの一覧で `g`
-   (`-Logging`)。ログ版は ZMK Studio が入っていない
+1. 右手側 (セントラル) にログ版を書き込む: `tools/flash.cmd` で機種を選び、書き込む内容を「右手側 (セントラル) だけ」、右手側の版を「ログ版」にする
+   (コマンドラインでは `flash-zmk.ps1 -Mode Right -Logging`)。ログ版は ZMK Studio が入っていない
 2. 右手側を USB でつなぐ (BLE ではログが出ない)
 3. 調べ終わったら、通常版 (または Studio 版) に戻す (ログ版はログを出す分だけ処理が増える)
 
@@ -572,20 +637,20 @@ PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans
 | KQ-mini のキーマップなどが FAIL | Vial で変えた内容が残っている。Vial の「File → Load saved layout」で `vial-qmk-kq-mini/keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/KEYMAP.vil` を読み込む。新しいビルドを `tools/flash-kq-mini.cmd` で書き込んでも戻る (同じビルドの書き直しでは戻らない) |
 | Keyball39 の CPI / スクロールの倍率が FAIL | EEPROM に古い値が残っている。Bootmagic (左手側は `Q`、右手側は `P` を押しながら USB を挿す) で初期化する |
 | Keyball39 のカーソルの加速が FAIL | `config.h` の `KEYBALL_ACCEL_*` が違うファームが書き込まれている。`tools/flash-keyball.cmd` で最新のファームを書き込む |
-| ZMK のキーマップが FAIL | ZMK Studio で保存した変更が残っている。Studio の「Restore Stock Settings」か、`tools/flash-zmk.cmd` の「2. 設定リセットしてから左右に書き込む」 |
+| ZMK のキーマップが FAIL | ZMK Studio で保存した変更が残っている。Studio の「Restore Stock Settings」か、`tools/flash.cmd` の「設定リセットしてから左右に書き込む」 |
 | ZMK の読み出しが SKIP (応答がない) | キーボードの出力が BLE になっている。BT レイヤーのキーを押しながら `U` (`&out OUT_USB`) で USB に切り替える |
 | スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
 | AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer` / `aml_threshold`、Keyball の `AUTO_MOUSE_*`) が動いていない。ボールの動きが小さすぎたときは FAIL ではなくやり直しになる |
 | AML のしきい値が FAIL (わずかな動きでクリックになった) | しきい値の無い古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む |
 | Keyball39 の AML のしきい値が SKIP / FAIL | SKIP はしきい値の無い古いファーム、FAIL は `config.h` の `KEYBALL_AML_THRESHOLD` が違うファーム。`tools/flash-keyball.cmd` で最新のファームを書き込む |
-| レイヤー・ビヘイビアのテストが FAIL (ZMK) | ファームが古いか、キーマップのビヘイビア (mod-morph の mods、tap-dance、マクロ) が意図と違う。`tools/flash-zmk.cmd` で最新のファームを書き込む。どこで違うかは [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) で確かめられる |
+| レイヤー・ビヘイビアのテストが FAIL (ZMK) | ファームが古いか、キーマップのビヘイビア (mod-morph の mods、tap-dance、マクロ) が意図と違う。`tools/flash.cmd` で最新のファームを書き込む。どこで違うかは [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) で確かめられる |
 | レイヤー・ビヘイビアのテストが FAIL (KQ-mini) | Vial で変えたタップダンス・キーオーバーライド・マクロが残っている。Vial の「File → Load saved layout」で `KEYMAP.vil` を読み込む。モッドモーフの手順は、修飾キーより先にタップしたキーを離してやり直す |
 | AML の Ctrl / Shift での解除が FAIL (修飾キーだけが入力された) | Ctrl / Shift で AML を解除しない古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む。長押しになった場合 (Ctrl / Shift になる) は、短く押してやり直す |
 | 読み出し検査は PASS なのに、タップホールドや AML の動作が意図と違う | [入力イベントを記録して調べる](#入力イベントを記録して調べる-toolsinput-monitorcmd) で、PC に届いたキーとタイミング (押下時間、修飾キーが出た時刻、ボールの移動からの経過) を見る |
 
 - 一覧の最後の「設定ファイル (参考)」は、submodule の設定ファイルどうしの整合です (キーボードは見ていない)。
   例: LisM は、左ボールのスクロールの処理が右手側の版 (trackball / non_trackball) で違うため、WARN になります
-- 期待値は、このリポジトリが参照している submodule のコミットから作ります。書き込みスクリプトは custom ブランチの最新を書くため、
+- 期待値は、このリポジトリが参照している submodule のコミットから作ります。書き込みツールは既定で custom ブランチの最新を書くため、
   submodule の参照が古いと、意図どおりでも FAIL になることがあります。そのときは
   [submodule を最新に更新](#submodule-を最新に更新) してから検査します
 
