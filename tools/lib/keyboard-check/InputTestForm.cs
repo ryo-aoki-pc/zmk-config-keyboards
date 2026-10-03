@@ -3368,6 +3368,8 @@ public sealed class KcTimelineView
     const double RightPad = 18;
     const double AxisHeight = 24;
     const double GripRadius = 5;
+    const double LabelRow = 17;
+    const double MinBarWidth = 4;
 
     sealed class Spot
     {
@@ -3639,11 +3641,59 @@ public sealed class KcTimelineView
         plotLeft = Gutter;
         plotRight = width - RightPad;
         int n = laneKinds.Length;
+
+        // labels of the marks: in rows above the first lane they cross, so that labels close in time do not overlap
+        int markCount = markAt.Length;
+        Border[] markChips = new Border[markCount];
+        double[] chipX = new double[markCount];
+        int[] chipRow = new int[markCount];
+        int labelLane = -1;
+        List<int> labelled = new List<int>();
+        for (int i = 0; i < markCount; i++)
+        {
+            int lf = AtInt(markLaneFrom, i, -1);
+            string text = AtText(markTexts, i);
+            if (text.Length == 0 || lf < 0 || lf >= n) continue;
+            double x = X(MarkTime(i));
+            if (x < plotLeft - 0.5 || x > plotRight + 0.5) continue;
+            int style = KcDraw.Clamp(AtInt(markStyles, i, 0), 0, MarkInk.Length - 1);
+            Border chip = new Border();
+            chip.CornerRadius = new CornerRadius(5);
+            chip.Padding = new Thickness(5, 0, 5, 1);
+            chip.Background = Res("KcSurfaceRaised");
+            chip.BorderBrush = Res(MarkInk[style]);
+            chip.BorderThickness = new Thickness(1);
+            chip.IsHitTestVisible = false;
+            chip.Child = MakeText(text, 10.5, FontWeights.SemiBold, MarkInk[style]);
+            chip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            double cx = x + 4;
+            if (cx + chip.DesiredSize.Width > plotRight) cx = x - 4 - chip.DesiredSize.Width;
+            markChips[i] = chip;
+            chipX[i] = cx;
+            labelled.Add(i);
+            if (labelLane < 0 || lf < labelLane) labelLane = lf;
+        }
+        labelled.Sort(delegate(int a, int b)
+        {
+            int c = chipX[a].CompareTo(chipX[b]);
+            return c != 0 ? c : a.CompareTo(b);
+        });
+        List<double> rowEnds = new List<double>();
+        foreach (int i in labelled)
+        {
+            int row = 0;
+            while (row < rowEnds.Count && rowEnds[row] + 4 > chipX[i]) row++;
+            if (row == rowEnds.Count) rowEnds.Add(0);
+            rowEnds[row] = chipX[i] + markChips[i].DesiredSize.Width;
+            chipRow[i] = row;
+        }
+
         laneTop = new double[n];
         laneHeight = new double[n];
         double y = AxisHeight;
         for (int i = 0; i < n; i++)
         {
+            if (i == labelLane && rowEnds.Count > 1) y += (rowEnds.Count - 1) * LabelRow;
             laneTop[i] = y;
             laneHeight[i] = LaneHeightOf(laneKinds[i]);
             y += laneHeight[i];
@@ -3770,10 +3820,20 @@ public sealed class KcTimelineView
             bool outline = style == BarBaseline || style == BarFirmware;
             double bh = outline ? 8 : h - 10;
             double by = outline ? top + h - bh - 3 : top + 5;
-            if (x1 > x0)
+            if (t1 >= t0 && x1 >= x0)
             {
+                // a key pressed and released in the same ms (a tap) still shows
+                if (x1 - x0 < MinBarWidth)
+                {
+                    x1 = x0 + MinBarWidth;
+                    if (x1 > plotRight)
+                    {
+                        x1 = plotRight;
+                        x0 = plotRight - MinBarWidth;
+                    }
+                }
                 Rectangle r = new Rectangle();
-                r.Width = Math.Max(1, x1 - x0);
+                r.Width = x1 - x0;
                 r.Height = bh;
                 r.RadiusX = 4;
                 r.RadiusY = 4;
@@ -3824,37 +3884,18 @@ public sealed class KcTimelineView
             if (lf < 0 || lt3 >= n || lf > lt3) continue;
             int style = KcDraw.Clamp(AtInt(markStyles, i, 0), 0, MarkInk.Length - 1);
             int handle = AtInt(markHandles, i, -1);
-            double t = markAt[i];
-            if (dragId != HandleNone && handle == dragId) t = dragValue;
-            double x = X(t);
+            double x = X(MarkTime(i));
             if (x < plotLeft - 0.5 || x > plotRight + 0.5) continue;
             double y0 = laneTop[lf];
             double y1 = laneTop[lt3] + laneHeight[lt3];
             bool dashed = style == MarkTerm || style == MarkFirmware || style == MarkBaseline;
             double thick = style == MarkCursor ? 2 : (style == MarkTerm ? 1.6 : 2);
             AddLine(x, y0, x, y1, MarkInk[style], thick, dashed, 1);
-            string text = AtText(markTexts, i);
-            if (text.Length > 0)
+            if (markChips[i] != null)
             {
-                Border chip = new Border();
-                chip.CornerRadius = new CornerRadius(5);
-                chip.Padding = new Thickness(5, 0, 5, 1);
-                chip.Background = Res("KcSurfaceRaised");
-                chip.BorderBrush = Res(MarkInk[style]);
-                chip.BorderThickness = new Thickness(1);
-                chip.IsHitTestVisible = false;
-                chip.Child = MakeText(text, 10.5, FontWeights.SemiBold, MarkInk[style]);
-                chip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                double cw = chip.DesiredSize.Width;
-                double cx = x + 4;
-                if (cx + cw > plotRight) cx = x - 4 - cw;
-                double cy = style == MarkTerm ? y0 - 20 : (style == MarkDecision ? y0 - 20 : y0 + 2 + (style * 14 % 28));
-                if (style == MarkDecision && Math.Abs(cy - (y0 - 20)) < 1)
-                {
-                    // the term line uses the same row: put the decision under it
-                    cy = y0 + 1;
-                }
-                Place(chip, cx, Math.Max(0, cy));
+                double cy = y0 - 19 - chipRow[i] * LabelRow;
+                AddLine(x, cy + 8, x, y0, MarkInk[style], 1, true, 0.7);
+                Place(markChips[i], chipX[i], Math.Max(0, cy));
             }
             if (handle >= 0) AddSpot(handle, x, y0, y1);
         }
@@ -3891,6 +3932,13 @@ public sealed class KcTimelineView
             double cx = Math.Min(plotRight - chip.DesiredSize.Width, Math.Max(0, X(dragValue) - chip.DesiredSize.Width / 2));
             Place(chip, cx, AxisHeight - 22);
         }
+    }
+
+    // The time of a mark (the dragged value while its handle is dragged).
+    double MarkTime(int i)
+    {
+        int handle = AtInt(markHandles, i, -1);
+        return dragId != HandleNone && handle == dragId ? dragValue : markAt[i];
     }
 
     void AddSpot(int id, double x, double y0, double y1)

@@ -643,6 +643,24 @@ Test-Case 'タップホールドのウィンドウ: 定数がグラフのモデ�
     Assert-Equal ([KcHoldTapForm]::SummaryHold) 2
 }
 
+# グラフの線のラベル (Canvas の Border) が重ならない
+function Assert-UiChartLabelsApart($Root) {
+    $chips = @($Root.FindName('ChartCanvas').Children | Where-Object { $_ -is [System.Windows.Controls.Border] } | ForEach-Object {
+            $x = [System.Windows.Controls.Canvas]::GetLeft($_)
+            $y = [System.Windows.Controls.Canvas]::GetTop($_)
+            [pscustomobject]@{ Text = $_.Child.Text; L = $x; T = $y; R = $x + $_.DesiredSize.Width; B = $y + $_.DesiredSize.Height }
+        })
+    Assert-True ($chips.Count -ge 2) 'ラベルがある'
+    for ($i = 0; $i -lt $chips.Count; $i++) {
+        for ($j = $i + 1; $j -lt $chips.Count; $j++) {
+            $a = $chips[$i]
+            $b = $chips[$j]
+            $apart = $a.R -le $b.L + 0.5 -or $b.R -le $a.L + 0.5 -or $a.B -le $b.T + 0.5 -or $b.B -le $a.T + 0.5
+            Assert-True $apart ('「{0}」と「{1}」が重ならない' -f $a.Text, $b.Text)
+        }
+    }
+}
+
 # 本物の KcHoldTapForm と画面の流れ (hold-tap-ui.ps1)
 function Invoke-WhtActions($Ctx) {
     foreach ($a in (Get-KcHoldTapCoalescedActions $Ctx.Form.TakeActions())) {
@@ -698,6 +716,7 @@ Test-Case 'タップホールドのウィンドウを描画できる (LisM の�
         [KcUi]::DoEvents()
         Assert-Equal 1 $root.FindName('EpisodeList').Children.Count
         Save-UiSnapshot $form 'keyboard-check-11-holdtap-live'
+        Assert-UiChartLabelsApart $root
 
         # 比較の行を押すと flavor が変わる。最小の大きさ
         [void](Invoke-KcHoldTapAction $ctx 'param:flavor:tap-preferred')
@@ -706,6 +725,7 @@ Test-Case 'タップホールドのウィンドウを描画できる (LisM の�
         [KcUi]::DoEvents()
         Save-UiSnapshot $form 'keyboard-check-12-holdtap-min'
         Assert-UiAboveFooter $root @('ChartCard', 'SummaryBanner')
+        Assert-UiChartLabelsApart $root
         Assert-UiTextNotClipped $root.FindName('ParamPanel')
         $spans = @(@('CloseButton', 'SaveButton', 'ClearButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
         for ($i = 1; $i -lt $spans.Count; $i++) {
