@@ -1,7 +1,8 @@
 ﻿# タップホールドのタイミングを見る (keyboard-check.ps1 -Mode HoldTap) の計算。Windows の API を使わない純粋関数。
 # expected.ps1 / hold-tap-sim.ps1 が先に読み込まれている前提。
 #
-# ZMK のログ版ファームで実際に押した 1 回分 (hold-tap のキーを押してから、すべてのキーを離すまで。押している最中も含む) を、
+# ZMK のログ版ファームで、選んだキーの組み合わせ (hold-tap のキーと、一緒に押すキー 1 つ) を押した 1 回分
+# (hold-tap のキーを押してから、選んだキーを全部離すまで。長くても tapping-term + 100 ms で打ち切る。押している最中も含む) を、
 # シミュレータ (HoldTapSim.cs) で計算し、グラフ (横軸が時刻) の中身を作る。
 #   - キーマップ: 期待値 (tools/expected/*.json) の interactive.hold_tap (generate.py が submodule のキーマップから作る)
 #   - 設定: キーマップの値のうち、flavor と tapping-term だけをウィンドウで変えられる
@@ -36,6 +37,7 @@ $script:KcHtMarkCursor = 3     # 帯の上の、実際に離した時刻
 $script:KcHtArrowCapture = 0   # 判定まで保留されたキー (押した時刻 → 送られた時刻)
 
 $script:KcHtOpenEnd = 10000000  # 離していないキー・届いたままの出力の終わり (ウィンドウが「今」か右端で切る)
+$script:KcHtLimitExtraMs = 100   # 1 回分は、対象を押してから tapping-term + この長さで打ち切る (横軸の右端も)
 
 $script:KcHtFlavors = @('hold-preferred', 'balanced', 'tap-preferred', 'tap-unless-interrupted')
 $script:KcHtFlavorText = @{
@@ -158,38 +160,58 @@ function Get-KcHtKeymapWith($Model, $Config) {
 }
 
 # ---------------------------------------------------------------------------
-# ログ版ファームのログから、実際に押したもの (1 回分 = エピソード) を切り出す
+# ログ版ファームのログから、選んだキーの組み合わせを押した 1 回分 (エピソード) を切り出す
 # ---------------------------------------------------------------------------
 
-# $Rec は zmk-log.ps1 の ConvertFrom-KcZmkLogLine のレコード
-function New-KcHtCapture($Model) {
+# 1 回分の長さ (対象のキーを押してから。この先は打ち切る)
+function Get-KcHtLimitMs([int]$Term) {
+    return $Term + $script:KcHtLimitExtraMs
+}
+
+# $Rec は zmk-log.ps1 の ConvertFrom-KcZmkLogLine のレコード。
+# Combo: 調べるキーの組み合わせ @{ Target (hold-tap のキー); Partner (一緒に押すキー) }。$null のあいだは回を作らない
+# LimitMs: 1 回分の長さ (Get-KcHtLimitMs)。Pressed: 最後に処理した行で押したキーの位置 (無ければ -1。組み合わせを選ぶのに使う)
+function New-KcHtCapture($Model, $Combo = $null, [int]$LimitMs = 250) {
     return @{
-        Model = $Model; Held = @{}; Recent = (New-Object 'System.Collections.Generic.List[object]'); Ep = $null; Seq = 0
-        Undecided = 0; LastTime = [double]0
+        Model = $Model; Combo = $Combo; LimitMs = $LimitMs
+        Held = @{}; Recent = (New-Object 'System.Collections.Generic.List[object]'); Ep = $null; Seq = 0
+        LastTime = [double]0; Pressed = -1
     }
 }
 
-function Test-KcHtCaptureIdle($State) {
-    return ($State.Held.Count -eq 0 -and $State.Undecided -le 0)
+# 選んだキーか
+function Test-KcHtComboKey($State, [int]$Pos) {
+    $c = $State.Combo
+    return ($null -ne $c -and ($Pos -eq [int]$c.Target -or $Pos -eq [int]$c.Partner))
 }
 
-# 1 行ぶん進める。終わったエピソードがあれば返す ($null = なし)
+# 選んだキーを全部離しているか
+function Test-KcHtCaptureIdle($State) {
+    $c = $State.Combo
+    if ($null -eq $c) { return $true }
+    return (-not $State.Held.ContainsKey([int]$c.Target) -and -not $State.Held.ContainsKey([int]$c.Partner))
+}
+
+# 1 行ぶん進める。戻り値: $null、@{ Kind = 'done'; Episode } (1 回分が終わった)、@{ Kind = 'discarded'; Pos; Seq }
+# (選んだキーを押している途中で、選んでいないキー Pos を押したので、その回を捨てた)
 function Update-KcHtCapture($State, $Rec) {
+    $State.Pressed = -1
     if ($null -eq $Rec) { return $null }
-    $done = $null
+    $out = $null
     if ($Rec.Type -eq 'dropped') {
         if ($null -ne $State.Ep) { $State.Ep.Dropped = $true }
         return $null
     }
     if ($Rec.Time -ge 0) { $State.LastTime = [double]$Rec.Time }
     $ep = $State.Ep
+    # 打ち切り: 対象を押してから LimitMs を過ぎた行は、その回に入れない
+    if ($null -ne $ep -and $Rec.Time -ge 0 -and $Rec.Time -gt $ep.CutAt) {
+        $out = @{ Kind = 'done'; Episode = (Complete-KcHtCapture $State -Cut) }
+        $ep = $null
+    }
     switch ($Rec.Type) {
         'position' {
             $pos = [int]$Rec.Pos
-            if ($null -ne $ep -and (Test-KcHtCaptureIdle $State) -and $Rec.Time - $ep.LastT -gt 50) {
-                $done = Complete-KcHtCapture $State
-                $ep = $null
-            }
             $down = $Rec.Pressed
             $uncertain = $false
             if ($null -eq $down) {
@@ -197,11 +219,32 @@ function Update-KcHtCapture($State, $Rec) {
                 $down = -not $State.Held.ContainsKey($pos)
                 $uncertain = $true
             }
-            if ($down) { $State.Held[$pos] = $true } else { $State.Held.Remove($pos) }
+            $selected = Test-KcHtComboKey $State $pos
+            if ($null -ne $ep -and $down) {
+                $idle = Test-KcHtCaptureIdle $State
+                if (-not $selected) {
+                    if ($idle) {
+                        $out = @{ Kind = 'done'; Episode = (Complete-KcHtCapture $State) }
+                    } else {
+                        $State.Ep = $null
+                        $out = @{ Kind = 'discarded'; Pos = $pos; Seq = $ep.Seq }
+                    }
+                    $ep = $null
+                } elseif ($idle -and $Rec.Time - $ep.LastT -gt 50) {
+                    $out = @{ Kind = 'done'; Episode = (Complete-KcHtCapture $State) }
+                    $ep = $null
+                }
+            }
+            if ($down) {
+                $State.Held[$pos] = $true
+                $State.Pressed = $pos
+            } else {
+                $State.Held.Remove($pos)
+            }
             $e = @{ Pos = $pos; Down = [bool]$down; T = [double]$Rec.Time; Uncertain = $uncertain }
             $State.Recent.Add($e)
             while ($State.Recent.Count -gt 40) { $State.Recent.RemoveAt(0) }
-            if ($null -ne $ep) {
+            if ($null -ne $ep -and $selected) {
                 $ep.Events.Add($e)
                 $ep.LastT = [double]$Rec.Time
                 if ($uncertain) { $ep.Uncertain = $true }
@@ -209,38 +252,41 @@ function Update-KcHtCapture($State, $Rec) {
         }
         'ht_new' {
             $pos = [int]$Rec.Pos
-            $State.Undecided++
             # 押したことの確かめ (ペリフェラルを交互に数えてずれていたら直す)
-            $last = $null
-            for ($i = $State.Recent.Count - 1; $i -ge 0; $i--) {
-                if ($State.Recent[$i].Pos -eq $pos) { $last = $State.Recent[$i]; break }
-            }
+            $last = Find-KcHtRecent $State $pos
             if ($null -ne $last -and -not $last.Down) {
                 $last.Down = $true
                 $State.Held[$pos] = $true
+                $State.Pressed = $pos
             }
-            if ($null -eq $ep -and $null -ne $last) {
+            $c = $State.Combo
+            if ($null -eq $ep -and $null -ne $last -and $null -ne $c -and $pos -eq [int]$c.Target) {
                 $State.Seq++
                 $ep = @{
-                    Seq = $State.Seq; Target = $pos; Start = [double]$last.T; LastT = [double]$Rec.Time
+                    Seq = $State.Seq; Target = $pos; Partner = [int]$c.Partner; Start = [double]$last.T; LastT = [double]$Rec.Time
+                    Limit = [int]$State.LimitMs; CutAt = [double]$last.T + $State.LimitMs
                     Events = (New-Object 'System.Collections.Generic.List[object]')
                     Decisions = (New-Object 'System.Collections.Generic.List[object]')
                     Hid = (New-Object 'System.Collections.Generic.List[object]')
-                    Dropped = $false; Uncertain = $false
+                    Dropped = $false; Uncertain = $false; Cut = $false
                 }
-                # 直前の入力 (require-prior-idle / quick-tap のため) と、押したままのキー
-                foreach ($r in $State.Recent) {
-                    if ($r.T -ge $last.T - 1000) {
-                        $ep.Events.Add($r)
-                        if ($r.Uncertain) { $ep.Uncertain = $true }
+                # 一緒に押すキーを先に押していたら、その「押す」から入れる
+                # (6 台とも quick-tap・require-prior-idle を使わないので、それより前の入力は判定に関わらない)
+                $partner = [int]$c.Partner
+                if ($State.Held.ContainsKey($partner)) {
+                    $p = Find-KcHtRecent $State $partner
+                    if ($null -ne $p -and $p.Down -and $p.T -le $last.T) {
+                        $ep.Events.Add($p)
+                        if ($p.Uncertain) { $ep.Uncertain = $true }
                     }
                 }
+                $ep.Events.Add($last)
+                if ($last.Uncertain) { $ep.Uncertain = $true }
                 $State.Ep = $ep
             }
         }
         'ht_decided' {
-            $State.Undecided--
-            if ($null -ne $ep) {
+            if ($null -ne $ep -and (Test-KcHtComboKey $State ([int]$Rec.Pos))) {
                 $ep.Decisions.Add(@{ Pos = [int]$Rec.Pos; Status = [string]$Rec.Decision; Moment = [string]$Rec.Moment; Flavor = [string]$Rec.Flavor; T = [double]$Rec.Time })
                 $ep.LastT = [double]$Rec.Time
             }
@@ -260,11 +306,20 @@ function Update-KcHtCapture($State, $Rec) {
             $State.Held.Remove([int]$Rec.Pos)
         }
     }
-    return $done
+    return $out
+}
+
+# そのキーの直近の押す / 離す ($null = 無い)
+function Find-KcHtRecent($State, [int]$Pos) {
+    for ($i = $State.Recent.Count - 1; $i -ge 0; $i--) {
+        if ($State.Recent[$i].Pos -eq $Pos) { return $State.Recent[$i] }
+    }
+    return $null
 }
 
 # エピソードの中身を、対象のキーを押した時刻を 0 にした形にする:
-# @{ Seq; Target; T0 (0 にしたファームの時刻); Events (@{ Pos; Down; T; Role }); TargetIndex; Decisions; Hid; Dropped; Uncertain; Live }
+# @{ Seq; Target; Partner; T0 (0 にしたファームの時刻); Events (@{ Pos; Down; T; Role }); TargetIndex; Decisions; Hid;
+#    Dropped; Uncertain; Cut (打ち切った); Limit (1 回分の長さ); Live }
 function ConvertTo-KcHtEpisodeData($Ep, [bool]$Live) {
     $t0 = [Math]::Floor($Ep.Start)
     $events = New-Object 'System.Collections.Generic.List[object]'
@@ -286,18 +341,21 @@ function ConvertTo-KcHtEpisodeData($Ep, [bool]$Live) {
         $hid.Add(@{ T = [double]([Math]::Floor($h.T) - $t0); Usage = $h.Usage; Pressed = $h.Pressed })
     }
     return @{
-        Seq = $Ep.Seq; Target = $Ep.Target; T0 = [double]$t0; Events = $events.ToArray(); TargetIndex = $targetIndex
-        Decisions = $decisions.ToArray(); Hid = $hid.ToArray(); Dropped = $Ep.Dropped; Uncertain = $Ep.Uncertain; Live = $Live
+        Seq = $Ep.Seq; Target = $Ep.Target; Partner = $Ep.Partner; T0 = [double]$t0; Events = $events.ToArray(); TargetIndex = $targetIndex
+        Decisions = $decisions.ToArray(); Hid = $hid.ToArray(); Dropped = $Ep.Dropped; Uncertain = $Ep.Uncertain
+        Cut = $Ep.Cut; Limit = $Ep.Limit; Live = $Live
     }
 }
 
-# 今のエピソードを終える (判定待ちが無く、すべて離したとき)。終えたエピソード、無ければ $null
-function Complete-KcHtCapture($State, [switch]$Force) {
+# 今のエピソードを終える。選んだキーを全部離していなければ $null。
+# -Cut: 1 回分の長さを過ぎたので、押していても終える (押していたら Cut = $true)
+function Complete-KcHtCapture($State, [switch]$Cut) {
     $ep = $State.Ep
     if ($null -eq $ep) { return $null }
-    if (-not $Force -and -not (Test-KcHtCaptureIdle $State)) { return $null }
+    $idle = Test-KcHtCaptureIdle $State
+    if (-not $Cut -and -not $idle) { return $null }
     $State.Ep = $null
-    $State.Undecided = [Math]::Max(0, $State.Undecided)
+    if (-not $idle) { $ep.Cut = $true }
     return ConvertTo-KcHtEpisodeData $ep $false
 }
 
@@ -424,10 +482,8 @@ function Get-KcHtReleaseSweeps($Model, $Config, $Episode, $Range) {
         $releaseT = [long]$events[$rel].T
     }
     $from = $pressT + 1
-    # 押している最中は tapping-term + 300 ms まで (ZMK は遅くとも tapping-term で判定するので、その先は要らない。
-    # 押したままのあいだ何度も計算するので、広げない)
-    $to = [long]($pressT + $setting.Term + 300)
-    if ($null -ne $releaseT) { $to = [long][Math]::Max([double]$Range.To, [double]$to) }
+    # 横軸の右端 (tapping-term + 100 ms) まで。押している最中も同じ
+    $to = [long]$Range.To
     for ($i = $rel + 1; $i -lt $list.Count; $i++) {
         if ($list[$i].Pos -eq $target) { $to = [long][Math]::Min($to, $list[$i].T - 1); break }
     }
@@ -533,6 +589,9 @@ function Get-KcHtSummary($Model, $Config, $Episode, $Result, $Sweeps, $Now) {
         if ($setting.Changed) { $why = '設定を変えたので違う' }
         $lines.Add(('ファームの判定は {0} ({1} ms)。{2}' -f (Format-KcHtStatus $fd.Status), $fd.T, $why))
     }
+    if (-not $live -and $Episode.ContainsKey('Cut') -and $Episode.Cut -and (Get-KcHtReleaseIndex $Episode) -lt 0) {
+        $lines.Add(('{0} ms (tapping-term + {1} ms) で打ち切った。{2} はまだ押していた' -f $Episode.Limit, $script:KcHtLimitExtraMs, (Get-KcHtKeyName $Model $target)))
+    }
     if ($Episode.Dropped) { $lines.Add('ログが欠けたので、実際の押し方と違うことがある') }
     return @{ Title = $title; Lines = $lines.ToArray(); Level = $level; Key = ('{0}|{1}|{2}' -f $decided, $segIndex, $lines.Count) }
 }
@@ -541,22 +600,15 @@ function Get-KcHtSummary($Model, $Config, $Episode, $Result, $Sweeps, $Now) {
 # グラフのモデル
 # ---------------------------------------------------------------------------
 
-# 横軸の範囲 (50ms 単位)。$Now: 押している最中の「今」
-function Get-KcHtRange($Episode, $Result, [int]$Term, $Now) {
+# 横軸の範囲 (50ms 単位)。右端は 1 回分の長さ (tapping-term + 100 ms) で、押している最中も同じ。
+# 左端は押した時刻の少し前 (一緒に押すキーを先に押していたら、その時刻から。-500 ms まで)
+function Get-KcHtRange($Episode, [int]$Term) {
     $min = [long]0
-    $max = [long]($Term + 60)
     foreach ($e in $Episode.Events) {
         if ($e.T -lt $min) { $min = [long]$e.T }
-        if ($e.T -gt $max) { $max = [long]$e.T }
     }
-    if ($null -ne $Now) {
-        if ($Now + 100 -gt $max) { $max = [long]($Now + 100) }
-    } elseif ($Result.EndT -gt $max) {
-        $max = [long]$Result.EndT
-    }
-    $from = [long]([Math]::Floor(($min - 60) / 50.0) * 50)
-    $to = [long]([Math]::Ceiling(($max + 40) / 50.0) * 50)
-    if ($to - $from -lt 400) { $to = $from + 400 }
+    $from = [long][Math]::Max(-500, [Math]::Floor(($min - 60) / 50.0) * 50)
+    $to = [long]([Math]::Ceiling((Get-KcHtLimitMs $Term) / 50.0) * 50)
     return @{ From = $from; To = $to }
 }
 
@@ -583,32 +635,30 @@ function Add-KcHtMark($Chart, [int]$LaneFrom, [int]$LaneTo, [double]$At, [int]$S
     $Chart.Marks.Add(@{ LaneFrom = $LaneFrom; LaneTo = $LaneTo; At = $At; Style = $Style; Text = $Text })
 }
 
+# 出力 (シミュレータの Hid の 1 つ) のレーン: @{ Key; Title; Note; Style }
+function Get-KcHtOutputLane($Output) {
+    if ($Output.Kind -eq 'layer') {
+        return @{ Key = ('layer:{0}' -f $Output.Layer); Title = [string]$Output.Label; Note = 'レイヤー'; Style = $script:KcHtBarLayer }
+    }
+    if ($Output.Kind -eq 'other') {
+        return @{ Key = ('other:{0}' -f $Output.Label); Title = [string]$Output.Label; Note = 'ビヘイビア'; Style = $script:KcHtBarOther }
+    }
+    if ($Output.Usage -ge 0xE0 -and $Output.Usage -le 0xE7) {
+        return @{ Key = ('key:{0}' -f $Output.Usage); Title = [string]$Output.Label; Note = '修飾キー'; Style = $script:KcHtBarMod }
+    }
+    return @{ Key = ('key:{0}' -f $Output.Usage); Title = [string]$Output.Label; Note = 'キー'; Style = $script:KcHtBarKey }
+}
+
 # 出力 (Hid) をレーンごとの区間に: @(@{ Key; Title; Note; Style; Items = @(@{ From; To }) })
 function Get-KcHtOutputRuns($Hid, [double]$End) {
     $runs = New-Object 'System.Collections.Generic.List[object]'
     $byKey = @{}
     $open = @{}
     foreach ($o in $Hid) {
-        if ($o.Kind -eq 'layer') {
-            $key = 'layer:{0}' -f $o.Layer
-            $style = $script:KcHtBarLayer
-            $note = 'レイヤー'
-        } elseif ($o.Kind -eq 'other') {
-            $key = 'other:{0}' -f $o.Label
-            $style = $script:KcHtBarOther
-            $note = 'ビヘイビア'
-        } else {
-            $key = 'key:{0}' -f $o.Usage
-            if ($o.Usage -ge 0xE0 -and $o.Usage -le 0xE7) {
-                $style = $script:KcHtBarMod
-                $note = '修飾キー'
-            } else {
-                $style = $script:KcHtBarKey
-                $note = 'キー'
-            }
-        }
+        $lane = Get-KcHtOutputLane $o
+        $key = $lane.Key
         if (-not $byKey.ContainsKey($key)) {
-            $run = @{ Key = $key; Title = [string]$o.Label; Note = $note; Style = $style; Items = (New-Object 'System.Collections.Generic.List[object]') }
+            $run = @{ Key = $key; Title = $lane.Title; Note = $lane.Note; Style = $lane.Style; Items = (New-Object 'System.Collections.Generic.List[object]') }
             $byKey[$key] = $run
             $runs.Add($run)
         }
@@ -625,6 +675,44 @@ function Get-KcHtOutputRuns($Hid, [double]$End) {
     return , $runs.ToArray()
 }
 
+# 組み合わせで PC に届きうる入力のレーン (グラフに前もって並べる): @(@{ Key; Title; Note; Style })。
+# 短い入力をシミュレータで計算し、届いた順に集める (ラベルとキーは実際の計算と同じになる):
+#   タップ / 一緒に押すキーで包んだホールド (hold-preferred で計算する) / タップのあとに一緒に押すキー /
+#   一緒に押すキーが hold-tap なら、そのホールド
+function Get-KcHtComboOutputs($Model, $Config, [int]$Target, [int]$Partner) {
+    Import-KcHoldTapSim
+    $behavior = Get-KcHtBehavior $Model $Target
+    if (-not $behavior) { return , @() }
+    $c = Copy-KcHtConfig $Config
+    Set-KcHtSetting $Model $c $behavior 'flavor' 'hold-preferred'
+    $km = Get-KcHtKeymapWith $Model $c
+    $runs = New-Object 'System.Collections.Generic.List[object]'
+    $runs.Add(@((New-KcHtEvent $Target $true 0 'target'), (New-KcHtEvent $Target $false 10 'target')))
+    if ($Partner -ge 0) {
+        $runs.Add(@((New-KcHtEvent $Target $true 0 'target'), (New-KcHtEvent $Partner $true 10 'partner'),
+                (New-KcHtEvent $Partner $false 20 'partner'), (New-KcHtEvent $Target $false 30 'target')))
+        $runs.Add(@((New-KcHtEvent $Target $true 0 'target'), (New-KcHtEvent $Target $false 10 'target'),
+                (New-KcHtEvent $Partner $true 20 'partner'), (New-KcHtEvent $Partner $false 30 'partner')))
+        $pb = Get-KcHtBehavior $Model $Partner
+        if ($pb) {
+            $pt = [long](Get-KcHtSetting $Model $c $pb).Term
+            $runs.Add(@((New-KcHtEvent $Target $true 0 'target'), (New-KcHtEvent $Target $false 10 'target'),
+                    (New-KcHtEvent $Partner $true 20 'partner'), (New-KcHtEvent $Partner $false (20 + $pt + 10) 'partner')))
+        }
+    }
+    $lanes = New-Object 'System.Collections.Generic.List[object]'
+    $seen = @{}
+    foreach ($events in $runs) {
+        foreach ($o in (Invoke-KcHtRun $km $events).Hid) {
+            $lane = Get-KcHtOutputLane $o
+            if ($seen.ContainsKey($lane.Key)) { continue }
+            $seen[$lane.Key] = $true
+            $lanes.Add($lane)
+        }
+    }
+    return , $lanes.ToArray()
+}
+
 # 帯の区間 → 帯のバー
 function Add-KcHtStripBars($Chart, [int]$Lane, $Segments) {
     foreach ($s in @($Segments)) {
@@ -637,7 +725,8 @@ function Add-KcHtStripBars($Chart, [int]$Lane, $Segments) {
     }
 }
 
-# グラフ: 押したキー、PC に届く入力、判定と tapping-term の線、離す時刻ごとの結果、flavor ごとの比較。
+# グラフ: 押したキー (選んだ 2 つ)、PC に届く入力 (組み合わせで届きうるものを前もって並べる)、判定と tapping-term の線、
+# 離す時刻ごとの結果、flavor ごとの比較。
 # 押している最中も同じ形で、ウィンドウが「今」より後を描かない。離していないキーと届いたままの出力は $KcHtOpenEnd まで
 function Get-KcHoldTapChart($Model, $Config, $Episode, $Result, $Sweeps, $Range) {
     Import-KcHoldTapSim
@@ -651,11 +740,15 @@ function Get-KcHoldTapChart($Model, $Config, $Episode, $Result, $Sweeps, $Range)
     $chart.From = $Range.From
     $chart.To = $Range.To
 
-    # ---- 押したキー (対象が先頭、ほかは押した順)
+    $partner = -1
+    if ($Episode.ContainsKey('Partner') -and $null -ne $Episode.Partner) { $partner = [int]$Episode.Partner }
+
+    # ---- 押したキー (対象、一緒に押すキーの順。一緒に押すキーは押さなかった回でも出す)
     [void](Add-KcHtLane $chart '押したキー' '' $script:KcHtLaneCaption)
     $keyLane = @{}
     $order = New-Object 'System.Collections.Generic.List[int]'
     $order.Add($target)
+    if ($partner -ge 0 -and $partner -ne $target) { $order.Add($partner) }
     foreach ($e in $events) {
         if (-not $order.Contains([int]$e.Pos)) { $order.Add([int]$e.Pos) }
     }
@@ -692,11 +785,14 @@ function Get-KcHoldTapChart($Model, $Config, $Episode, $Result, $Sweeps, $Range)
         }
     }
 
-    # ---- PC に届く入力
+    # ---- PC に届く入力 (組み合わせで届きうるものを先に並べ、ほかに届いたものは後ろに足す)
     [void](Add-KcHtLane $chart 'PC に届く入力' '' $script:KcHtLaneCaption)
     $outLane = @{}
+    foreach ($lane in (Get-KcHtComboOutputs $Model $Config $target $partner)) {
+        $outLane[$lane.Key] = Add-KcHtLane $chart $lane.Title $lane.Note $script:KcHtLaneOutput
+    }
     foreach ($run in (Get-KcHtOutputRuns $Result.Hid $end)) {
-        $outLane[$run.Key] = Add-KcHtLane $chart $run.Title $run.Note $script:KcHtLaneOutput
+        if (-not $outLane.ContainsKey($run.Key)) { $outLane[$run.Key] = Add-KcHtLane $chart $run.Title $run.Note $script:KcHtLaneOutput }
         foreach ($it in $run.Items) { Add-KcHtBar $chart $outLane[$run.Key] $it.From $it.To $run.Style $run.Title }
     }
     $lastLane = $chart.Lanes.Count - 1

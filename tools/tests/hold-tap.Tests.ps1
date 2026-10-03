@@ -84,15 +84,20 @@ function New-HtEpisode([string]$Text, [bool]$Live = $false, $Decisions = @()) {
         if ($e.Pos -eq $events[$ti].Pos) { $role = 'target' } elseif ($e.T -lt 0) { $role = 'prior' }
         $e.Role = $role
     }
-    return @{ Seq = 1; Target = $events[$ti].Pos; T0 = 0; Events = $events; TargetIndex = $ti; Decisions = @($Decisions); Hid = @()
-        Dropped = $false; Uncertain = $false; Live = $Live }
+    # 一緒に押すキー: 対象でない最初のキー (無ければ H)
+    $partner = 15
+    foreach ($e in $events) {
+        if ($e.Pos -ne $events[$ti].Pos) { $partner = $e.Pos; break }
+    }
+    return @{ Seq = 1; Target = $events[$ti].Pos; Partner = $partner; T0 = 0; Events = $events; TargetIndex = $ti; Decisions = @($Decisions); Hid = @()
+        Dropped = $false; Uncertain = $false; Cut = $false; Limit = 250; Live = $Live }
 }
 
 # 1 回分を、設定 $Config で計算する
 function Invoke-HtEpisode($Episode, $Config = $null, $Now = $null) {
     if ($null -eq $Config) { $Config = New-KcHtConfig }
     $r = Invoke-KcHtRun (Get-KcHtKeymapWith $script:HtLism $Config) $Episode.Events
-    $range = Get-KcHtRange $Episode $r 150 $Now
+    $range = Get-KcHtRange $Episode (Get-KcHtSetting $script:HtLism $Config 'mt').Term
     $sw = Get-KcHtReleaseSweeps $script:HtLism $Config $Episode $range
     $d = [KcHtText]::DecisionFor($r, $Episode.TargetIndex)
     $status = ''
@@ -213,7 +218,10 @@ Test-Case 'グラフのモデル: レーン・判定と tapping-term の線・�
     Assert-Equal -100 $x.Range.From
     $ch = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $nest $x.Result $x.Sweeps $x.Range
     $titles = @($ch.Lanes | ForEach-Object { $_.Title })
-    Assert-Equal '押したキー,A (Ctrl),H,PC に届く入力,Ctrl,H,A (Ctrl) を離す時刻ごとの結果,今の設定' (($titles | Select-Object -First 8) -join ',')
+    Assert-Equal '押したキー,A (Ctrl),H,PC に届く入力,A,Ctrl,H,A (Ctrl) を離す時刻ごとの結果,今の設定' (($titles | Select-Object -First 9) -join ',') 'PC に届く入力は組み合わせから前もって並べる'
+    Assert-Equal 0 @($ch.Bars | Where-Object { $_.Lane -eq 4 }).Count 'A は届いていない (レーンだけ)'
+    Assert-Equal 250 $x.Range.To '右端は tapping-term + 100 ms'
+    Assert-Equal 250 $x.Sweeps.To '帯も右端まで'
     Assert-Equal '&mt' $ch.Lanes[1].Note
     $styles = @($ch.Bars | Where-Object { $_.Lane -eq 1 } | ForEach-Object { $_.Style })
     Assert-Equal "$($script:KcHtBarUndecided),$($script:KcHtBarHold)" ($styles -join ',') '判定待ち → ホールド'
@@ -231,14 +239,32 @@ Test-Case 'グラフのモデル: レーン・判定と tapping-term の線・�
     $ch2 = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $fw $x.Result $x.Sweeps $x.Range
     Assert-Equal 140 @($ch2.Marks | Where-Object { $_.Style -eq $script:KcHtMarkFirmware })[0].At
     Assert-Equal 'ファームの判定: タップ (140 ms)' $ch2.Marks[2].Text '3 番目はファームの判定'
-    # 押している最中: 離していないキーは開いたまま、帯のカーソルは無い
+    # 押している最中: 横軸は終わった回と同じ。離していないキーは開いたまま、帯のカーソルは無い
     $live = New-HtEpisode 'p10@0 p15@50' $true
     $y = Invoke-HtEpisode $live $null 70
-    Assert-Equal 300 $y.Range.To '「今」+ 100 ms と tapping-term + 60 ms の大きいほう'
+    Assert-Equal 250 $y.Range.To '押している最中も、右端は tapping-term + 100 ms'
+    Assert-Equal 250 $y.Sweeps.To
     $ch3 = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $live $y.Result $y.Sweeps $y.Range
     $a = @($ch3.Bars | Where-Object { $_.Lane -eq 1 })
     Assert-Equal $script:KcHtOpenEnd $a[-1].To
     Assert-Equal 0 @($ch3.Marks | Where-Object { $_.Style -eq $script:KcHtMarkCursor }).Count
+    # 一緒に押すキーを押さなかった回でも、そのレーンと届きうる入力のレーンを出す
+    $tap = New-HtEpisode 'p10@0 r10@80'
+    $z = Invoke-HtEpisode $tap
+    $ch4 = Get-KcHoldTapChart $script:HtLism (New-KcHtConfig) $tap $z.Result $z.Sweeps $z.Range
+    Assert-Equal '押したキー,A (Ctrl),H,PC に届く入力,A,Ctrl,H' ((@($ch4.Lanes | ForEach-Object { $_.Title }) | Select-Object -First 7) -join ',')
+}
+
+Test-Case '横軸と、組み合わせで届きうる入力: 右端は tapping-term + 100 ms、左端は先に押したキーから (-500 ms まで)' {
+    Assert-Equal 250 (Get-KcHtLimitMs 150)
+    Assert-Equal '-100,250' ('{0},{1}' -f (Get-KcHtRange (New-HtEpisode 'p10@0 r10@80') 150).From, (Get-KcHtRange (New-HtEpisode 'p10@0 r10@80') 150).To)
+    Assert-Equal 350 (Get-KcHtRange (New-HtEpisode 'p10@0 r10@80') 250).To
+    Assert-Equal 300 (Get-KcHtRange (New-HtEpisode 'p10@0 r10@80') 155).To '50 ms 単位に切り上げ'
+    Assert-Equal -100 (Get-KcHtRange (New-HtEpisode 'p15@-40 p10@0 r15@40 r10@100') 150).From
+    Assert-Equal -500 (Get-KcHtRange (New-HtEpisode 'p15@-900 p10@0 r15@40 r10@100') 150).From
+    $f = { param($t, $p) ((Get-KcHtComboOutputs $script:HtLism (New-KcHtConfig) $t $p) | ForEach-Object { '{0}[{1}]' -f $_.Title, $_.Key }) -join ', ' }
+    Assert-Equal 'A[key:4], Ctrl[key:224], H[key:11]' (& $f 10 15)
+    Assert-Equal 'Enter[key:40], SYM[layer:1], Esc[key:41], Z[key:29], Shift[key:225]' (& $f 37 20) '一緒に押すキーが hold-tap なら、そのホールドも'
 }
 
 Test-Case '時計: いちばん遅れの少ない行に合わせて「今」を推定し、ファームの時刻が戻ったら作り直す' {
@@ -282,15 +308,20 @@ Test-Case 'ログ: A (ペリフェラル) を押したまま H (セントラル)
         (New-HtLog 5150.2 'on_hold_tap_binding_released' '10 cleaning up hold-tap'),
         (New-HtLog 6000.0 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: true')
     )
-    $cap = New-KcHtCapture $script:HtLism
+    $cap = New-KcHtCapture $script:HtLism @{ Target = 10; Partner = 15 } 250
     $eps = @()
     foreach ($l in $lines) {
-        $ep = Update-KcHtCapture $cap (ConvertFrom-KcZmkLogLine $l)
-        if ($null -ne $ep) { $eps += $ep }
+        $r = Update-KcHtCapture $cap (ConvertFrom-KcZmkLogLine $l)
+        if ($null -ne $r) {
+            Assert-Equal 'done' $r.Kind
+            $eps += $r.Episode
+        }
     }
     Assert-Equal 1 $eps.Count
     $ep = $eps[0]
     Assert-Equal 10 $ep.Target
+    Assert-Equal 15 $ep.Partner
+    Assert-Equal $false $ep.Cut '250 ms より後の行で終えたが、全部離していたので打ち切りではない'
     Assert-Equal 'p10@0 p15@60 r15@100 r10@150' (($ep.Events | ForEach-Object { '{0}{1}@{2}' -f @('r', 'p')[[int]$_.Down], $_.Pos, $_.T }) -join ' ')
     Assert-Equal 0 $ep.TargetIndex
     Assert-Equal 'hold-interrupt' $ep.Decisions[0].Status
@@ -303,7 +334,7 @@ Test-Case 'ログ: A (ペリフェラル) を押したまま H (セントラル)
 }
 
 Test-Case 'ログ: 欠けたエピソードは比べない。左手側の押す / 離すのずれは hold-tap の行で直す' {
-    $cap = New-KcHtCapture $script:HtLism
+    $cap = New-KcHtCapture $script:HtLism @{ Target = 10; Partner = 15 } 250
     # 前に 10 を押したことになっている (ログが欠けて離すが届かなかった)
     $cap.Held[10] = $true
     $lines = @(
@@ -316,14 +347,14 @@ Test-Case 'ログ: 欠けたエピソードは比べない。左手側の押す 
     )
     foreach ($l in $lines) { [void](Update-KcHtCapture $cap (ConvertFrom-KcZmkLogLine $l)) }
     $ep = Complete-KcHtCapture $cap
-    Assert-True ($null -ne $ep) '判定待ちが無く、すべて離した'
+    Assert-True ($null -ne $ep) '選んだキーをすべて離した'
     Assert-True $ep.Dropped
     Assert-Equal 'p10@0 r10@80' (($ep.Events | Where-Object { $_.T -ge 0 } | ForEach-Object { '{0}{1}@{2}' -f @('r', 'p')[[int]$_.Down], $_.Pos, $_.T }) -join ' ')
     Assert-True ((Invoke-HtEpisode $ep).Summary.Lines[-1] -like 'ログが欠けた*')
 }
 
 Test-Case 'ログ: 押している最中の回 (スナップショット) は、切り出しの状態を変えない' {
-    $cap = New-KcHtCapture $script:HtLism
+    $cap = New-KcHtCapture $script:HtLism @{ Target = 10; Partner = 15 } 250
     $lines = @(
         (New-HtLog 5000.2 'peripheral_event_work_callback' 'Trigger key position state change for 10'),
         (New-HtLog 5000.4 'on_hold_tap_binding_pressed' '10 new undecided hold_tap'),
@@ -340,4 +371,108 @@ Test-Case 'ログ: 押している最中の回 (スナップショット) は、
     Assert-Equal 2 $cap.Ep.Events.Count 'スナップショットで変わらない'
     Assert-Equal $null (Complete-KcHtCapture $cap) 'まだ押している'
     Assert-True ($null -ne $cap.Ep)
+}
+
+# A (10、左手側) と H (15、右手側)、選んでいない J (16、右手側) と S (11、左手側) の行
+function Get-HtComboLines([string]$What, [double]$Ms) {
+    switch ($What) {
+        'A' { return @((New-HtLog $Ms 'peripheral_event_work_callback' 'Trigger key position state change for 10')) }
+        'A-new' {
+            return @((New-HtLog $Ms 'peripheral_event_work_callback' 'Trigger key position state change for 10'),
+                (New-HtLog ($Ms + 0.2) 'on_hold_tap_binding_pressed' '10 new undecided hold_tap'))
+        }
+        'H-down' { return @((New-HtLog $Ms 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: true')) }
+        'H-up' { return @((New-HtLog $Ms 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: false')) }
+        'J-down' { return @((New-HtLog $Ms 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 6, position: 16, pressed: true')) }
+        'J-up' { return @((New-HtLog $Ms 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 6, position: 16, pressed: false')) }
+        'S' { return @((New-HtLog $Ms 'peripheral_event_work_callback' 'Trigger key position state change for 11')) }
+        'decided-tap' { return @((New-HtLog $Ms 'decide_hold_tap' '10 decided tap (balanced decision moment key-up)')) }
+        'decided-timer' { return @((New-HtLog $Ms 'decide_hold_tap' '10 decided hold-timer (balanced decision moment timer)')) }
+    }
+}
+
+# 'A-new@1000 H-down@1040' の行を順に流し、戻り値 (done / discarded) を集める
+function Invoke-HtCombo($Cap, [string]$Steps) {
+    $out = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($s in ($Steps -split '\s+')) {
+        $what, $ms = $s.Split('@')
+        foreach ($l in (Get-HtComboLines $what ([double]$ms))) {
+            $r = Update-KcHtCapture $Cap (ConvertFrom-KcZmkLogLine $l)
+            if ($null -ne $r) { $out.Add($r) }
+        }
+    }
+    return , $out.ToArray()
+}
+
+function Format-HtEvents($Episode) {
+    return (($Episode.Events | ForEach-Object { '{0}{1}@{2}' -f @('r', 'p')[[int]$_.Down], $_.Pos, $_.T }) -join ' ')
+}
+
+Test-Case 'ログ: 選んだ組み合わせ (A + H) だけを入れる。選んでいないキーを途中で押した回は捨て、全部離したあとなら終える' {
+    $cap = New-KcHtCapture $script:HtLism @{ Target = 10; Partner = 15 } 250
+    # 選んでいないキーの押す / 離すと判定は入らない (A を押す前に押していた S を、途中で離す)
+    $r = Invoke-HtCombo $cap 'S@900 A-new@1000 H-down@1040 S@1050 H-up@1090 A@1120 decided-tap@1120.1'
+    Assert-Equal 0 $r.Count
+    Assert-Equal 'p10@0 p15@40 r15@90 r10@120' (Format-HtEvents (Get-KcHtCaptureSnapshot $cap))
+    # 全部離したあとに選んでいないキーを押すと、その回を終える
+    $r = Invoke-HtCombo $cap 'J-down@1130'
+    Assert-Equal 1 $r.Count
+    Assert-Equal 'done' $r[0].Kind
+    Assert-Equal 'p10@0 p15@40 r15@90 r10@120' (Format-HtEvents $r[0].Episode)
+    Assert-Equal 1 @($r[0].Episode.Decisions).Count
+    # A を押している途中で J を押すと、その回を捨てる
+    $r = Invoke-HtCombo $cap 'J-up@1140 A-new@2000 J-down@2030'
+    Assert-Equal 1 $r.Count
+    Assert-Equal 'discarded' $r[0].Kind
+    Assert-Equal 16 $r[0].Pos
+    Assert-Equal 2 $r[0].Seq
+    Assert-Equal $null $cap.Ep
+    # 捨てた回の残り (A と J を離す) からは回を作らない。次に A を押すと新しい回
+    $r = Invoke-HtCombo $cap 'A@2100 J-up@2110 A-new@3000'
+    Assert-Equal 0 $r.Count
+    Assert-Equal 3 $cap.Ep.Seq
+    # H だけを押しても回は始まらない。組み合わせが無いあいだも始まらない
+    $cap2 = New-KcHtCapture $script:HtLism @{ Target = 10; Partner = 15 } 250
+    [void](Invoke-HtCombo $cap2 'H-down@100 H-up@150')
+    Assert-Equal $null $cap2.Ep
+    $cap3 = New-KcHtCapture $script:HtLism
+    [void](Invoke-HtCombo $cap3 'A@100')
+    Assert-Equal 10 $cap3.Pressed '押したキーは、その行の Pressed で分かる (組み合わせを選ぶのに使う)'
+    [void](Invoke-HtCombo $cap3 'A@150')
+    Assert-Equal -1 $cap3.Pressed '離した'
+    # 左手側の数え違い (離したことになった) は、hold-tap の行で押したことに直し、そこで Pressed にする
+    $cap3.Held[10] = $true
+    [void](Invoke-HtCombo $cap3 'A-new@300')
+    Assert-Equal 10 $cap3.Pressed
+    Assert-Equal $null $cap3.Ep
+}
+
+Test-Case 'ログ: 先に押していた H を、回の前の入力として入れる' {
+    $cap = New-KcHtCapture $script:HtLism @{ Target = 10; Partner = 15 } 250
+    [void](Invoke-HtCombo $cap 'H-down@960 A-new@1000 H-up@1040 A@1100')
+    $snap = Get-KcHtCaptureSnapshot $cap
+    Assert-Equal 'p15@-40 p10@0 r15@40 r10@100' (Format-HtEvents $snap)
+    Assert-Equal 1 $snap.TargetIndex
+    Assert-Equal 'prior,target,partner,target' (($snap.Events | ForEach-Object { $_.Role }) -join ',')
+}
+
+Test-Case 'ログ: 押してから tapping-term + 100 ms を過ぎた行が来たら、その前で打ち切る' {
+    $cap = New-KcHtCapture $script:HtLism @{ Target = 10; Partner = 15 } 250
+    $r = Invoke-HtCombo $cap 'A-new@1000 decided-timer@1150 H-down@1200 H-up@1300'
+    Assert-Equal 1 $r.Count
+    Assert-Equal 'done' $r[0].Kind
+    $ep = $r[0].Episode
+    Assert-True $ep.Cut 'A を押したまま'
+    Assert-Equal 250 $ep.Limit
+    Assert-Equal 'p10@0 p15@200' (Format-HtEvents $ep) '1300 ms の H を離すは入らない'
+    $x = Invoke-HtEpisode $ep
+    Assert-Equal 'hold-timer' $x.Status
+    Assert-Equal '250 ms (tapping-term + 100 ms) で打ち切った。A (Ctrl) はまだ押していた' $x.Summary.Lines[-1]
+    Assert-Equal $null $x.Sweeps.Release '離していないので、離した時刻の線は無い'
+    Assert-Equal $null $cap.Ep '打ち切ったあとは、次に A を押すまで回を作らない'
+    # 行が来なくても、押したままなら -Cut で終えられる (ウィンドウがファームの時計で呼ぶ)
+    [void](Invoke-HtCombo $cap 'A@1800 A-new@2000')
+    $c = Complete-KcHtCapture $cap -Cut
+    Assert-True $c.Cut
+    Assert-Equal $null (Complete-KcHtCapture $cap)
 }

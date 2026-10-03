@@ -1,8 +1,8 @@
 <!--
   Content of the tap-hold timing window of tools/scripts/keyboard-check.ps1 -Mode HoldTap (KcHoldTapForm in
-  InputTestForm.cs): the settings (flavor and tapping term) on the left; the result and the timeline
-  (KcTimelineView draws ChartCanvas, and the texts of its numbered lines in MarkLegendPanel) of the last
-  hold-tap press on the right.
+  InputTestForm.cs): the key combination to look at (picked by pressing the keys) and the settings (flavor and
+  tapping term) on the left; the result and the timeline (KcTimelineView draws ChartCanvas, and the texts of its
+  numbered lines in MarkLegendPanel) of the last press of the combination on the right.
   Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
   Theme keys (Theme.xaml) are referenced with DynamicResource because the theme is merged into the
   window after this content is parsed. ASCII only: texts are set from PowerShell.
@@ -41,10 +41,20 @@
       <ColumnDefinition Width="*" MinWidth="420"/>
     </Grid.ColumnDefinitions>
 
-    <!-- left: the settings of the hold-tap behavior of the last press -->
+    <!-- left: the key combination, and the settings of its hold-tap behavior -->
     <Border x:Name="SideCard" Grid.Column="0" Style="{DynamicResource KcCard}" Padding="14,12,14,12">
       <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
         <StackPanel>
+          <TextBlock x:Name="ComboCaption" Style="{DynamicResource KcSectionCaption}" Margin="0,0,0,6"/>
+          <DockPanel>
+            <Button x:Name="PickButton" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10,0,0,0"
+                    Style="{DynamicResource KcToolButton}"/>
+            <TextBlock x:Name="ComboText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
+                       Foreground="{DynamicResource KcText}"/>
+          </DockPanel>
+          <TextBlock x:Name="ComboHint" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0"
+                     Foreground="{DynamicResource KcAccentLight}" Visibility="Collapsed"/>
+          <Border Height="1" Margin="0,12,0,12" Background="{DynamicResource KcBorder}"/>
           <TextBlock x:Name="SettingsCaption" Style="{DynamicResource KcSectionCaption}" Margin="0,0,0,10"/>
           <TextBlock x:Name="FlavorCaption" FontSize="12.5" FontWeight="SemiBold" Margin="0,0,0,5"
                      Foreground="{DynamicResource KcText}"/>

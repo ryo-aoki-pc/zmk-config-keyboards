@@ -3635,10 +3635,10 @@ public sealed class KcTimelineView
         plotRight = width - RightPad;
         int n = laneKinds.Length;
         double now = Now;
-        if (live && now > to - 20)
+        if (live && now > to)
         {
-            // keep "now" inside: widen the range in steps of 50 ms
-            to = Math.Ceiling((now + 100) / 50) * 50;
+            // the range ends where the press is cut off: "now" stays at the right end
+            now = to;
         }
 
         // the lines with a text get a number on top (the texts go to the legend under the chart); the numbers and
@@ -4046,6 +4046,10 @@ public sealed class KcHoldTapForm : IDisposable
     readonly Border portChip;
     readonly Ellipse portMark;
     readonly TextBlock portText;
+    readonly TextBlock comboCaption;
+    readonly TextBlock comboText;
+    readonly TextBlock comboHint;
+    readonly Button pickButton;
     readonly TextBlock settingsCaption;
     readonly TextBlock flavorCaption;
     readonly Panel flavorPanel;
@@ -4091,6 +4095,10 @@ public sealed class KcHoldTapForm : IDisposable
         portChip = KcUi.Find<Border>(root, "PortChip");
         portMark = KcUi.Find<Ellipse>(root, "PortMark");
         portText = KcUi.Find<TextBlock>(root, "PortText");
+        comboCaption = KcUi.Find<TextBlock>(root, "ComboCaption");
+        comboText = KcUi.Find<TextBlock>(root, "ComboText");
+        comboHint = KcUi.Find<TextBlock>(root, "ComboHint");
+        pickButton = KcUi.Find<Button>(root, "PickButton");
         settingsCaption = KcUi.Find<TextBlock>(root, "SettingsCaption");
         flavorCaption = KcUi.Find<TextBlock>(root, "FlavorCaption");
         flavorPanel = KcUi.Find<Panel>(root, "FlavorPanel");
@@ -4122,6 +4130,7 @@ public sealed class KcHoldTapForm : IDisposable
             termValue.Text = v.ToString() + " ms";
             if (!suppress) EnqueueReplace("term:", "term:" + v.ToString());
         };
+        pickButton.Click += delegate { Enqueue("pick"); };
         resetButton.Click += delegate { Enqueue("reset"); };
         closeButton.Click += delegate { Enqueue("close"); };
         SetSummaryCore("", new string[0], SummaryNone);
@@ -4269,6 +4278,21 @@ public sealed class KcHoldTapForm : IDisposable
             changedText.Text = changed ?? "";
             closeButton.Content = close ?? "";
             timeline.SetNowFormat(nowFormat);
+        });
+    }
+
+    // The key combination looked at: the caption, "A (Ctrl) + H", what to press while picking ("" hides it) and the
+    // text of the pick button ("" hides it; a click queues "pick").
+    public void SetCombo(string caption, string text, string hint, string button)
+    {
+        Post(delegate
+        {
+            comboCaption.Text = caption ?? "";
+            comboText.Text = text ?? "";
+            comboHint.Text = hint ?? "";
+            KcUi.SetVisible(comboHint, comboHint.Text.Length > 0);
+            pickButton.Content = button ?? "";
+            KcUi.SetVisible(pickButton, !string.IsNullOrEmpty(button));
         });
     }
 
