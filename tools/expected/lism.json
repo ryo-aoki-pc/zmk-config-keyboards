@@ -7,10 +7,10 @@
   "sources": [
     {
       "submodule": "zmk-config-LisM",
-      "commit": "46a8bb7c979e98e22e88ddaeaabc75f9ef469eeb",
+      "commit": "c0d06bbff6ca7a4d296b017cca809cb9bfc358c1",
       "files": ["config/lism.keymap", "config/lism.json", "boards/shields/lism/lism.dtsi", "build.yaml", "snippets/trackball-central/trackball.overlay", "snippets/trackball-peripheral/trackball.overlay", "snippets/non-trackball-central/non_trackball.overlay"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
   "device": {
     "usb_vid": "1D50",

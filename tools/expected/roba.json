@@ -7,10 +7,10 @@
   "sources": [
     {
       "submodule": "zmk-config-roBa",
-      "commit": "17554411bc4e31ba25d5c7f2c6aeb5f3660cacc1",
+      "commit": "7c15874a5cadcc57f782f5d8c8e80ebab26b9f87",
       "files": ["config/roBa.keymap", "config/roBa.json", "boards/shields/roBa/roBa.dtsi", "boards/shields/roBa/roBa_R.overlay", "boards/shields/roBa/roBa_R.conf", "build.yaml"]
     },
-    {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
+    {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
   "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "roBa", "studio_artifacts": ["roBa_right_central_studio"], "logging_artifacts": ["roBa_right_central_logging"]},
   "layers": [

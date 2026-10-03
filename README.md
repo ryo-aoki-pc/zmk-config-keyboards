@@ -32,7 +32,7 @@
 | 項目 | 内容 |
 | --- | --- |
 | ZMK | zmkfirmware **v0.3.0** を `config/west.yml` で固定 |
-| ドキュメント生成 | `tools/keymap-docgen` submodule (ZMK の 6 リポジトリ・keyball・vial-qmk-kq-mini で同一コミット) による KEYMAP.html / KEYMAP.xlsx 自動生成。レイアウトの JSON の `row` / `col` は `y` / `x` と同じにする (KEYMAP.xlsx の配置に使う) |
+| ドキュメント生成 | `tools/keymap-docgen` submodule (ZMK の 6 リポジトリ・keyball・vial-qmk-kq-mini で同一コミット) による KEYMAP.html / KEYMAP.xlsx 自動生成。KEYMAP.html はブラウザで開くと、レイヤーをタブ (← / → ・数字キー) で切り替えて 1 画面で見るビューアになる (Tap Dance / Mod Morph の図と経路はボタンで切り替え、マウスを重ねたキーの全操作を下の欄に出す。JavaScript が動かなければ全レイヤーを縦に並べる)。レイアウトの JSON の `row` / `col` は `y` / `x` と同じにする (KEYMAP.xlsx の配置に使う) |
 | ワークフロー | build.yml / keymap-docs.yml / release.yml を共通化 (keymap-docs.yml はキーマップとレイアウトの JSON のパス以外同一。torabo-tsuki-lp だけレイアウトを `-l config/info.json` で渡す)。firmware-latest はタグを消さずに付け替えてリリースを作り直し、ダウンロードできることを確かめる。PR のビルド (firmware-pr-<番号>) と custom のビルドの履歴 (firmware-custom-<sha7>) もリリースに置き、それぞれ新しいものから 30 件を残す (`.github/scripts/firmware-release.sh`。keyball / vial-qmk-kq-mini の build ワークフローも同じ処理) |
 | ファイル構成 | `.conf` は `boards/shields/<NAME>/`、ハード・役割は `Kconfig.defconfig`、Studio とセントラル役割は `build.yaml` の `cmake-args` |
 | アーティファクト | 全エントリに `artifact-name` を付与し、Studio 版 / 非 Studio 版の両方を生成 |
