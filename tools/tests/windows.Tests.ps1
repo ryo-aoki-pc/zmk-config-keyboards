@@ -354,6 +354,10 @@ Test-Case 'テスト用のウィンドウ: レイヤー・ビヘイビアの手�
         [KcUi]::DoEvents()
         Save-UiSnapshot $form 'keyboard-check-6-behavior-min'
         Assert-True ($root.FindName('KeyboardCard').ActualHeight -ge 100) ('キーボード図の高さ: {0}' -f $root.FindName('KeyboardCard').ActualHeight)
+        # カードが低いときは色の凡例を隠し、図に場所を回す
+        $card = $root.FindName('KeyboardCard').ActualHeight
+        Assert-Equal ($card -ge 140) ($root.FindName('Legend').Visibility -eq [System.Windows.Visibility]::Visible) ('凡例 (カードの高さ {0})' -f $card)
+        Assert-True ($root.FindName('KeyboardView').ActualHeight -ge 56) ('図の高さ: {0}' -f $root.FindName('KeyboardView').ActualHeight)
         Assert-UiAboveFooter $root @('OutputPanel', 'StatusBanner')
 
         # グループの区切りと後片付け
@@ -388,7 +392,7 @@ Test-Case 'レイヤーの動きを見るウィンドウを描画できる (ロ�
         Show-UiOffscreen $form.Window
         $view = @{
             Form = $form; Expected = $expected; ScanTable = (New-KcScanTable $common); State = (New-KcLayerTrace $expected)
-            KeyPositions = @($keys | ForEach-Object { [int]$_.pos }); ShownLayer = -1; LastSeq = 0
+            KeyPositions = @($keys | ForEach-Object { [int]$_.pos }); ShownLayer = -1; ShownLegends = ''; LastSeq = 0
             Seqs = (New-Object 'System.Collections.Generic.List[int]'); Paused = $false; CacheDir = ''
         }
         $log = @(
@@ -419,6 +423,14 @@ Test-Case 'レイヤーの動きを見るウィンドウを描画できる (ロ�
         $form.Window.Height = $form.Window.MinHeight
         [KcUi]::DoEvents()
         Save-UiSnapshot $form 'keyboard-check-8-trace-min'
+        # 最小の大きさでも、レイヤーのチップは折り返して窓に収まり、解決の欄はスクロールしなくても全部見える
+        $right = $root.ActualWidth
+        foreach ($chip in $root.FindName('LayerChips').Children) {
+            $x = $chip.TranslatePoint((New-Object System.Windows.Point 0, 0), $root).X + $chip.ActualWidth
+            Assert-True ($x -le $right + 0.5) ('レイヤーのチップが窓に収まる ({0} > {1})' -f $x, $right)
+        }
+        $scroll = $root.FindName('ResolveScroll')
+        Assert-True ($scroll.ScrollableHeight -le 0.5) ('解決の欄がスクロールなしで見える (はみ出し {0})' -f $scroll.ScrollableHeight)
     } finally {
         $form.Dispose()
     }

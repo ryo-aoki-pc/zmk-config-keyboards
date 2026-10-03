@@ -982,6 +982,7 @@ public sealed class KcInputTestForm : IDisposable
 
     const uint RIDI_DEVICENAME = 0x20000007;
     const double RoomyHeight = 700; // window content height (DIP) from which the texts have full size
+    const double LegendMinCardHeight = 140; // keyboard card height (DIP) from which the color legend is shown
 
     // Theme keys per chip kind (ChipLayer .. ChipCheck), per path kind and per overview state.
     static readonly string[] ChipFill = { "KcKeyHoldFill", "KcKeyModFill", "KcKeyCurrentFill", "KcKeyComboFill", "KcLayerIdleFill", "KcKeyPassFill" };
@@ -1006,6 +1007,7 @@ public sealed class KcInputTestForm : IDisposable
     readonly TextBlock detailText;
     readonly Canvas keyboardCanvas;
     readonly FrameworkElement legend;
+    readonly FrameworkElement keyboardCard;
     readonly TextBlock legendCurrent;
     readonly TextBlock legendPass;
     readonly TextBlock legendFail;
@@ -1072,6 +1074,7 @@ public sealed class KcInputTestForm : IDisposable
         detailText = KcUi.Find<TextBlock>(root, "DetailText");
         keyboardCanvas = KcUi.Find<Canvas>(root, "KeyboardCanvas");
         legend = KcUi.Find<FrameworkElement>(root, "Legend");
+        keyboardCard = KcUi.Find<FrameworkElement>(root, "KeyboardCard");
         legendCurrent = KcUi.Find<TextBlock>(root, "LegendCurrent");
         legendPass = KcUi.Find<TextBlock>(root, "LegendPass");
         legendFail = KcUi.Find<TextBlock>(root, "LegendFail");
@@ -1108,6 +1111,7 @@ public sealed class KcInputTestForm : IDisposable
         SetupButton(abortButton, "abort");
 
         root.SizeChanged += delegate { FitTexts(); };
+        keyboardCard.SizeChanged += delegate { UpdateLegendVisibility(); };
 
         keyboard = new KcKeyboardView(window, keyboardCanvas);
         winMask = new KcWinKeyMask(delegate { return maskWin ? hwnd : IntPtr.Zero; });
@@ -1265,7 +1269,7 @@ public sealed class KcInputTestForm : IDisposable
         legendPass.Text = pass ?? "";
         legendFail.Text = fail ?? "";
         legendSkip.Text = skip ?? "";
-        KcUi.SetVisible(legend, legendCurrent.Text.Length > 0);
+        UpdateLegendVisibility();
     }
 
     // Keys of the physical layout (x / y / w / h in key units).
@@ -1525,6 +1529,14 @@ public sealed class KcInputTestForm : IDisposable
     void UpdateLayerStrip()
     {
         KcUi.SetVisible(layerStrip, layerPath.Children.Count > 0 || layerOverview.Children.Count > 0);
+    }
+
+    // The color legend takes about 40 DIP of the keyboard card: on a low card (small window with the steps of
+    // the behaviors test) it is hidden and the picture gets the room. The card height does not depend on
+    // the legend (star row), so this does not oscillate.
+    void UpdateLegendVisibility()
+    {
+        KcUi.SetVisible(legend, legendCurrent.Text.Length > 0 && keyboardCard.ActualHeight >= LegendMinCardHeight);
     }
 
     // On a low window (small screen, high scaling) the long instructions would push the keyboard
@@ -2015,6 +2027,8 @@ public sealed class KcLayerTraceForm : IDisposable
     static readonly string[] Marks = { "KcTextFaint", "KcOkMark", "KcNgMark", "KcWarnMark" };
     static readonly string[] StatusInk = { "KcTextMuted", "KcOkMark", "KcNgMark", "KcWarnMark" };
 
+    const double TraceRoomyHeight = 800; // window content height (DIP) from which the resolve panel has full size
+
     readonly Window window;
     readonly FrameworkElement root;
     readonly TextBlock titleText;
@@ -2025,6 +2039,7 @@ public sealed class KcLayerTraceForm : IDisposable
     readonly Panel layerChips;
     readonly TextBlock hintText;
     readonly TextBlock pictureCaption;
+    readonly FrameworkElement resolvePanel;
     readonly TextBlock resolveTitle;
     readonly Panel cascadePanel;
     readonly Panel stepsPanel;
@@ -2056,7 +2071,7 @@ public sealed class KcLayerTraceForm : IDisposable
         root = content;
         window.Title = "keyboard-check";
         window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        KcUi.FitSize(window, 1200, 840, 860, 620);
+        KcUi.FitSize(window, 1200, 840, 860, 680);
         InputMethod.SetIsInputMethodEnabled(window, false);
 
         titleText = KcUi.Find<TextBlock>(root, "TitleText");
@@ -2067,6 +2082,7 @@ public sealed class KcLayerTraceForm : IDisposable
         layerChips = KcUi.Find<Panel>(root, "LayerChips");
         hintText = KcUi.Find<TextBlock>(root, "HintText");
         pictureCaption = KcUi.Find<TextBlock>(root, "PictureCaption");
+        resolvePanel = KcUi.Find<FrameworkElement>(root, "ResolvePanel");
         resolveTitle = KcUi.Find<TextBlock>(root, "ResolveTitle");
         cascadePanel = KcUi.Find<Panel>(root, "CascadePanel");
         stepsPanel = KcUi.Find<Panel>(root, "StepsPanel");
@@ -2084,6 +2100,7 @@ public sealed class KcLayerTraceForm : IDisposable
         SetupButton(clearButton, "clear");
         SetupButton(saveButton, "save");
         timeline.SelectionChanged += delegate { selectionChanged = true; };
+        root.SizeChanged += delegate { FitTexts(); };
 
         keyboard = new KcKeyboardView(window, KcUi.Find<Canvas>(root, "KeyboardCanvas"));
         winMask = new KcWinKeyMask(delegate { return hwnd; });
@@ -2097,6 +2114,14 @@ public sealed class KcLayerTraceForm : IDisposable
             closed = true;
             winMask.Enable(false);
         };
+    }
+
+    // On a low window the resolve panel (title, layers, steps, output) would need scrolling: it shrinks with
+    // the height (down to 72 %). The width it lays out in grows by the same factor, so the texts wrap less.
+    void FitTexts()
+    {
+        double f = Math.Max(0.72, Math.Min(1.0, root.ActualHeight / TraceRoomyHeight));
+        resolvePanel.LayoutTransform = new ScaleTransform(f, f);
     }
 
     void SetupButton(Button button, string name)
