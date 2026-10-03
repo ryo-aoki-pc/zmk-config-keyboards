@@ -7,12 +7,12 @@
   "sources": [
     {
       "submodule": "zmk-keyboard-torabo-tsuki-lp",
-      "commit": "530a2a58fee557ff59d6a9ef33c39cbbfb474bba",
+      "commit": "38022ecb98ada3c674213437749ddde3210fdf90",
       "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "torabo-tsuki", "studio_artifacts": ["torabo_tsuki_lp_right_central_studio"], "logging_artifacts": []},
+  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "torabo-tsuki", "studio_artifacts": ["torabo_tsuki_lp_right_central_studio"], "logging_artifacts": ["torabo_tsuki_lp_right_central_logging"]},
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},

@@ -237,6 +237,36 @@ Test-Case '期待値: ZMK の機種はデバイス名とレイヤーごとの表
         foreach ($l in @($e.interactive.behaviors.layers)) {
             Assert-Equal @($e.physical.keys).Count @($l.devs).Count ('{0} {1}' -f $id, $l.name)
         }
-        Assert-True ($null -ne $e.device.PSObject.Properties['logging_artifacts']) $id
     }
+}
+
+# flash-zmk.ps1 は、$KEYBOARDS のセントラルの名前に _studio / _logging を付けてダウンロードする。
+# その名前が、各リポジトリの build.yaml (期待値の studio_artifacts / logging_artifacts) にあること
+Test-Case 'アセット名: flash-zmk のセントラル + _studio / _logging が build.yaml にある' {
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ToolsDir 'flash-zmk.ps1'), [ref]$tokens, [ref]$errors)
+    $assign = $ast.Find({
+            param($n)
+            $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$KEYBOARDS'
+        }, $true)
+    Assert-True ($null -ne $assign) '$KEYBOARDS が見つからない'
+    $table = $assign.Right.Find({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
+    $count = 0
+    foreach ($pair in $table.KeyValuePairs) {
+        $id = ([string]$pair.Item1.Value).ToLowerInvariant()
+        $inner = $pair.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
+        $rightPair = @($inner.KeyValuePairs | Where-Object { $_.Item1.Value -eq 'Right' })[0]
+        $right = [string]$rightPair.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true).Value
+        $names = @($right)
+        if ($right.Contains('{v}')) { $names = @($right.Replace('{v}', 'trackball'), $right.Replace('{v}', 'non_trackball')) }
+        $e = Get-KcExpected $id $script:ExpectedDir
+        foreach ($n in $names) {
+            Assert-True (@($e.device.studio_artifacts) -contains ($n + '_studio')) ('{0}: {1}_studio' -f $id, $n)
+            Assert-True (@($e.device.logging_artifacts) -contains ($n + '_logging')) ('{0}: {1}_logging' -f $id, $n)
+        }
+        Assert-Equal $names.Count @($e.device.logging_artifacts).Count ('{0} のログ版の数' -f $id)
+        $count++
+    }
+    Assert-Equal 6 $count 'ZMK の機種の数'
 }

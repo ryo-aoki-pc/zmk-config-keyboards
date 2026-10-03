@@ -7,12 +7,18 @@
   "sources": [
     {
       "submodule": "zmk-config-LisM",
-      "commit": "24166537bfebace5e7711202abb68dcd730285d6",
+      "commit": "13b9d15de0977891a0efefca03909248b134b373",
       "files": ["config/lism.keymap", "config/lism.json", "boards/shields/lism/lism.dtsi", "build.yaml", "snippets/trackball-central/trackball.overlay", "snippets/trackball-peripheral/trackball.overlay", "snippets/non-trackball-central/non_trackball.overlay"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "LisM", "studio_artifacts": ["lism_right_central_non_trackball_studio", "lism_right_central_trackball_studio"], "logging_artifacts": []},
+  "device": {
+    "usb_vid": "1D50",
+    "usb_pid": "615E",
+    "product": "LisM",
+    "studio_artifacts": ["lism_right_central_non_trackball_studio", "lism_right_central_trackball_studio"],
+    "logging_artifacts": ["lism_right_central_non_trackball_logging", "lism_right_central_trackball_logging"]
+  },
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},

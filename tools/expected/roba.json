@@ -7,12 +7,12 @@
   "sources": [
     {
       "submodule": "zmk-config-roBa",
-      "commit": "ada521349e480db0ceb3cc3e9a701dcc7a44e940",
+      "commit": "c2f181592c4c0d8b59830f5615e7569f027f2b75",
       "files": ["config/roBa.keymap", "config/roBa.json", "boards/shields/roBa/roBa.dtsi", "boards/shields/roBa/roBa_R.overlay", "boards/shields/roBa/roBa_R.conf", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "roBa", "studio_artifacts": ["roBa_right_central_studio"], "logging_artifacts": []},
+  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "roBa", "studio_artifacts": ["roBa_right_central_studio"], "logging_artifacts": ["roBa_right_central_logging"]},
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},

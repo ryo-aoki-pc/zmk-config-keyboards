@@ -7,12 +7,12 @@
   "sources": [
     {
       "submodule": "zmk-config-Pyuron",
-      "commit": "1b381f25564299ba65c4f71f62b36a3acdea789c",
+      "commit": "73bcbcffd62cc50509c6621627ae682dabed6709",
       "files": ["config/Pyuron.keymap", "config/Pyuron.json", "boards/shields/Pyuron/Pyuron.dtsi", "boards/shields/Pyuron/Pyuron_R.overlay", "boards/shields/Pyuron/Pyuron_L.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "Pyuron", "studio_artifacts": ["Pyuron_right_central_studio"], "logging_artifacts": []},
+  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "Pyuron", "studio_artifacts": ["Pyuron_right_central_studio"], "logging_artifacts": ["Pyuron_right_central_logging"]},
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},

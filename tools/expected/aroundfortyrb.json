@@ -7,12 +7,12 @@
   "sources": [
     {
       "submodule": "zmk-config-AroundFortyRB",
-      "commit": "9ddb918dcc06198efca397cbd3bd6ac2ea9f877b",
+      "commit": "3b8d20d7adc85ab8d466dfa97dbf8cefa3cbac26",
       "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "AroundFortyRB", "studio_artifacts": ["AroundForty-RB_right_central_studio"], "logging_artifacts": []},
+  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "AroundFortyRB", "studio_artifacts": ["AroundForty-RB_right_central_studio"], "logging_artifacts": ["AroundForty-RB_right_central_logging"]},
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},
