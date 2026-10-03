@@ -2,7 +2,7 @@
 # expected.ps1 / hold-tap-sim.ps1 が先に読み込まれている前提。
 #
 # ZMK のログ版ファームで、選んだキーの組み合わせ (hold-tap のキーと、一緒に押すキー 1 つ) を押した 1 回分
-# (hold-tap のキーを押してから、選んだキーを全部離すまで。長くても tapping-term + 500 ms で打ち切る。押している最中も含む) を、
+# (hold-tap のキーを押してから、選んだキーを全部離すまで。長くても tapping-term + 100 ms で打ち切る。押している最中も含む) を、
 # シミュレータ (HoldTapSim.cs) で計算し、グラフ (横軸が時刻) の中身を作る。
 #   - キーマップ: 期待値 (tools/expected/*.json) の interactive.hold_tap (generate.py が submodule のキーマップから作る)
 #   - 設定: キーマップの値のうち、flavor と tapping-term だけをウィンドウで変えられる
@@ -37,7 +37,7 @@ $script:KcHtMarkCursor = 3     # 帯の上の、実際に離した時刻
 $script:KcHtArrowCapture = 0   # 判定まで保留されたキー (押した時刻 → 送られた時刻)
 
 $script:KcHtOpenEnd = 10000000  # 離していないキー・届いたままの出力の終わり (ウィンドウが「今」か右端で切る)
-$script:KcHtLimitExtraMs = 500   # 1 回分は、対象を押してから tapping-term + この長さで打ち切る (横軸の右端も)
+$script:KcHtLimitExtraMs = 100   # 1 回分は、対象を押してから tapping-term + この長さで打ち切る (横軸の右端も)
 
 $script:KcHtFlavors = @('hold-preferred', 'balanced', 'tap-preferred', 'tap-unless-interrupted')
 $script:KcHtFlavorText = @{
@@ -171,7 +171,7 @@ function Get-KcHtLimitMs([int]$Term) {
 # $Rec は zmk-log.ps1 の ConvertFrom-KcZmkLogLine のレコード。
 # Combo: 調べるキーの組み合わせ @{ Target (hold-tap のキー); Partner (一緒に押すキー) }。$null のあいだは回を作らない
 # LimitMs: 1 回分の長さ (Get-KcHtLimitMs)。Pressed: 最後に処理した行で押したキーの位置 (無ければ -1。組み合わせを選ぶのに使う)
-function New-KcHtCapture($Model, $Combo = $null, [int]$LimitMs = 650) {
+function New-KcHtCapture($Model, $Combo = $null, [int]$LimitMs = 250) {
     return @{
         Model = $Model; Combo = $Combo; LimitMs = $LimitMs
         Held = @{}; Recent = (New-Object 'System.Collections.Generic.List[object]'); Ep = $null; Seq = 0
@@ -482,7 +482,7 @@ function Get-KcHtReleaseSweeps($Model, $Config, $Episode, $Range) {
         $releaseT = [long]$events[$rel].T
     }
     $from = $pressT + 1
-    # 横軸の右端 (tapping-term + 500 ms) まで。押している最中も同じ
+    # 横軸の右端 (tapping-term + 100 ms) まで。押している最中も同じ
     $to = [long]$Range.To
     for ($i = $rel + 1; $i -lt $list.Count; $i++) {
         if ($list[$i].Pos -eq $target) { $to = [long][Math]::Min($to, $list[$i].T - 1); break }
@@ -600,7 +600,7 @@ function Get-KcHtSummary($Model, $Config, $Episode, $Result, $Sweeps, $Now) {
 # グラフのモデル
 # ---------------------------------------------------------------------------
 
-# 横軸の範囲 (50ms 単位)。右端は 1 回分の長さ (tapping-term + 500 ms) で、押している最中も同じ。
+# 横軸の範囲 (50ms 単位)。右端は 1 回分の長さ (tapping-term + 100 ms) で、押している最中も同じ。
 # 左端は押した時刻の少し前 (一緒に押すキーを先に押していたら、その時刻から。-500 ms まで)
 function Get-KcHtRange($Episode, [int]$Term) {
     $min = [long]0

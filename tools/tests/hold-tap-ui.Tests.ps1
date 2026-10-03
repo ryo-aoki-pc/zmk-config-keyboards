@@ -142,7 +142,7 @@ Test-Case '組み合わせを選ぶ: hold-tap のキー → 一緒に押すキ�
     Assert-True ((Get-HtuLast $f 'SetChartMessage')[1] -like 'A (Ctrl) + H を押すと、ここにグラフが出ます*')
     Assert-Equal 10 $ctx.Combo.Target
     Assert-Equal 15 $ctx.Combo.Partner
-    Assert-Equal 650 $ctx.Capture.LimitMs
+    Assert-Equal 250 $ctx.Capture.LimitMs
     Step-Htu $ctx 400 'H-tap-up'
     Step-Htu $ctx 450 'A-up'
     Assert-Equal $null $ctx.Capture.Ep '選んでいるあいだに押したキーからは回を作らない'
@@ -176,7 +176,7 @@ Test-Case '押している最中: A を押した瞬間から「今」を進め�
     Assert-Equal 0 @(Get-HtuCalls $f 'SetLanes').Count '結果の文だけ'
     # 250 ms ごとに「今」を合わせ直す
     Step-Htu $ctx 1260
-    Assert-Near 260.4 (Get-HtuLast $f 'SetLive')[2] 0.01
+    Assert-Near 260.4 (Get-HtuLast $f 'SetLive')[2] 0.01 '右端 (250 ms) を越えた分は、ウィンドウが右端で止める'
 }
 
 Test-Case '押している最中の変化: 50 ms 以内はまとめ、全部離して 300 ms たつとその回を残す。次に押すと切り替わる' {
@@ -193,8 +193,8 @@ Test-Case '押している最中の変化: 50 ms 以内はまとめ、全部離�
     Assert-Equal 'ホールド (ほかのキー) に決定 (100 ms)' (Get-HtuLast $f 'SetSummary')[1]
     Step-Htu $ctx 1150 'A-up'
     Assert-True $ctx.Episode.Live '離したばかりは、まだ押している最中の回'
-    Step-Htu $ctx 1400
-    Assert-True $ctx.Episode.Live 'ファームの時計で 300 ms たつまで待つ'
+    Step-Htu $ctx 1300
+    Assert-True $ctx.Episode.Live 'ファームの時計で、すぐには終えない'
     Step-Htu $ctx 1600
     Assert-Equal $false $ctx.Episode.Live
     Assert-Equal $false (Get-HtuLast $f 'SetLive')[1]
@@ -277,21 +277,21 @@ Test-Case '選んでいないキー: 途中で押した回は出さず、前の�
     Assert-Equal 3 (Get-HtuLast $f 'SetStatus')[2]
 }
 
-Test-Case '打ち切り: A を押したままでも、tapping-term + 500 ms でその回を残す。横軸の右端も同じ' {
+Test-Case '打ち切り: A を押したままでも、tapping-term + 100 ms でその回を残す。横軸の右端も同じ' {
     $ctx = New-HtuContext
     $f = $ctx.Form
     Step-Htu $ctx 1000 'A-down'
-    Assert-Equal 650 (Get-HtuLast $f 'SetChartRange')[2] '押している最中も右端は 650 ms'
+    Assert-Equal 250 (Get-HtuLast $f 'SetChartRange')[2] '押している最中も右端は 250 ms'
     Assert-Equal -100 (Get-HtuLast $f 'SetChartRange')[1]
-    Step-Htu $ctx 1700
+    Step-Htu $ctx 1350
     Assert-True $ctx.Episode.Live 'ログは遅れて届くので、少し待つ'
-    Step-Htu $ctx 1850
+    Step-Htu $ctx 1450
     Assert-Equal $false $ctx.Episode.Live
     Assert-True $ctx.Episode.Cut
     Assert-Equal $false (Get-HtuLast $f 'SetLive')[1]
-    Assert-Equal 650 (Get-HtuLast $f 'SetChartRange')[2]
+    Assert-Equal 250 (Get-HtuLast $f 'SetChartRange')[2]
     Assert-Equal 'ホールド (時間切れ): PC に届くのは Ctrl' (Get-HtuLast $f 'SetSummary')[1]
-    Assert-Equal '650 ms (tapping-term + 500 ms) で打ち切った。A (Ctrl) はまだ押していた' (Get-HtuLast $f 'SetSummary')[2][-1]
+    Assert-Equal '250 ms (tapping-term + 100 ms) で打ち切った。A (Ctrl) はまだ押していた' (Get-HtuLast $f 'SetSummary')[2][-1]
     # 離したあとに、次に A を押すと新しい回
     Step-Htu $ctx 2000 'A-up'
     Assert-Equal $null $ctx.Capture.Ep
@@ -300,8 +300,8 @@ Test-Case '打ち切り: A を押したままでも、tapping-term + 500 ms で�
     Assert-Equal 2 $ctx.Episode.Seq
     # tapping-term を変えると、1 回分の長さと右端も変わる
     [void](Invoke-Htu $ctx @('term:250') 2550)
-    Assert-Equal 750 $ctx.Capture.LimitMs
-    Assert-Equal 750 (Get-HtuLast $f 'SetChartRange')[2]
+    Assert-Equal 350 $ctx.Capture.LimitMs
+    Assert-Equal 350 (Get-HtuLast $f 'SetChartRange')[2]
 }
 
 Test-Case '選び直す: 「押して選び直す」で選び始め、途中の「やめる」で前の組み合わせと回に戻る' {

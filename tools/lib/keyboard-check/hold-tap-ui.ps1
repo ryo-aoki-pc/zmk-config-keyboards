@@ -1,7 +1,7 @@
 ﻿# タップホールドのタイミングを見るウィンドウ (keyboard-check.ps1 -Mode HoldTap) の流れ。
 # はじめに、調べるキーの組み合わせ (hold-tap のキー → 一緒に押すキー) を実際に押して選ぶ。
 # そのあとは ZMK のログ版ファームのログを読み、組み合わせを押した 1 回分を、押した瞬間からリアルタイムにグラフに出す
-# (押している間は「今」までを描き、選んだキーを全部離すか、tapping-term + 500 ms たったらその回を残す。
+# (押している間は「今」までを描き、選んだキーを全部離すか、tapping-term + 100 ms たったらその回を残す。
 # 次に hold-tap のキーを押したら切り替える。途中で選んでいないキーを押した回は出さない)。
 # ウィンドウ (KcHoldTapForm) には $Ctx.Form 経由で触る (WPF の型に触れないので、tests/hold-tap-ui.Tests.ps1 が偽物で確かめる)。
 # 時刻 ($PcMs) は呼び出し側の PC の時計 (ms)。Invoke-KcHoldTap だけが Windows 専用。
@@ -140,7 +140,7 @@ function Show-KcHtWaiting($Ctx) {
     $Ctx.Form.SetChartMessage(('{0} を押すと、ここにグラフが出ます。ほかのキーを押した回は出しません' -f (Format-KcHtCombo $m $Ctx.Combo)))
 }
 
-# 1 回分の長さ (今の tapping-term + 500 ms)。組み合わせを決めたときと、設定を変えたとき
+# 1 回分の長さ (今の tapping-term + 100 ms)。組み合わせを決めたときと、設定を変えたとき
 function Update-KcHtLimit($Ctx) {
     if (-not $Ctx.Behavior -or -not $Ctx.Model.Behaviors.ContainsKey($Ctx.Behavior)) { return }
     $Ctx.Capture.LimitMs = Get-KcHtLimitMs (Get-KcHtSetting $Ctx.Model $Ctx.Config $Ctx.Behavior).Term
@@ -268,7 +268,7 @@ function Get-KcHtLiveSignature($Snapshot) {
 }
 
 # ループの毎回: 押している最中の回の中身が変わったら出し直す・「今」の文を変える・
-# 選んだキーを全部離したか、tapping-term + 500 ms を過ぎたら回を終える (ファームの時計で)
+# 選んだキーを全部離したか、tapping-term + 100 ms を過ぎたら回を終える (ファームの時計で)
 function Update-KcHoldTapLive($Ctx, [double]$PcMs) {
     $cap = $Ctx.Capture
     if ($null -eq $cap.Ep) { return }
