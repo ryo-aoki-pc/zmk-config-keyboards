@@ -99,8 +99,6 @@ $BOARDS = @(
         Match               = 'INFO_UF2.TXT に nRF52840 があるドライブ'
         BootloaderHint      = @(
             'リセットボタンを素早く 2 回押すか、Q (左手側) / P (右手側) を押したまま USB ケーブルを挿してください (ドライブが現れたら離す)。'
-            'FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) でも切り替えられます。'
-            '左手側を FUNC + B で切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
         )
         AfterFlashHint      = $null
         ReturnsToBootloader = $false
@@ -117,8 +115,6 @@ $BOARDS = @(
         Match               = 'ボリュームラベルが BLEMICROPRO のドライブ'
         BootloaderHint      = @(
             '電源スイッチを OFF にしてから USB ケーブルでつなぐか、スイッチ ON のまま Q (左手側) / P (右手側) を押しながら USB ケーブルでつないでください (ドライブが現れたら離す)。'
-            'FUNC レイヤーの &bootloader キー (右: FUNC + N / 左: FUNC + B) でも切り替えられます。'
-            '左手側を FUNC + B で切り替えるときは、右手側の電源を入れておいてください (右手側を経由して切り替えるため)。'
         )
         AfterFlashHint      = '電源スイッチが OFF のときは、USB ケーブルを抜き、電源スイッチを ON にしてから USB ケーブルを差し直すと、書き込んだファームウェアで起動します (settings_reset はこのときに設定を消します)。'
         ReturnsToBootloader = $true
@@ -133,7 +129,7 @@ $BOARDS = @(
         InfoPattern         = 'RPI-RP2'
         VolumeLabel         = $null
         Match               = 'INFO_UF2.TXT に RPI-RP2 があるドライブ'
-        BootloaderHint      = @('Keyboard Quantizer Mini の FUNC レイヤーの QK_BOOT キーを押してください。')
+        BootloaderHint      = @('Keyboard Quantizer Mini を PC につなぎ直してから、もう一度書き込んでください (KQ-mini のキーマップにはブートローダのキーがありません)。')
         AfterFlashHint      = 'Keyboard Quantizer Mini は、LED が点灯して入力できるようになるまで数十秒かかることがあります。'
         ReturnsToBootloader = $false
     }

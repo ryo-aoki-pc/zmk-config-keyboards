@@ -43,7 +43,7 @@ $script:FlashMcus = @{
     RP2040   = @{
         Label   = 'RP2040'
         Target  = 'RP2040'
-        Prepare = 'KQ-mini を PC につないだままにしてください。自動でブートローダに切り替えます (切り替わらないときは、FUNC レイヤーの QK_BOOT キーを押してください)。'
+        Prepare = 'KQ-mini を PC につないだままにしてください。自動でブートローダに切り替えます (切り替わらないときは、KQ-mini を PC につなぎ直してから、もう一度書き込んでください)。'
     }
 }
 

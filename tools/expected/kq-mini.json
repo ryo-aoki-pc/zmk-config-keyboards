@@ -5,7 +5,7 @@
   "name": "Keyboard Quantizer Mini (+ Keyball39)",
   "kind": "vial",
   "sources": [
-    {"submodule": "zmk-config-LisM", "commit": "395dbe541e568592ff7d696ef91674905ac58397", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
+    {"submodule": "zmk-config-LisM", "commit": "46a8bb7c979e98e22e88ddaeaabc75f9ef469eeb", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
     {"submodule": "zmk-keymap-docgen", "commit": "70fd20462326d42e46de299e7fb042c08f235f32", "files": ["zmk_to_vial.py"]},
     {"submodule": "keyball", "commit": "48ebdda8992e9fe98ac09cd6b356ae4b6de4196f", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
   ],
@@ -279,14 +279,14 @@
         ],
         [
           [1, 1, 0, 0, 1, 1, 0, 1],
-          [1, 1, 1, 1, 0, 31744, 0, 0],
-          [60, 0, 0, 0, 65, 0, 0, 31745],
-          [0, 31744, 66, 67, 58, 61, 31745, 62],
-          [64, 0, 59, 0, 63, 0, 1, 1],
+          [1, 1, 1, 1, 0, 0, 73, 70],
+          [60, 71, 72, 0, 65, 0, 0, 0],
+          [0, 0, 66, 67, 58, 61, 0, 62],
+          [64, 0, 59, 0, 63, 101, 1, 1],
           [1, 1, 1, 1, 1, 1, 1, 1],
-          [0, 1, 1, 1, 0, 0, 1, 1],
+          [0, 1, 1, 1, 0, 68, 1, 1],
           [1, 1, 1, 1, 1, 0, 0, 0],
-          [0, 0, 1, 1, 1, 1, 1, 1],
+          [69, 0, 1, 1, 1, 1, 1, 1],
           [1, 1, 1, 1, 1, 1, 1, 1],
           [1, 1, 1, 1, 1, 1, 1, 1],
           [1, 1, 1, 1, 1, 1, 1, 1],
@@ -772,8 +772,8 @@
         {
           "index": 6,
           "name": "FUNC",
-          "legends": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "", "RESET", "", "", "", "", "", "", "RESET", "", "", "", "", "", "BOOT", "BOOT", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-          "danger": [11, 18, 24, 25]
+          "legends": ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "", "", "PrtSc", "ScrLk", "Pause", "", "", "", "", "F11", "App", "", "Ins", "", "", "", "", "", "", "F12", "", "", "", "", "", "", "", "", "", "", "", ""],
+          "danger": []
         }
       ],
       "scenarios": [
@@ -973,19 +973,19 @@
           "steps": [
             {
               "role": "test",
-              "text": "「FUNC (左)」を押したまま、「R」をタップ",
+              "text": "「FUNC (左)」を押したまま、「Q」をタップ",
               "actions": [
                 {"op": "hold", "pos": 30, "role": "layer", "key": "FUNC (左)", "label": "FUNC", "layer": 0},
-                {"op": "tap", "pos": 3, "key": "R", "label": "F4", "layer": 6, "role": "key"}
+                {"op": "tap", "pos": 0, "key": "Q", "label": "F1", "layer": 6, "role": "key"}
               ],
               "path": [0, 6],
               "layer": 6,
               "expect": [
-                {"usage": 61, "mods": 0}
+                {"usage": 58, "mods": 0}
               ],
-              "expect_text": "F4",
-              "note": "FUNC レイヤーの「F4」(&kp F4)",
-              "src": "&kp F4"
+              "expect_text": "F1",
+              "note": "FUNC レイヤーの「F1」(&kp F1)",
+              "src": "&kp F1"
             },
             {
               "role": "test",
@@ -1005,19 +1005,19 @@
             },
             {
               "role": "test",
-              "text": "「FUNC (右)」を押したまま、「R」をタップ",
+              "text": "「FUNC (右)」を押したまま、「Q」をタップ",
               "actions": [
                 {"op": "hold", "pos": 41, "role": "layer", "key": "FUNC (右)", "label": "FUNC", "layer": 0},
-                {"op": "tap", "pos": 3, "key": "R", "label": "F4", "layer": 6, "role": "key"}
+                {"op": "tap", "pos": 0, "key": "Q", "label": "F1", "layer": 6, "role": "key"}
               ],
               "path": [0, 6],
               "layer": 6,
               "expect": [
-                {"usage": 61, "mods": 0}
+                {"usage": 58, "mods": 0}
               ],
-              "expect_text": "F4",
-              "note": "FUNC レイヤーの「F4」(&kp F4)",
-              "src": "&kp F4"
+              "expect_text": "F1",
+              "note": "FUNC レイヤーの「F1」(&kp F1)",
+              "src": "&kp F1"
             }
           ]
         },
@@ -2208,7 +2208,7 @@
             "1": {"kind": "kp", "usage": 53, "mods": 0, "label": "`"},
             "2": {"kind": "none"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "0x7C01"}
+            "6": {"kind": "none"}
           }
         },
         {
@@ -2220,7 +2220,7 @@
             "1": {"kind": "kp", "usage": 47, "mods": 0, "label": "["},
             "2": {"kind": "other", "label": "0x5700"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"}
+            "6": {"kind": "kp", "usage": 70, "mods": 0, "label": "PrtSc"}
           }
         },
         {
@@ -2232,7 +2232,7 @@
             "1": {"kind": "kp", "usage": 48, "mods": 0, "label": "]"},
             "2": {"kind": "none"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"}
+            "6": {"kind": "kp", "usage": 71, "mods": 0, "label": "ScrLk"}
           }
         },
         {
@@ -2244,7 +2244,7 @@
             "1": {"kind": "kp", "usage": 76, "mods": 0, "label": "Del"},
             "2": {"kind": "other", "label": "0x5702"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"}
+            "6": {"kind": "kp", "usage": 72, "mods": 0, "label": "Pause"}
           }
         },
         {
@@ -2292,7 +2292,7 @@
             "1": {"kind": "kp", "usage": 49, "mods": 0, "label": "\\"},
             "2": {"kind": "kp", "usage": 79, "mods": 0, "label": "→"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "0x7C01"}
+            "6": {"kind": "none"}
           }
         },
         {
@@ -2309,7 +2309,7 @@
             },
             "2": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
             "3": {"kind": "kp", "usage": 228, "mods": 0, "label": "RCtrl"},
-            "6": {"kind": "none"}
+            "6": {"kind": "kp", "usage": 68, "mods": 0, "label": "F11"}
           }
         },
         {
@@ -2333,7 +2333,7 @@
             },
             "2": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
             "3": {"kind": "kp", "usage": 225, "mods": 0, "label": "Shift"},
-            "6": {"kind": "none"}
+            "6": {"kind": "kp", "usage": 101, "mods": 0, "label": "App"}
           }
         },
         {
@@ -2357,7 +2357,7 @@
             "1": {"kind": "none"},
             "2": {"kind": "none"},
             "3": {"kind": "none"},
-            "6": {"kind": "none"}
+            "6": {"kind": "kp", "usage": 73, "mods": 0, "label": "Ins"}
           }
         },
         {
@@ -2381,7 +2381,7 @@
             "1": {"kind": "none"},
             "2": {"kind": "kp", "usage": 80, "mods": 1, "label": "Ctrl+←"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "0x7C00"}
+            "6": {"kind": "none"}
           }
         },
         {
@@ -2393,7 +2393,7 @@
             "1": {"kind": "none"},
             "2": {"kind": "kp", "usage": 60, "mods": 0, "label": "F3"},
             "3": {"kind": "none"},
-            "6": {"kind": "other", "label": "0x7C00"}
+            "6": {"kind": "none"}
           }
         },
         {
@@ -2444,7 +2444,7 @@
             },
             "2": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
             "3": {"kind": "kp", "usage": 229, "mods": 0, "label": "RShift"},
-            "6": {"kind": "none"}
+            "6": {"kind": "kp", "usage": 69, "mods": 0, "label": "F12"}
           }
         },
         {
