@@ -26,13 +26,20 @@
         &trans のフォールスルー・決まったレイヤーとバインディング・ホールドタップの判定・タップダンスの回数・
         モッドモーフの分岐・送ったキーを、キーボードの図と時系列で表示する。ログは tools/.cache/keyboard-check/trace/ に保存できる
 
+    タップホールドのタイミングを見る (-Mode HoldTap。合否は出さない)
+      - &mt / &lt (KQ-mini は Vial の Tap-Hold の設定) がタップになるかホールドになるかを、押す・離す時刻を横軸にした
+        グラフで表示する。押す・離す時刻や tapping-term をドラッグすると、どこで結果が変わるかが分かり、flavor
+        (KQ-mini は PERMISSIVE_HOLD など) や tapping-term を変えたときの違いを並べて比べられる。ZMK はログ版のファームを
+        つなぐと、実際に押したキーとファームの判定も重ねる。tools/.cache/keyboard-check/hold-tap/ に保存できる
+
 .PARAMETER Keyboard
     機種 (KqMini / Keyball39 / LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp)。省略するとメニューで選びます。
     KqMini は、Keyboard Quantizer Mini に Keyball39 をつないだ状態です。
 
 .PARAMETER Mode
     All (読み出し検査と実動作テスト) / Readout (読み出し検査だけ) / Interactive (実動作テストだけ) /
-    Trace (レイヤーの動きを見る。ZMK のログ版ファームのログから、押したキーのレイヤーの遷移と解決を表示する。合否は出さない)。
+    Trace (レイヤーの動きを見る。ZMK のログ版ファームのログから、押したキーのレイヤーの遷移と解決を表示する。合否は出さない) /
+    HoldTap (タップホールドのタイミングを見る。&mt / &lt の判定を、押す・離す時刻のグラフで表示する。合否は出さない)。
 
 .PARAMETER Section
     実動作テストの範囲。All / Keys (キーのタップ) / Behaviors (レイヤー・タップダンス・モッドモーフ・コンボ) /
@@ -42,7 +49,7 @@
     LisM のトラックボールの位置 (right / left / both)。省略すると尋ねます。
 
 .PARAMETER Port
-    ZMK Studio (-Mode Trace ではログ版ファーム) の COM ポート (例: COM5)。省略すると自動で探します。
+    ZMK Studio (-Mode Trace / HoldTap ではログ版ファーム) の COM ポート (例: COM5)。省略すると自動で探します。
 
 .PARAMETER Report
     結果を保存するファイル。省略すると tools/.cache/keyboard-check/reports/ に保存します。
@@ -70,13 +77,16 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard LisM -Mode Trace
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 -Keyboard LisM -Mode HoldTap
 #>
 [CmdletBinding()]
 param(
     [ValidateSet('KqMini', 'Keyball39', 'LisM', 'AroundFortyRB', 'KUKEY42', 'Pyuron', 'roBa', 'torabo-tsuki-lp')]
     [string]$Keyboard,
 
-    [ValidateSet('All', 'Readout', 'Interactive', 'Trace')]
+    [ValidateSet('All', 'Readout', 'Interactive', 'Trace', 'HoldTap')]
     [string]$Mode,
 
     [ValidateSet('All', 'Keys', 'Behaviors', 'Trackball', 'Calibrate')]
@@ -118,6 +128,9 @@ $lib = Join-Path $PSScriptRoot 'lib\keyboard-check'
 . (Join-Path $lib 'behavior-test.ps1')
 . (Join-Path $lib 'zmk-log.ps1')
 . (Join-Path $lib 'layer-trace.ps1')
+. (Join-Path $lib 'hold-tap-sim.ps1')
+. (Join-Path $lib 'hold-tap.ps1')
+. (Join-Path $lib 'hold-tap-ui.ps1')
 
 if (-not $ExpectedDir) {
     $ExpectedDir = Join-Path $PSScriptRoot 'expected'
@@ -158,7 +171,7 @@ function Read-KcChoice([string]$Prompt, [int]$Count, [int]$Default) {
 # ---------------------------------------------------------------------------
 
 $found = @{ KqMini = @(); Keyball = @(); StudioPorts = @(); StudioNames = @{}; ZmkUsb = @() }
-if ($isWindowsHost -and $Mode -ne 'Trace') {
+if ($isWindowsHost -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
     Write-Host '接続中のキーボードを探しています...'
     # Find-* は配列をそのまま返す (return , $x) ので、@() で包まずに受け取る
     $found.KqMini = Find-KcRawHidInterface -Vid 'FEED' -ProductId '999C'
@@ -238,16 +251,18 @@ if (-not $Mode) {
     Write-Host '  4. トラックボールの正規化だけ (楕円・速さ)'
     Write-Host '  5. レイヤー・タップダンス・モッドモーフ・コンボだけ'
     Write-Host '  6. レイヤーの動きを見る (ZMK のログ版ファームで、自由に押したキーのレイヤーの遷移と解決を表示)'
-    switch (Read-KcChoice '番号' 6 1) {
+    Write-Host '  7. タップホールドのタイミングを見る (押す・離す時刻のグラフで、&mt / &lt の判定と、設定による違いを確かめる)'
+    switch (Read-KcChoice '番号' 7 1) {
         1 { $Mode = 'All' }
         2 { $Mode = 'Readout' }
         3 { $Mode = 'Interactive' }
         4 { $Mode = 'Interactive'; $Section = 'Calibrate' }
         5 { $Mode = 'Interactive'; $Section = 'Behaviors' }
         6 { $Mode = 'Trace' }
+        7 { $Mode = 'HoldTap' }
     }
 }
-if ($Mode -ne 'Readout' -and $Mode -ne 'Trace') {
+if ($Mode -ne 'Readout' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
     if ($Section -eq 'All') {
         $sections = @('Keys', 'Behaviors', 'Trackball', 'Calibrate')
     } else {
@@ -272,6 +287,36 @@ if ($Mode -eq 'Trace') {
     Write-Host 'ウィンドウを閉じるか「終了」を押すと終わります。'
     try {
         $saved = Invoke-KcLayerTrace -Expected $expected -Common $common -CacheDir $cacheDir -Port $Port
+        if ($saved) {
+            Write-Host ('保存しました: {0}' -f $saved)
+        }
+    } catch {
+        Write-Host ('失敗: {0}' -f $_.Exception.Message) -ForegroundColor Red
+        exit 1
+    }
+    exit 0
+}
+
+# タップホールドのタイミングを見る (シミュレータ + ZMK はログ版ファーム)。合否は出さない
+if ($Mode -eq 'HoldTap') {
+    if ($null -eq (Get-KcProp (Get-KcProp $expected 'interactive') 'hold_tap' $null)) {
+        Write-Host ''
+        Write-Host ('{0} にはタップホールドがありません (タップホールドは KQ-mini 側にあります)。' -f $board.Label) -ForegroundColor Yellow
+        Write-Host '「Keyboard Quantizer Mini + Keyball39」を選んでください。'
+        exit 0
+    }
+    if (-not $isWindowsHost) {
+        Write-Host 'Windows でのみ動きます。' -ForegroundColor Yellow
+        exit 0
+    }
+    Write-Host ''
+    Write-Host ('{0} のタップホールドの判定を、押す・離す時刻のグラフで表示します。' -f $expected.name)
+    if ($expected.kind -eq 'zmk') {
+        Write-Host '右手側にログ版のファームを書き込んで USB でつなぐと、実際に押したキーとファームの判定も表示します。'
+    }
+    Write-Host 'ウィンドウを閉じるか「閉じる」を押すと終わります。'
+    try {
+        $saved = Invoke-KcHoldTap -Expected $expected -CacheDir $cacheDir -Port $Port
         if ($saved) {
             Write-Host ('保存しました: {0}' -f $saved)
         }
@@ -307,7 +352,7 @@ function Invoke-KcQmkReadoutSafe([string]$Category, $Iface, [scriptblock]$Body) 
     }
 }
 
-if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace') {
+if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
     Write-Host '読み出し検査をしています...'
     switch ($board.Key) {
         'KqMini' {
