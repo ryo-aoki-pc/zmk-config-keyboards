@@ -2785,10 +2785,13 @@ public sealed class KcFlashForm : IDisposable
                 for (int i = 0; i < keys.Length; i++)
                 {
                     StackPanel content = new StackPanel();
-                    content.Children.Add(Text(At(labels, i), 13.5, FontWeights.SemiBold, "KcText"));
+                    TextBlock head = Text(At(labels, i), 13.5, FontWeights.SemiBold, "KcText");
+                    head.TextWrapping = TextWrapping.Wrap;
+                    content.Children.Add(head);
                     if (At(details, i).Length > 0)
                     {
                         TextBlock d = Text(At(details, i), 12, FontWeights.Normal, "KcTextMuted");
+                        d.TextWrapping = TextWrapping.Wrap;
                         d.Margin = new Thickness(0, 2, 0, 0);
                         content.Children.Add(d);
                     }
@@ -2810,6 +2813,7 @@ public sealed class KcFlashForm : IDisposable
                 bar.Child = row;
                 box.Children.Add(bar);
                 TextBlock hint = Text("", 12, FontWeights.Normal, "KcTextMuted");
+                hint.TextWrapping = TextWrapping.Wrap;
                 hint.Margin = new Thickness(2, 6, 0, 0);
                 box.Children.Add(hint);
                 for (int i = 0; i < keys.Length; i++)

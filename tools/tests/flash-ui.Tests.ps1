@@ -237,6 +237,19 @@ Test-Case '書き込み: ダウンロード → 1 手順ずつ子プロセス �
     Assert-Equal $script:FlashUiPageSelect (Get-FuLast $f 'ShowPage')[1]
 }
 
+Test-Case '書き込み: 下の欄には字下げしていない行 (いま何をしているか) を出し、字下げした案内と薄い行は出さない' {
+    $w = New-FuContext 'LisM'
+    $f = $w.Form
+    $ctx = $w.Ctx
+    $w.Children.Enqueue((New-FuChild @('ファームウェア: lism_right_central_trackball.uf2', '  nRF52840 / 196 ブロック', '',
+                'ブートローダのドライブを待っています...', '  左手側は Q、右手側は P を押したまま USB ケーブルを挿す', '  (想定どおりの行)') 0 $false))
+    Invoke-FlashUiAction $ctx 'start'
+    Update-FlashUiTick $ctx
+    Assert-Equal 'ブートローダのドライブを待っています...  (0:00)' (Get-FuLast $f 'SetStatus')[1]
+    $texts = @(Get-FuCalls $f 'AppendLog' | ForEach-Object { $_[1] })
+    Assert-True ($texts -contains '  左手側は Q、右手側は P を押したまま USB ケーブルを挿す') 'ログには案内も出す'
+}
+
 Test-Case '書き込み: 最新は同じコミットの custom のタグからダウンロードする' {
     $w = New-FuContext 'LisM'
     $w.Children.Enqueue((New-FuChild @() 0 $true))

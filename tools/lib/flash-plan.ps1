@@ -59,13 +59,14 @@ $script:FlashModes = [ordered]@{
 # セントラル (右手側) の版。キーは artifact-name に付ける接尾辞
 $script:FlashCentrals = [ordered]@{
     ''      = '通常版'
-    studio  = 'ZMK Studio 対応版'
+    studio  = 'Studio 版'
     logging = 'ログ版'
 }
 
+# LisM の左右のトラックボールの有無 (欄の見出しが「右手側のトラックボール」なので、選択肢は「あり / なし」)
 $script:FlashVariants = [ordered]@{
-    trackball     = 'トラックボールあり'
-    non_trackball = 'トラックボールなし'
+    trackball     = 'あり'
+    non_trackball = 'なし'
 }
 
 function Get-FlashKeyboard([string]$Keyboard) {

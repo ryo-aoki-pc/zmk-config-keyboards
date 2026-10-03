@@ -34,17 +34,18 @@
     </DockPanel>
   </Border>
 
-  <!-- select page: keyboard / build / options and steps -->
+  <!-- select page: keyboard / build / options and steps. The build and option columns share the width
+       (the window is made smaller than its default on small screens), the options up to 400 -->
   <Grid x:Name="SelectPage" Grid.Row="1" Margin="20,18,20,16">
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="220"/>
+      <ColumnDefinition Width="210"/>
       <ColumnDefinition Width="14"/>
-      <ColumnDefinition Width="*" MinWidth="320"/>
+      <ColumnDefinition Width="5*" MinWidth="260"/>
       <ColumnDefinition Width="14"/>
-      <ColumnDefinition Width="360"/>
+      <ColumnDefinition Width="4*" MinWidth="290" MaxWidth="400"/>
     </Grid.ColumnDefinitions>
 
-    <Border Grid.Column="0" Style="{DynamicResource KcCard}" Padding="10,14,10,10">
+    <Border x:Name="KeyboardsCard" Grid.Column="0" Style="{DynamicResource KcCard}" Padding="10,14,10,10">
       <DockPanel>
         <TextBlock x:Name="KeyboardsCaption" DockPanel.Dock="Top" Style="{DynamicResource KcSectionCaption}" Margin="6,0,0,4"/>
         <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
@@ -53,7 +54,7 @@
       </DockPanel>
     </Border>
 
-    <Border Grid.Column="2" Style="{DynamicResource KcCard}" Padding="14,12,10,10">
+    <Border x:Name="BuildsCard" Grid.Column="2" Style="{DynamicResource KcCard}" Padding="14,12,10,10">
       <Grid>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
@@ -77,7 +78,7 @@
       </Grid>
     </Border>
 
-    <Border Grid.Column="4" Style="{DynamicResource KcCard}" Padding="16,12,8,12">
+    <Border x:Name="OptionsCard" Grid.Column="4" Style="{DynamicResource KcCard}" Padding="16,12,8,12">
       <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" Padding="0,0,8,0">
         <StackPanel>
           <TextBlock x:Name="OptionsCaption" Style="{DynamicResource KcSectionCaption}"/>

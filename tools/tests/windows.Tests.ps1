@@ -143,6 +143,52 @@ function Get-UiSpan($Element, $Root) {
     return [pscustomobject]@{ Left = $p.X; Right = $p.X + $Element.ActualWidth }
 }
 
+# 要素の中の TextBlock (ContentPresenter が文字列から作るものも含む)
+function Get-UiTextBlocks($Element) {
+    $found = New-Object System.Collections.ArrayList
+    $stack = New-Object System.Collections.Stack
+    $stack.Push($Element)
+    while ($stack.Count -gt 0) {
+        $e = $stack.Pop()
+        if ($e -is [System.Windows.Controls.TextBlock]) { [void]$found.Add($e) }
+        $n = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($e)
+        for ($i = 0; $i -lt $n; $i++) { $stack.Push([System.Windows.Media.VisualTreeHelper]::GetChild($e, $i)) }
+    }
+    return $found.ToArray()
+}
+
+# 折り返さない TextBlock の文字が、親から割り当てられた幅に収まる (WPF は収まらない文字を切って描く。
+# そのとき ActualWidth は文字の幅のままなので、同じ書式の TextBlock を測って、割り当ての幅と比べる)
+function Assert-UiTextNotClipped($Element) {
+    foreach ($tb in (Get-UiTextBlocks $Element)) {
+        if (-not $tb.IsVisible -or -not $tb.Text) { continue }
+        if ($tb.TextWrapping -ne [System.Windows.TextWrapping]::NoWrap -or $tb.TextTrimming -ne [System.Windows.TextTrimming]::None) { continue }
+        $probe = New-Object System.Windows.Controls.TextBlock
+        $probe.Text = $tb.Text
+        $probe.FontFamily = $tb.FontFamily
+        $probe.FontSize = $tb.FontSize
+        $probe.FontWeight = $tb.FontWeight
+        $probe.FontStyle = $tb.FontStyle
+        $probe.FontStretch = $tb.FontStretch
+        $probe.Language = $tb.Language
+        [System.Windows.Media.TextOptions]::SetTextFormattingMode($probe, [System.Windows.Media.TextOptions]::GetTextFormattingMode($tb))
+        $probe.Measure((New-Object System.Windows.Size ([double]::PositiveInfinity), ([double]::PositiveInfinity)))
+        $slot = [System.Windows.Controls.Primitives.LayoutInformation]::GetLayoutSlot($tb)
+        $room = $slot.Width - $tb.Margin.Left - $tb.Margin.Right
+        Assert-True ($probe.DesiredSize.Width -le $room + 1) ('「{0}」が切れない ({1:N1} > {2:N1})' -f $tb.Text, $probe.DesiredSize.Width, $room)
+    }
+}
+
+# 書き込みツールの選ぶ画面: 3 つの欄がウィンドウに収まり、オプションの文字が切れない
+function Assert-UiFlashSelectFits($Root) {
+    $width = $Root.ActualWidth
+    foreach ($name in @('KeyboardsCard', 'BuildsCard', 'OptionsCard')) {
+        $span = Get-UiSpan $Root.FindName($name) $Root
+        Assert-True ($span.Right -le $width + 0.5) ('{0} がウィンドウに収まる ({1:N1} > {2:N1})' -f $name, $span.Right, $width)
+    }
+    Assert-UiTextNotClipped $Root.FindName('OptionsPanel')
+}
+
 Test-Case 'テスト用のウィンドウを描画できる (各状態、最小の大きさ)' -WindowsOnly {
     Import-KcInputForm
     $expected = Get-KcExpected 'lism' $script:ExpectedDir
@@ -422,6 +468,7 @@ Test-Case '書き込みツールのウィンドウを描画できる (選ぶ画�
         Assert-Equal 10 $root.FindName('KeyboardList').Children.Count '機種 8 台とグループの見出し 2 つ'
         Assert-Equal 0 @($form.TakeActions()).Count '選び直しただけでは操作にならない'
         Save-UiSnapshot $form 'flash-1-select'
+        Assert-UiFlashSelectFits $root
 
         # PR のビルドをクリック → 操作 build:firmware-pr-27
         $pr = @($root.FindName('BuildList').Children | Where-Object { $_.Content -ne $null })[1]
@@ -433,12 +480,18 @@ Test-Case '書き込みツールのウィンドウを描画できる (選ぶ画�
         [KcUi]::DoEvents()
         Assert-Equal 4 $root.FindName('PlanSteps').Children.Count '手順'
         Save-UiSnapshot $form 'flash-2-select-options'
+        Assert-UiFlashSelectFits $root
+        Invoke-FlashUiAction $ctx 'option:central:logging'
+        [KcUi]::DoEvents()
+        Assert-UiFlashSelectFits $root
 
         $w.Width = $w.MinWidth
         $w.Height = $w.MinHeight
         [KcUi]::DoEvents()
         Save-UiSnapshot $form 'flash-3-select-min'
         Assert-UiAboveFooter $root @('SelectPage')
+        Assert-UiFlashSelectFits $root
+        Invoke-FlashUiAction $ctx 'option:central:studio'
         $spans = @(@('CloseButton', 'StartButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
         Assert-True ($spans[0].Right -le $spans[1].Left) 'ボタンが重ならない'
         Assert-True ($spans[1].Right -le $root.ActualWidth) 'ボタンがウィンドウに収まる'

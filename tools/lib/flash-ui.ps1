@@ -430,7 +430,8 @@ function Update-FlashUiTick($Ctx) {
         } elseif ($s.FailText -and $text -match '^\s{2,}\S') {
             $s.FailText += "`n" + $text.Trim()
         }
-        if ($text.Trim()) {
+        # 下の欄には、字下げしていない行 (いま何をしているか) を出す。字下げした案内と薄い行は出さない
+        if ($text.Trim() -and $text -notmatch '^\s' -and $level -ne $script:FlashUiLevelFaint) {
             $s.LastLine = $text.Trim()
         }
     }
