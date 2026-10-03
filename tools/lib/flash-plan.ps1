@@ -248,14 +248,14 @@ function ConvertTo-FlashEncodedCommand([string]$Command) {
     return [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
 }
 
-# 1 つの手順を実行するスクリプトと引数
+# 1 つの手順を実行するスクリプト (tools\scripts) と引数。$ToolsDir は tools フォルダ
 function Get-FlashStepCommand($Step, [string]$Path, [string]$ToolsDir, [int]$WaitSeconds) {
     $arguments = [ordered]@{ Path = $Path }
     if ($Step.Runner -eq 'keyball') {
-        $script = [System.IO.Path]::Combine($ToolsDir, 'flash-keyball.ps1')
+        $script = [System.IO.Path]::Combine($ToolsDir, 'scripts', 'flash-keyball.ps1')
         $arguments['Count'] = 1
     } else {
-        $script = [System.IO.Path]::Combine($ToolsDir, 'flash-uf2.ps1')
+        $script = [System.IO.Path]::Combine($ToolsDir, 'scripts', 'flash-uf2.ps1')
         $arguments['Target'] = $Step.Target
     }
     $arguments['WaitSeconds'] = $WaitSeconds

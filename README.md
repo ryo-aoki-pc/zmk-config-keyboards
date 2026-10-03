@@ -174,19 +174,43 @@ git commit -m "Update submodules"
 期待値が submodule の内容と合っていないと、CI (`.github/workflows/keyboard-check.yml`) の `generate.py --check` が失敗します
 (submodule のコミットだけが進み、キーマップやトラックボールの設定が変わらないときは失敗しません)。
 
+### ツール (`tools/`)
+
+`tools/` の直下にあるのは、利用者が実行する `.cmd` だけです。
+
+| `.cmd` | 用途 |
+| --- | --- |
+| `tools/flash.cmd` | [書き込みツール](#書き込みツール-toolsflashcmd) |
+| `tools/keyboard-check.cmd` | [キーボードの設定の検査](#キーボードの設定を検査する-toolskeyboard-checkcmd) |
+| `tools/input-monitor.cmd` | [入力イベントの記録](#入力イベントを記録して調べる-toolsinput-monitorcmd) |
+| `tools/keyball-check.cmd` | [Keyball39 のトラックボールの診断](#keyball39-のトラックボールが動かない場合) |
+
+スクリプトの本体 (`.ps1`) は `tools/scripts/` にあります。`tools/scripts/` には、機種を絞った書き込み用の `.cmd` もあります。
+
+| `.cmd` | ダブルクリック | ファイルのドロップ |
+| --- | --- | --- |
+| `tools/scripts/flash-zmk.cmd` | `tools/flash.cmd` と同じウィンドウが開く | ZMK キーボード (XIAO / BMP) の `.uf2` だけを書き込む |
+| `tools/scripts/flash-kq-mini.cmd` | KQ-mini を選んだ状態でウィンドウが開く | KQ-mini の `.uf2` だけを書き込む |
+| `tools/scripts/flash-keyball.cmd` | Keyball39 を選んだ状態でウィンドウが開く | `.hex` を Keyball39 に書き込む |
+| `tools/scripts/flash-uf2.cmd` | (使い方を表示する) | `.uf2` を書き込む ([書き込みスクリプト](#書き込みスクリプト-toolsscriptsflash-uf2cmd)) |
+
+ツールのウィンドウのログ (等幅の文字) は、[HackGen Console NF](https://github.com/yuru7/HackGen) がインストールされていれば、それで表示します
+(自分のユーザだけにインストールしたものでも使えます)。無ければ BIZ UDゴシック、それも無ければ MS ゴシックです。
+
 ## ファームウェアの書き込み (Windows)
 
 `tools/flash.cmd` (書き込みツール) をダブルクリックするとウィンドウが開きます。機種とビルドを選び、画面の案内に従って書き込みます。ファイルの検証から成否の判定まで、ツールが行います。
 選べるビルドは、最新 (custom ブランチの最新ビルド) のほか、PR のビルドと custom の過去のビルドです ([過去のビルドと PR のビルド](#過去のビルドと-pr-のビルド))。
 
-| キーボード | マイコン / ブートローダ | ファイル | ダブルクリック | ファイルのドロップ |
-| --- | --- | --- | --- | --- |
-| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` | `tools/flash.cmd` (または `tools/flash-zmk.cmd`) | `tools/flash-uf2.cmd` (または `tools/flash-zmk.cmd`) |
-| torabo-tsuki-lp | BLE Micro Pro Boost (nRF52840) / BLE Micro Pro の UF2 (`BLEMICROPRO` ドライブ) | `.uf2` | `tools/flash.cmd` (または `tools/flash-zmk.cmd`) | `tools/flash-uf2.cmd` (または `tools/flash-zmk.cmd`) |
-| Keyboard Quantizer Mini | RP2040 / ROM ブートローダ (`RPI-RP2` ドライブ) | `.uf2` | `tools/flash.cmd` (または `tools/flash-kq-mini.cmd`) | `tools/flash-kq-mini.cmd` |
-| Keyball39 | Pro Micro (ATmega32U4) / caterina | `.hex` | `tools/flash.cmd` (または `tools/flash-keyball.cmd`) | `tools/flash-keyball.cmd` |
+| キーボード | マイコン / ブートローダ | ファイル |
+| --- | --- | --- |
+| LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa | Seeed XIAO nRF52840 / Adafruit nRF52 UF2 | `.uf2` |
+| torabo-tsuki-lp | BLE Micro Pro Boost (nRF52840) / BLE Micro Pro の UF2 (`BLEMICROPRO` ドライブ) | `.uf2` |
+| Keyboard Quantizer Mini | RP2040 / ROM ブートローダ (`RPI-RP2` ドライブ) | `.uf2` |
+| Keyball39 | Pro Micro (ATmega32U4) / caterina | `.hex` |
 
-`tools/flash-zmk.cmd` / `tools/flash-keyball.cmd` / `tools/flash-kq-mini.cmd` をダブルクリックしても、同じウィンドウが開きます (Keyball39 / KQ-mini は、その機種を選んだ状態で開く)。
+手元のファイル (`.uf2` / `.hex`) を書き込むときは、そのファイルを `tools/flash.cmd` にドラッグ＆ドロップします。
+`.uf2` はファイルの中身から書き込み先 (XIAO / BMP / KQ-mini) を決め、`.hex` は Keyball39 に書き込みます。
 
 ### 書き込みツール (`tools/flash.cmd`)
 
@@ -208,7 +232,7 @@ git commit -m "Update submodules"
    - その下に、書き込む手順とファイルが出る。選んだビルドに無いファイル (後から足したログ版など) があると、理由が出て書き込めない
 5. 「書き込む」を押す。必要なファイルを先にすべてダウンロードしてから、手順ごとに書き込む
    - 上の案内に従って、表示された側をブートローダにする ([XIAO をブートローダにする方法](#xiao-をブートローダにする方法)、[torabo-tsuki-lp (BLE Micro Pro Boost) をブートローダにする方法](#torabo-tsuki-lp-ble-micro-pro-boost-をブートローダにする方法))
-   - ログに書き込みスクリプトの出力が出る (成功は緑、失敗は赤)。成否の判定は、各スクリプト (`flash-uf2.ps1` / `flash-keyball.ps1`) が行う
+   - ログに書き込みスクリプトの出力が出る (成功は緑、失敗は赤)。成否の判定は、各スクリプト (`tools/scripts/` の `flash-uf2.ps1` / `flash-keyball.ps1`) が行う
    - 「中止」でいつでも止められる。失敗や中止の後は「再試行」で、その手順からやり直せる (ダウンロードはやり直さない)
    - torabo-tsuki-lp の設定リセットは、書き込んだ後に一度起動させる必要がある。案内に従ってから「続ける」を押す
 6. 「完了」と出たら終わり。「戻る」で、別の機種やビルドを書き込める
@@ -235,12 +259,12 @@ git commit -m "Update submodules"
 コマンドラインから実行する場合 (`-List` はウィンドウを出さずに、その機種のビルドとタグの一覧を表示する。ファイルを指定すると、ウィンドウを出さずにそのファイルだけを書き込む):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp|Keyball39|KQ-mini] [-List] [<ファイル.uf2 / .hex>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\flash.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp|Keyball39|KQ-mini] [-List] [<ファイル.uf2 / .hex>]
 ```
 
-### Keyboard Quantizer Mini (`tools/flash-kq-mini.cmd`)
+### Keyboard Quantizer Mini
 
-1. KQ-mini を PC につないだまま、`tools/flash.cmd` (または `tools/flash-kq-mini.cmd`) をダブルクリックし、KQ-mini とビルドを選んで「書き込む」を押す
+1. KQ-mini を PC につないだまま、`tools/flash.cmd` をダブルクリックし、KQ-mini とビルドを選んで「書き込む」を押す
 2. ツールが自動で次の処理を行う
    - 選んだビルド (既定は [最新のファームウェア](#最新ファームウェアの取得元-firmware-latest-リリース)) をダウンロードする
    - KQ-mini をブートローダに切り替える (KQ-mini のシリアルポートに `dfu` コマンドを送る)
@@ -249,19 +273,19 @@ powershell -ExecutionPolicy Bypass -File tools\flash.ps1 [-Keyboard LisM|AroundF
 
 - 自動で切り替わらないとき: KQ-mini の FUNC レイヤーの `QK_BOOT` キーを押す。ツールはそのまま `RPI-RP2` ドライブが現れるのを待つ
 - キーマップ: LisM 基準のキーマップとタップホールド設定は、書き込み後の初回起動時に EEPROM へ自動で適用される (Vial での読み込みは不要)
-- 手元の `.uf2` を書き込むとき: そのファイルを `tools/flash-kq-mini.cmd` にドラッグ＆ドロップする
+- 手元の `.uf2` を書き込むとき: そのファイルを `tools/flash.cmd` (または `tools/scripts/flash-kq-mini.cmd`) にドラッグ＆ドロップする
 
 コマンドラインから実行する場合 (ウィンドウを出さずに書き込む。`-Pr` で PR のビルド、`-Tag` で過去のビルド):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-kq-mini.ps1 [<ファイル.uf2>] [-Pr <番号> | -Tag <タグ>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\flash-kq-mini.ps1 [<ファイル.uf2>] [-Pr <番号> | -Tag <タグ>]
 ```
 
-### Keyball39 (`tools/flash-keyball.cmd`)
+### Keyball39
 
 Keyball は KQ-mini 経由では書き込めません (KQ-mini はキー入力だけを中継するため)。書き込むときは PC に直接つなぎます。
 
-1. `tools/flash.cmd` (または `tools/flash-keyball.cmd`) をダブルクリックし、Keyball39 とビルド、台数 (既定は左右 2 台) を選んで「書き込む」を押す。次の 2 つを自動でダウンロードする
+1. `tools/flash.cmd` をダブルクリックし、Keyball39 とビルド、台数 (既定は左右 2 台) を選んで「書き込む」を押す。次の 2 つを自動でダウンロードする
    - 選んだビルド (既定は [最新のファームウェア](#最新ファームウェアの取得元-firmware-latest-リリース))
    - avrdude (初回のみ)。公式の Windows 版 v8.3 を SHA256 で確認してから使う
 2. 「1 台目」と表示されたら、片側を KQ-mini から外して USB ケーブルで PC に直接つなぎ、ブートローダを起動する。方法は次のどちらか
@@ -279,12 +303,12 @@ Keyball は KQ-mini 経由では書き込めません (KQ-mini はキー入力�
   - 初回の起動で EEPROM が 1 回だけ初期化され、CPI などの Keyball の設定は既定値に戻る (QMK の EEPROM の形式の番号が変わったため)
   - 左右の通信の形式も QMK のバージョンで変わるので、左右とも書き込む
 - **書き込みに失敗したとき**: caterina ブートローダは約 8 秒で終了する。失敗したらもう一度リセットスイッチを押す (1 台につき 3 回まで再試行する)。それでも失敗したら「再試行」を押す
-- **手元の `.hex` を書き込むとき**: そのファイルを `tools/flash-keyball.cmd` にドラッグ＆ドロップする
+- **手元の `.hex` を書き込むとき**: そのファイルを `tools/flash.cmd` (または `tools/scripts/flash-keyball.cmd`) にドラッグ＆ドロップする
 
 コマンドラインから実行する場合 (ウィンドウを出さずに書き込む。`-Count 1` で片側だけ書き込む、`-Avrdude` で手元の avrdude を使う、`-Pr` で PR のビルド、`-Tag` で過去のビルド):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.hex>] [-Count 1] [-Avrdude <avrdude.exe>] [-Pr <番号> | -Tag <タグ>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\flash-keyball.ps1 [<ファイル.hex>] [-Count 1] [-Avrdude <avrdude.exe>] [-Pr <番号> | -Tag <タグ>]
 ```
 
 ### 最新ファームウェアの取得元 (`firmware-latest` リリース)
@@ -332,7 +356,7 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 - リリースの本文の ```` ```text ```` ブロックと `BUILD_INFO.txt` には、`kind` (custom / pr)、`branch`、`pr`、`title` (PR のタイトル)、`head` (PR の先頭のコミット)、`commit` (ビルドしたコミット)、`subject` (コミットの件名)、`built`、`run` が書かれる。書き込みツールはこれを読んで一覧に出す
 - 最新と同じコミットの `firmware-custom-<sha7>` は一覧に出さない。最新を選ぶと、置き換わらないこちらのタグからダウンロードする (ダウンロードの途中で `firmware-latest` が置き換わっても混ざらないように)
 
-### ZMK キーボード (`tools/flash-zmk.cmd` / `tools/flash-uf2.cmd`)
+### ZMK キーボード
 
 対象:
 
@@ -372,13 +396,13 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 - 電源スイッチが OFF の状態でブートローダにしたときは、書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、
   USB ケーブルを差し直すと起動する。電源スイッチが OFF のままだと、再起動してもブートローダに戻る
 
-#### ZMK キーボードに書き込む (`tools/flash.cmd` / `tools/flash-zmk.cmd`)
+#### ZMK キーボードに書き込む (`tools/flash.cmd`)
 
 [書き込みツール](#書き込みツール-toolsflashcmd) で機種、ビルド、書き込む内容を選んで「書き込む」を押します。
 
 1. 「[1/2] 右手側: セントラル を書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
    (左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿す、リセットボタンを素早く 2 回押す、など。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
-   書き込みと成否の判定は `flash-uf2.cmd` と同じ
+   書き込みと成否の判定は [書き込みスクリプト](#書き込みスクリプト-toolsscriptsflash-uf2cmd) と同じ
    - torabo-tsuki-lp は、表示された側の電源スイッチを OFF にしてから USB ケーブルでつなぐ (もう片側の USB ケーブルは抜く)。
      書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、USB ケーブルを差し直したときに起動する
    - torabo-tsuki-lp の設定リセットは、書き込んだあとに一度起動させないと動かない。ツールの案内に従って
@@ -389,16 +413,16 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
   Studio 版とログ版は、どちらか一方だけ。調べ終わったら通常版に戻す
 - **左右を間違えないこと**: 左右の XIAO (torabo-tsuki-lp は BMP) はブートローダの情報が同じなので、ツールからは見分けられない。表示された側だけをブートローダにする
 - **途中で失敗したとき**: そこで止まる。「再試行」でその手順から続けるか、「戻る」で選び直す
-- **手元の `.uf2` を書き込むとき**: そのファイルを `tools/flash-zmk.cmd` (または `tools/flash-uf2.cmd`) にドラッグ＆ドロップする
+- **手元の `.uf2` を書き込むとき**: そのファイルを `tools/flash.cmd` (または `tools/scripts/flash-zmk.cmd`) にドラッグ＆ドロップする
 
 コマンドラインから実行する場合 (`-Keyboard` と `-Mode` を両方指定すると、ウィンドウを出さずにコンソールで書き込む。どちらかを省くとウィンドウが開く。`-Pr` で PR のビルド、`-Tag` で過去のビルド):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio | -Logging] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball] [-Pr <番号> | -Tag <タグ>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio | -Logging] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball] [-Pr <番号> | -Tag <タグ>]
 ```
 
 コンソールで書き込むときは、必要なファイルを先にすべてダウンロードしてから、右 → 左の順に書き込みます。途中で失敗すると、残りのファイルの場所を表示します
-(もう一度実行するか、表示されたファイルを `tools/flash-uf2.cmd` にドロップする)。torabo-tsuki-lp の設定リセットの後は、案内に従ってから Enter を押します。
+(もう一度実行するか、表示されたファイルを `tools/flash.cmd` にドロップする)。torabo-tsuki-lp の設定リセットの後は、案内に従ってから Enter を押します。
 
 #### エクスプローラでのコピー時に「予期しないエラー」が出る場合
 
@@ -420,11 +444,11 @@ Windows のバージョンや環境によって出たり出なかったりしま
 | 成功 | エラーの後にドライブが消え、キーボードが新しいファームウェアで起動する (ダイアログは閉じてよい) |
 | 失敗 | ドライブが消えずに残る、またはブートローダのドライブが再び現れる |
 
-#### 書き込みスクリプト (`tools/flash-uf2.cmd`)
+#### 書き込みスクリプト (`tools/scripts/flash-uf2.cmd`)
 
 エラーダイアログを出さずに書き込み、成否をはっきり表示するスクリプトです。
 
-1. `.uf2` ファイルを `tools/flash-uf2.cmd` にドラッグ＆ドロップする
+1. `.uf2` ファイルを `tools/scripts/flash-uf2.cmd` にドラッグ＆ドロップする (`tools/flash.cmd` にドロップしても、このスクリプトで書き込む)
 2. 「ブートローダのドライブを待っています...」と表示されたら、リセットボタンを素早く 2 回押す
    (または、左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿す。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。
    既にドライブが出ていればすぐに書き込みが始まります
@@ -435,7 +459,7 @@ Windows のバージョンや環境によって出たり出なかったりしま
 コマンドラインから実行する場合 (ドライブは省略すると自動検出):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> [E:]
+powershell -ExecutionPolicy Bypass -File tools\scripts\flash-uf2.ps1 <ファイル.uf2> [E:]
 ```
 
 スクリプトが行うこと:
@@ -636,18 +660,18 @@ PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans
 
 | 結果 | 原因と対処 |
 | --- | --- |
-| KQ-mini のキーマップなどが FAIL | Vial で変えた内容が残っている。Vial の「File → Load saved layout」で `vial-qmk-kq-mini/keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/KEYMAP.vil` を読み込む。新しいビルドを `tools/flash-kq-mini.cmd` で書き込んでも戻る (同じビルドの書き直しでは戻らない) |
+| KQ-mini のキーマップなどが FAIL | Vial で変えた内容が残っている。Vial の「File → Load saved layout」で `vial-qmk-kq-mini/keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/KEYMAP.vil` を読み込む。新しいビルドを `tools/flash.cmd` で書き込んでも戻る (同じビルドの書き直しでは戻らない) |
 | Keyball39 の CPI / スクロールの倍率が FAIL | EEPROM に古い値が残っている。Bootmagic (左手側は `Q`、右手側は `P` を押しながら USB を挿す) で初期化する |
-| Keyball39 のカーソルの加速が FAIL | `config.h` の `KEYBALL_ACCEL_*` が違うファームが書き込まれている。`tools/flash-keyball.cmd` で最新のファームを書き込む |
+| Keyball39 のカーソルの加速が FAIL | `config.h` の `KEYBALL_ACCEL_*` が違うファームが書き込まれている。`tools/flash.cmd` で最新のファームを書き込む |
 | ZMK のキーマップが FAIL | ZMK Studio で保存した変更が残っている。Studio の「Restore Stock Settings」か、`tools/flash.cmd` の「設定リセットしてから左右に書き込む」 |
 | ZMK の読み出しが SKIP (応答がない) | キーボードの出力が BLE になっている。BT レイヤーのキーを押しながら `U` (`&out OUT_USB`) で USB に切り替える |
 | スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
 | AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer` / `aml_threshold`、Keyball の `AUTO_MOUSE_*`) が動いていない。ボールの動きが小さすぎたときは FAIL ではなくやり直しになる |
-| AML のしきい値が FAIL (わずかな動きでクリックになった) | しきい値の無い古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む |
-| Keyball39 の AML のしきい値が SKIP / FAIL | SKIP はしきい値の無い古いファーム、FAIL は `config.h` の `KEYBALL_AML_THRESHOLD` が違うファーム。`tools/flash-keyball.cmd` で最新のファームを書き込む |
+| AML のしきい値が FAIL (わずかな動きでクリックになった) | しきい値の無い古いファームが書き込まれている。`tools/flash.cmd` で最新のファームを書き込む |
+| Keyball39 の AML のしきい値が SKIP / FAIL | SKIP はしきい値の無い古いファーム、FAIL は `config.h` の `KEYBALL_AML_THRESHOLD` が違うファーム。`tools/flash.cmd` で最新のファームを書き込む |
 | レイヤー・ビヘイビアのテストが FAIL (ZMK) | ファームが古いか、キーマップのビヘイビア (mod-morph の mods、tap-dance、マクロ) が意図と違う。`tools/flash.cmd` で最新のファームを書き込む。どこで違うかは [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) で確かめられる |
 | レイヤー・ビヘイビアのテストが FAIL (KQ-mini) | Vial で変えたタップダンス・キーオーバーライド・マクロが残っている。Vial の「File → Load saved layout」で `KEYMAP.vil` を読み込む。モッドモーフの手順は、修飾キーより先にタップしたキーを離してやり直す |
-| AML の Ctrl / Shift での解除が FAIL (修飾キーだけが入力された) | Ctrl / Shift で AML を解除しない古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む。長押しになった場合 (Ctrl / Shift になる) は、短く押してやり直す |
+| AML の Ctrl / Shift での解除が FAIL (修飾キーだけが入力された) | Ctrl / Shift で AML を解除しない古いファームが書き込まれている。`tools/flash.cmd` で最新のファームを書き込む。長押しになった場合 (Ctrl / Shift になる) は、短く押してやり直す |
 | 読み出し検査は PASS なのに、タップホールドや AML の動作が意図と違う | [入力イベントを記録して調べる](#入力イベントを記録して調べる-toolsinput-monitorcmd) で、PC に届いたキーとタイミング (押下時間、修飾キーが出た時刻、ボールの移動からの経過) を見る |
 
 - 一覧の最後の「設定ファイル (参考)」は、submodule の設定ファイルどうしの整合です (キーボードは見ていない)。
@@ -661,7 +685,7 @@ PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans
 `-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに検査します。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive|Trace] [-Section All|Keys|Behaviors|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive|Trace] [-Section All|Keys|Behaviors|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
 ```
 
 終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です (`-Mode Trace` は合否を出さないので 0)。
@@ -713,8 +737,8 @@ ZMK の `&mt` / `&lt` は balanced なので、ホールドと判定された修
 ### input-monitor のコマンドライン
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\input-monitor.ps1 [-Seconds <秒>] [-ShowMotion] [-GapMs 50] [-IdleMs 300] [-Top 10] [-OutDir <フォルダ>] [-Report <ファイル>]
-powershell -ExecutionPolicy Bypass -File tools\input-monitor.ps1 -Analyze <記録の .csv または .json> [-Report <ファイル>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\input-monitor.ps1 [-Seconds <秒>] [-ShowMotion] [-GapMs 50] [-IdleMs 300] [-Top 10] [-OutDir <フォルダ>] [-Report <ファイル>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\input-monitor.ps1 -Analyze <記録の .csv または .json> [-Report <ファイル>]
 ```
 
 - `-Seconds` を指定すると、その秒数で自動的に停止する
@@ -791,7 +815,7 @@ USB を挿した側が反対側に問い合わせて、どちらにボールが�
    (KQ Mini や PC 側の問題ではない)
 2. Keyball を KQ Mini を通さずに PC に直接つなぎ、`tools/keyball-check.cmd` を実行する。
    VIA の読み取りコマンドだけを使い (設定は書き換えない)、Ball availability・起動からの経過時間・RGB の状態を表示する。
-   `powershell -ExecutionPolicy Bypass -File tools\keyball-check.ps1 -Watch` で実行すると、1 秒ごとの変化を表示し続ける
+   `powershell -ExecutionPolicy Bypass -File tools\scripts\keyball-check.ps1 -Watch` で実行すると、1 秒ごとの変化を表示し続ける
 
    | Ball availability | 意味 |
    | --- | --- |
@@ -809,7 +833,7 @@ USB を挿した側が反対側に問い合わせて、どちらにボールが�
    入力補完により `df` だけで `dfu` (ブートローダの起動) が実行されるため、コマンド名は最後まで入力する。
    [vial-qmk-kq-mini#13](https://github.com/ryo-aoki-pc/vial-qmk-kq-mini/pull/13) より前のファームウェアは
    16 バイトに満たない受信データを捨てるため、ターミナルで打った文字が届かない。入力しても何も表示されないときは、
-   先に [`tools/flash-kq-mini.cmd`](#keyboard-quantizer-mini-toolsflash-kq-minicmd) で最新のファームウェアに書き換える。
+   先に [`tools/flash.cmd`](#keyboard-quantizer-mini) で最新のファームウェアに書き換える。
    また、Vial で KQ Mini の `KC_MS_LEFT` / `KC_MS_UP` の位置の割り当てを変えると、
    X / Y 方向の移動はスクロールに変換される (ホイールキーを割り当てた場合) か、転送されなくなる
 
@@ -827,7 +851,7 @@ USB を挿した側が反対側に問い合わせて、どちらにボールが�
 - LED を実装している場合は、VIA で消灯・保存してから挿し直すと、電源 (ハブ経由の給電など) の不足が原因かを切り分けられる。
   LED の設定は左右の Pro Micro に別々に保存され、USB を挿した側の設定が左右両方の LED に使われる
   (keyball39 via のファームは、新しいビルドの初回起動時に `keymaps/via/config.h` の `RGBLIGHT_DEFAULT_*` を
-  左右それぞれに保存するので、[`tools/flash-keyball.cmd`](#keyball39-toolsflash-keyballcmd) で左右に同じファームを書けば揃う)
+  左右それぞれに保存するので、[`tools/flash.cmd`](#keyball39) で左右に同じファームを書けば揃う)
 
 点検後、ボール側に USB を挿して `tools/keyball-check.cmd` を実行し、Ball availability がボールの側
 (`Right` など) になれば復旧です。それでも `None` のままなら、ボール基板 (センサーのはんだ付けやセンサー本体) の不良が考えられます。

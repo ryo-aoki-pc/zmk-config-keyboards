@@ -39,13 +39,13 @@
     報告に載せる停滞の件数 (既定 10)。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\input-monitor.ps1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\input-monitor.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\input-monitor.ps1 -Seconds 60 -ShowMotion
+    powershell -ExecutionPolicy Bypass -File tools\scripts\input-monitor.ps1 -Seconds 60 -ShowMotion
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\input-monitor.ps1 -Analyze tools\.cache\input-monitor\20261002-123456.csv
+    powershell -ExecutionPolicy Bypass -File tools\scripts\input-monitor.ps1 -Analyze tools\.cache\input-monitor\20261002-123456.csv
 #>
 [CmdletBinding()]
 param(
@@ -73,8 +73,10 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-$kcLib = Join-Path $PSScriptRoot 'lib\keyboard-check'
-$imLib = Join-Path $PSScriptRoot 'lib\input-monitor'
+# このスクリプトは tools\scripts にある。lib・expected・.cache は tools の下
+$toolsDir = Split-Path -Parent $PSScriptRoot
+$kcLib = Join-Path $toolsDir 'lib\keyboard-check'
+$imLib = Join-Path $toolsDir 'lib\input-monitor'
 . (Join-Path $kcLib 'expected.ps1')
 . (Join-Path $kcLib 'rawhid.ps1')
 . (Join-Path $kcLib 'input-eval.ps1')
@@ -84,9 +86,9 @@ $imLib = Join-Path $PSScriptRoot 'lib\input-monitor'
 
 $isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 if (-not $OutDir) {
-    $OutDir = Join-Path $PSScriptRoot '.cache\input-monitor'
+    $OutDir = Join-Path $toolsDir '.cache\input-monitor'
 }
-$scanTable = New-KcScanTable (Get-KcExpected 'common' (Join-Path $PSScriptRoot 'expected'))
+$scanTable = New-KcScanTable (Get-KcExpected 'common' (Join-Path $toolsDir 'expected'))
 $options = @{ GapMs = $GapMs; IdleMs = $IdleMs; AmlTimeoutMs = 10000; HoldMs = 150; ScanTable = $scanTable }
 $consoleRows = 60
 

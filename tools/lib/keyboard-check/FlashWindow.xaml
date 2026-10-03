@@ -1,5 +1,5 @@
 <!--
-  Content of the window of tools/flash.ps1 (KcFlashForm in InputTestForm.cs): the select page (keyboard,
+  Content of the window of tools/scripts/flash.ps1 (KcFlashForm in InputTestForm.cs): the select page (keyboard,
   build and options) and the run page (steps, instructions and the log of the flashing scripts).
   Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
   Theme keys (Theme.xaml) are referenced with DynamicResource because the theme is merged into the

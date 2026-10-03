@@ -1,5 +1,5 @@
 <!--
-  Content of the window of tools/keyboard-check.ps1 -Mode Trace (KcLayerTraceForm in InputTestForm.cs):
+  Content of the window of tools/scripts/keyboard-check.ps1 -Mode Trace (KcLayerTraceForm in InputTestForm.cs):
   shows how the layers change and how each pressed key is resolved, read from the log of the ZMK logging
   firmware. Loaded with XamlReader: no x:Class, the named elements are looked up by C#.
   Theme keys (Theme.xaml) are referenced with DynamicResource. ASCII only: texts are set from PowerShell.

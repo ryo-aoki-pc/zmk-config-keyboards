@@ -21,10 +21,10 @@
     1 秒ごとに読み取り、Ball availability の変化と再起動を表示し続けます (Ctrl+C で終了)。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\keyball-check.ps1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyball-check.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\keyball-check.ps1 -Watch
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyball-check.ps1 -Watch
 #>
 [CmdletBinding()]
 param(

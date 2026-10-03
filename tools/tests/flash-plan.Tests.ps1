@@ -199,7 +199,7 @@ Test-Case 'スクリプトの -Keyboard の候補が機種の表と同じ (flash
             @{ File = 'flash-zmk.ps1'; Keys = @($script:FlashKeyboards.Keys | Where-Object { $script:FlashKeyboards[$_].Kind -eq 'zmk' }) })) {
         $tokens = $null
         $errors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ToolsDir $case.File), [ref]$tokens, [ref]$errors)
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ToolsDir ('scripts\' + $case.File)), [ref]$tokens, [ref]$errors)
         $param = @($ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'Keyboard' })[0]
         $set = @($param.Attributes | Where-Object { $_.TypeName.Name -eq 'ValidateSet' })[0]
         $values = @($set.PositionalArguments | ForEach-Object { $_.Value })

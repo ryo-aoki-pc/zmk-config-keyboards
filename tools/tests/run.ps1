@@ -6,6 +6,7 @@
     - tools/**/*.ps1 が UTF-8 (BOM 付き) で、構文エラーが無いこと
     - Windows PowerShell 5.1 で使えない構文 (??、?.、三項演算子、&&、文字列の `e など) を使っていないこと
     - .cmd / .cs / .xaml が ASCII だけで書かれていること
+    - .cmd が呼ぶ .ps1 があり、tools 直下には利用者が実行する .cmd だけがあること
     - tools/tests/*.Tests.ps1 の各テスト (偽のデバイスを使った読み出し検査、判定の計算など)
 
     Windows 専用のテスト (C# のコンパイル、フォームの生成) は Windows 以外では飛ばします。
@@ -132,6 +133,32 @@ Test-Case '.cmd / .cs / .xaml は ASCII だけ' {
         }
     }
     Assert-Equal '' ($bad -join ', ') 'ASCII 以外を含むファイル:'
+}
+
+Test-Case '.cmd が呼ぶ .ps1 がある' {
+    $bad = @()
+    foreach ($f in $cmdFiles) {
+        if ($f.Extension -ne '.cmd') {
+            continue
+        }
+        $found = [regex]::Matches([System.IO.File]::ReadAllText($f.FullName), '%~dp0([^"\s]+\.ps1)')
+        if ($found.Count -eq 0) {
+            $bad += ('{0} (.ps1 を呼んでいない)' -f $f.Name)
+        }
+        foreach ($m in $found) {
+            $target = Join-Path $f.DirectoryName ($m.Groups[1].Value.Replace('\', [string][System.IO.Path]::DirectorySeparatorChar))
+            if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
+                $bad += ('{0} → {1}' -f $f.Name, $m.Groups[1].Value)
+            }
+        }
+    }
+    Assert-Equal '' ($bad -join ', ') '.ps1 が見つからない .cmd:'
+}
+
+Test-Case 'tools 直下は利用者が実行する .cmd だけ (.ps1 と他の .cmd は scripts)' {
+    $top = @(Get-ChildItem -Path $script:ToolsDir -File | Where-Object { $_.Extension -eq '.cmd' -or $_.Extension -eq '.ps1' } |
+            ForEach-Object { $_.Name } | Sort-Object)
+    Assert-Equal 'flash.cmd, input-monitor.cmd, keyball-check.cmd, keyboard-check.cmd' ($top -join ', ') 'tools 直下:'
 }
 
 Test-Case '.ps1 に構文エラーが無い' {

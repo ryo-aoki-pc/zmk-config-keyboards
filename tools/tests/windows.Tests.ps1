@@ -44,6 +44,32 @@ Test-Case 'InputTestForm.cs をコンパイルして、ウィンドウを作れ�
     }
 }
 
+Test-Case 'ログのフォント: HackGen Console NF を先頭に、無ければ BIZ UDGothic に落ちる' -WindowsOnly {
+    Import-KcInputForm
+    $root = $null
+    $window = [KcUi]::CreateWindow('InputMonitorWindow.xaml', [ref]$root)
+    try {
+        $source = $window.FindResource('KcMonoFont').Source
+        Assert-True ($source -like '*HackGen Console NF, BIZ UDGothic, MS Gothic') $source
+    } finally {
+        $window.Close()
+    }
+    Assert-True (-not [KcUi]::IsSystemFont('No Such Font Family')) 'IsSystemFont'
+    Assert-Equal $null ([KcUi]::FindUserFontFile('No Such Font Family'))
+    Assert-Equal 'file:///C:/Users/Taro%20Yamada%2Cx/Fonts/a.ttf#HackGen Console NF, MS Gothic' `
+        ([KcUi]::FontFileSource('C:\Users\Taro Yamada,x\Fonts\a.ttf', 'HackGen Console NF', 'MS Gothic'))
+    # ファイルの URI で指定したフォント (等幅の Courier New) が使われる。次の候補の Segoe UI に落ちると i と M の幅が違う
+    $family = New-Object System.Windows.Media.FontFamily ([KcUi]::FontFileSource((Join-Path $env:windir 'Fonts\cour.ttf'), 'Courier New', 'Segoe UI'))
+    $typeface = New-Object System.Windows.Media.Typeface($family, [System.Windows.FontStyles]::Normal,
+        [System.Windows.FontWeights]::Normal, [System.Windows.FontStretches]::Normal)
+    $width = {
+        param([string]$Text)
+        (New-Object System.Windows.Media.FormattedText($Text, [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Windows.FlowDirection]::LeftToRight, $typeface, 20.0, [System.Windows.Media.Brushes]::Black)).Width
+    }
+    Assert-Near (& $width 'iiii') (& $width 'MMMM') 0.01 'Courier New の i と M の幅'
+}
+
 # RAWINPUT のバイト列 (64 ビット: ヘッダー 24 バイト)
 function New-RawInputBytes([int]$Type, [long]$Device, [byte[]]$Body, [int]$PtrSize = 8) {
     $header = 8 + 2 * $PtrSize

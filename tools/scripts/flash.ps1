@@ -28,13 +28,13 @@
     ウィンドウを出さずに、-Keyboard の機種のビルドの一覧を表示します。
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash.ps1
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash.ps1 -Keyboard Keyball39
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash.ps1 -Keyboard Keyball39
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools\flash.ps1 -Keyboard LisM -List
+    powershell -ExecutionPolicy Bypass -File tools\scripts\flash.ps1 -Keyboard LisM -List
 #>
 [CmdletBinding()]
 param(
@@ -53,11 +53,12 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'lib\firmware-release.ps1')
-. (Join-Path $PSScriptRoot 'lib\flash-plan.ps1')
-. (Join-Path $PSScriptRoot 'lib\flash-ui.ps1')
+# このスクリプトは tools\scripts にある。lib・expected・.cache は tools の下
+$TOOLS_DIR = Split-Path -Parent $PSScriptRoot
+. (Join-Path $TOOLS_DIR 'lib\firmware-release.ps1')
+. (Join-Path $TOOLS_DIR 'lib\flash-plan.ps1')
+. (Join-Path $TOOLS_DIR 'lib\flash-ui.ps1')
 
-$TOOLS_DIR = $PSScriptRoot
 $CACHE_DIR = Join-Path $TOOLS_DIR '.cache'
 $FIRMWARE_DIR = Join-Path $CACHE_DIR 'firmware'
 $SETTINGS_FILE = Join-Path $CACHE_DIR 'flash-settings.json'
@@ -140,8 +141,8 @@ if ($List) {
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     Stop-WithError 'ウィンドウは Windows でしか開けません (-List と、ファイルの指定は使えます)。'
 }
-. (Join-Path $PSScriptRoot 'lib\keyboard-check\rawhid.ps1')
-. (Join-Path $PSScriptRoot 'lib\keyboard-check\input-test.ps1')
+. (Join-Path $TOOLS_DIR 'lib\keyboard-check\rawhid.ps1')
+. (Join-Path $TOOLS_DIR 'lib\keyboard-check\input-test.ps1')
 try {
     Import-KcInputForm
     Import-KcCSharp 'ChildProcess.cs' 'KcChildProcess'
