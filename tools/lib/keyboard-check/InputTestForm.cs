@@ -1,11 +1,12 @@
-// Windows for the interactive test of tools/keyboard-check.ps1 (KcInputTestForm) and for the
-// input event monitor of tools/input-monitor.ps1 (KcInputMonitorForm), built with WPF.
+// Windows for the interactive test of tools/keyboard-check.ps1 (KcInputTestForm), the layer trace of
+// keyboard-check.ps1 -Mode Trace (KcLayerTraceForm) and the input event monitor of tools/input-monitor.ps1
+// (KcInputMonitorForm), built with WPF.
 // Records Raw Input (WM_INPUT) per device: keyboard scan codes (layout independent) and
 // relative mouse movement before pointer acceleration, so key taps and trackball motion can be
 // checked against the expected values, and the timing of the reports can be analyzed.
-// The look is defined in Theme.xaml, InputTestWindow.xaml and InputMonitorWindow.xaml (next to this
+// The look is defined in Theme.xaml, InputTestWindow.xaml, LayerTraceWindow.xaml and InputMonitorWindow.xaml (next to this
 // file, KcUi.XamlDir), loaded at run time with XamlReader (no x:Class: the named elements are looked up
-// here). Loaded by tools/lib/keyboard-check/input-test.ps1 with Add-Type. Both windows live in this one
+// here). Loaded by tools/lib/keyboard-check/input-test.ps1 with Add-Type. The windows live in this one
 // file because every Add-Type call makes its own assembly: a second file could not share
 // KcInputEvent / KcRawInputParser / KcUi without a duplicate type name.
 // Must stay C# 5 compatible (Windows PowerShell 5.1 compiles it with the .NET Framework compiler and
@@ -359,15 +360,151 @@ public static class KcUi
     }
 }
 
-// The window of the interactive test (keyboard-check.ps1). It runs on the PowerShell thread, which
-// pumps it with KcUi.DoEvents.
-public sealed class KcInputTestForm : IDisposable
+// Drawing helpers shared by the windows: theme brushes, chips, arrows and key caps. The brushes are
+// looked up in the resources of the window (Theme.xaml).
+public static class KcDraw
+{
+    // States of the key caps (Caps).
+    public const int CapNeutral = 0;
+    public const int CapOk = 1;
+    public const int CapNg = 2;
+    public const int CapPending = 3;
+
+    static readonly string[] CapFill = { "KcCapFill", "KcOkTint", "KcNgTint", "KcKeySkipFill" };
+    static readonly string[] CapEdge = { "KcCapEdge", "KcOkEdge", "KcNgEdge", "KcKeySkipEdge" };
+    static readonly string[] CapInk = { "KcCapInk", "KcOkInk", "KcNgInk", "KcKeySkipInk" };
+    // Arrow between chips (12 x 10).
+    const string ArrowData = "M0,5 L11,5 M7,1 L11,5 L7,9";
+
+    public static Brush Res(FrameworkElement owner, string key)
+    {
+        return (Brush)owner.FindResource(key);
+    }
+
+    public static int Clamp(int v, int min, int max)
+    {
+        return Math.Max(min, Math.Min(max, v));
+    }
+
+    // A rounded chip with an optional small caption above the text.
+    public static Border Chip(FrameworkElement owner, string caption, string text, string fill, string edge, string ink, double fontSize)
+    {
+        StackPanel stack = new StackPanel();
+        Brush inkBrush = Res(owner, ink);
+        if (!string.IsNullOrEmpty(caption))
+        {
+            TextBlock c = new TextBlock();
+            c.Text = caption;
+            c.FontSize = 11;
+            c.Foreground = inkBrush;
+            c.Opacity = 0.75;
+            stack.Children.Add(c);
+        }
+        TextBlock t = new TextBlock();
+        t.Text = text ?? "";
+        t.FontSize = fontSize;
+        t.FontWeight = FontWeights.SemiBold;
+        t.Foreground = inkBrush;
+        stack.Children.Add(t);
+        Border chip = new Border();
+        chip.CornerRadius = new CornerRadius(8);
+        chip.Padding = new Thickness(11, 3, 11, 4);
+        chip.BorderThickness = new Thickness(1.5);
+        chip.Background = Res(owner, fill);
+        chip.BorderBrush = Res(owner, edge);
+        chip.VerticalAlignment = VerticalAlignment.Center;
+        chip.Child = stack;
+        return chip;
+    }
+
+    public static Path Arrow(FrameworkElement owner)
+    {
+        Path arrow = new Path();
+        arrow.Data = Geometry.Parse(ArrowData);
+        arrow.Stroke = Res(owner, "KcLayerArrow");
+        arrow.StrokeThickness = 2;
+        arrow.StrokeStartLineCap = PenLineCap.Round;
+        arrow.StrokeEndLineCap = PenLineCap.Round;
+        arrow.StrokeLineJoin = PenLineJoin.Round;
+        arrow.Width = 12;
+        arrow.Height = 10;
+        arrow.Margin = new Thickness(8, 0, 8, 0);
+        arrow.VerticalAlignment = VerticalAlignment.Center;
+        return arrow;
+    }
+
+    // Appends the items and their states to a signature (to skip redrawing when nothing changed).
+    public static void AppendSignature(StringBuilder sig, string[] items, int[] states)
+    {
+        sig.Append('#');
+        for (int i = 0; i < items.Length; i++)
+        {
+            sig.Append(items[i]).Append(':').Append(i < states.Length ? states[i] : 0).Append(';');
+        }
+    }
+
+    // Fills a panel with key caps (states: CapNeutral .. CapPending); emptyText when there is none.
+    public static void Caps(FrameworkElement owner, Panel panel, string[] caps, int[] states, string emptyText)
+    {
+        panel.Children.Clear();
+        if (caps.Length == 0 && !string.IsNullOrEmpty(emptyText))
+        {
+            TextBlock none = new TextBlock();
+            none.Text = emptyText;
+            none.FontSize = 14;
+            none.Foreground = Res(owner, "KcTextFaint");
+            none.VerticalAlignment = VerticalAlignment.Center;
+            panel.Children.Add(none);
+            return;
+        }
+        for (int i = 0; i < caps.Length; i++)
+        {
+            int s = i < states.Length ? Clamp(states[i], 0, CapFill.Length - 1) : CapNeutral;
+            TextBlock t = new TextBlock();
+            t.Text = caps[i] ?? "";
+            t.FontSize = 15;
+            t.FontWeight = FontWeights.SemiBold;
+            t.Foreground = Res(owner, CapInk[s]);
+            t.HorizontalAlignment = HorizontalAlignment.Center;
+            Border cap = new Border();
+            cap.MinWidth = 38;
+            cap.CornerRadius = new CornerRadius(7);
+            cap.Padding = new Thickness(10, 4, 10, 5);
+            cap.Margin = new Thickness(0, 2, 6, 2);
+            cap.BorderThickness = new Thickness(1.5, 1.5, 1.5, 3.5);
+            cap.Background = Res(owner, CapFill[s]);
+            cap.BorderBrush = Res(owner, CapEdge[s]);
+            cap.Child = t;
+            panel.Children.Add(cap);
+        }
+    }
+}
+
+// The keyboard picture of the windows: one rounded key per physical key, colored by its state, with a
+// legend (one or two lines) and an optional badge at the top right corner. The canvas is scaled by a Viewbox.
+public sealed class KcKeyboardView
 {
     public const int StateNormal = 0;
     public const int StateCurrent = 1;
     public const int StatePass = 2;
     public const int StateFail = 3;
     public const int StateSkip = 4;
+    public const int StateHold = 5;   // a layer key held
+    public const int StateMod = 6;    // a modifier held
+    public const int StateDanger = 7; // must not be pressed (bootloader, reset, Bluetooth)
+    public const int StateCombo = 8;  // pressed together with other keys
+
+    const double KeyUnit = 64;  // canvas units per key unit
+    const double KeyGap = 3;    // half of the gap between two keys, in canvas units
+    const double BadgeSize = 26;
+
+    // Theme keys per key state (StateNormal .. StateCombo).
+    static readonly string[] KeyFill = { "KcKeyNormalFill", "KcKeyCurrentFill", "KcKeyPassFill", "KcKeyFailFill", "KcKeySkipFill",
+                                         "KcKeyHoldFill", "KcKeyModFill", "KcKeyDangerFill", "KcKeyComboFill" };
+    static readonly string[] KeyEdge = { "KcKeyNormalEdge", "KcKeyCurrentEdge", "KcKeyPassEdge", "KcKeyFailEdge", "KcKeySkipEdge",
+                                         "KcKeyHoldEdge", "KcKeyModEdge", "KcKeyDangerEdge", "KcKeyComboEdge" };
+    static readonly string[] KeyInk = { "KcKeyNormalInk", "KcKeyCurrentInk", "KcKeyPassInk", "KcKeyFailInk", "KcKeySkipInk",
+                                        "KcKeyHoldInk", "KcKeyModInk", "KcKeyDangerInk", "KcKeyComboInk" };
 
     sealed class KeyView
     {
@@ -375,24 +512,187 @@ public sealed class KcInputTestForm : IDisposable
         public int State;
         public Border Box;
         public TextBlock Legend;
+        public string BaseLegend;
+        public Border Badge;
+        public TextBlock BadgeText;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct RECT
+    readonly FrameworkElement owner;
+    readonly Canvas canvas;
+    readonly List<KeyView> keys = new List<KeyView>();
+    readonly DropShadowEffect glow = new DropShadowEffect();
+
+    public KcKeyboardView(FrameworkElement owner, Canvas canvas)
     {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
+        this.owner = owner;
+        this.canvas = canvas;
+        glow.Color = (Color)owner.FindResource("KcKeyGlowColor");
+        glow.BlurRadius = 24;
+        glow.ShadowDepth = 0;
+        glow.Opacity = 0.9;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct POINT
+    // Keys of the physical layout (x / y / w / h in key units).
+    public void SetKeys(int[] pos, double[] x, double[] y, double[] w, double[] h, string[] legends)
     {
-        public int X;
-        public int Y;
+        keys.Clear();
+        canvas.Children.Clear();
+        if (pos.Length == 0)
+        {
+            canvas.Width = 0;
+            canvas.Height = 0;
+            return;
+        }
+        double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+        for (int i = 0; i < pos.Length; i++)
+        {
+            minX = Math.Min(minX, x[i]);
+            minY = Math.Min(minY, y[i]);
+            maxX = Math.Max(maxX, x[i] + w[i]);
+            maxY = Math.Max(maxY, y[i] + h[i]);
+        }
+        canvas.Width = Math.Max(maxX - minX, 1) * KeyUnit;
+        canvas.Height = Math.Max(maxY - minY, 1) * KeyUnit;
+        for (int i = 0; i < pos.Length; i++)
+        {
+            TextBlock text = new TextBlock();
+            text.Text = legends[i] ?? "";
+            text.FontSize = 19;
+            text.FontWeight = FontWeights.SemiBold;
+            text.TextAlignment = TextAlignment.Center;
+            // long legends shrink to fit the key, short ones keep the font size
+            Viewbox fit = new Viewbox();
+            fit.Stretch = Stretch.Uniform;
+            fit.StretchDirection = StretchDirection.DownOnly;
+            fit.Margin = new Thickness(7, 5, 7, 5);
+            fit.Child = text;
+            Border box = new Border();
+            box.Width = Math.Max(w[i] * KeyUnit - 2 * KeyGap, 1);
+            box.Height = Math.Max(h[i] * KeyUnit - 2 * KeyGap, 1);
+            box.CornerRadius = new CornerRadius(10);
+            box.Child = fit;
+            double left = (x[i] - minX) * KeyUnit + KeyGap;
+            double top = (y[i] - minY) * KeyUnit + KeyGap;
+            Canvas.SetLeft(box, left);
+            Canvas.SetTop(box, top);
+            canvas.Children.Add(box);
+            // badge at the top right corner: order of the presses or the tap count
+            TextBlock badgeText = new TextBlock();
+            badgeText.FontSize = 15;
+            badgeText.FontWeight = FontWeights.Bold;
+            badgeText.HorizontalAlignment = HorizontalAlignment.Center;
+            badgeText.VerticalAlignment = VerticalAlignment.Center;
+            badgeText.Foreground = KcDraw.Res(owner, "KcBadgeInk");
+            Border badge = new Border();
+            badge.MinWidth = BadgeSize;
+            badge.Height = BadgeSize;
+            badge.Padding = new Thickness(5, 0, 5, 0);
+            badge.CornerRadius = new CornerRadius(BadgeSize / 2);
+            badge.Background = KcDraw.Res(owner, "KcBadgeFill");
+            badge.BorderBrush = KcDraw.Res(owner, "KcBg");
+            badge.BorderThickness = new Thickness(2);
+            badge.Child = badgeText;
+            badge.Visibility = Visibility.Collapsed;
+            Canvas.SetLeft(badge, left + box.Width - BadgeSize + 6);
+            Canvas.SetTop(badge, top - 8);
+            Panel.SetZIndex(badge, 3);
+            canvas.Children.Add(badge);
+            KeyView k = new KeyView();
+            k.Pos = pos[i];
+            k.Box = box;
+            k.Legend = text;
+            k.BaseLegend = text.Text;
+            k.Badge = badge;
+            k.BadgeText = badgeText;
+            keys.Add(k);
+            Paint(k);
+        }
     }
 
+    public void SetKeyState(int pos, int state)
+    {
+        foreach (KeyView k in keys)
+        {
+            if (k.Pos == pos)
+            {
+                k.State = state;
+                Paint(k);
+            }
+        }
+    }
+
+    public void ClearKeyStates()
+    {
+        foreach (KeyView k in keys)
+        {
+            k.State = StateNormal;
+            Paint(k);
+        }
+    }
+
+    // Legends of the keys of a layer (pos[i] gets legends[i]; a line break makes two lines).
+    public void SetKeyLegends(int[] pos, string[] legends)
+    {
+        for (int i = 0; i < pos.Length && i < legends.Length; i++)
+        {
+            foreach (KeyView k in keys)
+            {
+                if (k.Pos == pos[i])
+                {
+                    k.Legend.Text = legends[i] ?? "";
+                }
+            }
+        }
+    }
+
+    // Back to the legends given to SetKeys (the BASE layer).
+    public void ResetKeyLegends()
+    {
+        foreach (KeyView k in keys)
+        {
+            k.Legend.Text = k.BaseLegend;
+        }
+    }
+
+    // Small badge on a key ("" hides it).
+    public void SetKeyBadge(int pos, string text)
+    {
+        foreach (KeyView k in keys)
+        {
+            if (k.Pos == pos)
+            {
+                k.BadgeText.Text = text ?? "";
+                KcUi.SetVisible(k.Badge, k.BadgeText.Text.Length > 0);
+            }
+        }
+    }
+
+    public void ClearKeyBadges()
+    {
+        foreach (KeyView k in keys)
+        {
+            k.BadgeText.Text = "";
+            k.Badge.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    void Paint(KeyView k)
+    {
+        int s = k.State >= 0 && k.State < KeyFill.Length ? k.State : StateNormal;
+        k.Box.Background = KcDraw.Res(owner, KeyFill[s]);
+        k.Box.BorderBrush = KcDraw.Res(owner, KeyEdge[s]);
+        bool strong = s == StateCurrent || s == StateHold || s == StateMod || s == StateCombo;
+        k.Box.BorderThickness = new Thickness(s == StateCurrent ? 3 : (strong ? 2.5 : 1.5));
+        k.Box.Effect = s == StateCurrent ? glow : null;
+        Panel.SetZIndex(k.Box, s == StateCurrent ? 1 : 0);
+        k.Legend.Foreground = KcDraw.Res(owner, KeyInk[s]);
+    }
+}
+
+// Keeps the Win key of the tested keyboard from opening the Start menu while a window is in front (a
+// low level keyboard hook). handle returns the window to guard, or IntPtr.Zero to let everything pass.
+public sealed class KcWinKeyMask : IDisposable
+{
     [StructLayout(LayoutKind.Sequential)]
     struct KBDLLHOOKSTRUCT
     {
@@ -404,21 +704,6 @@ public sealed class KcInputTestForm : IDisposable
     }
 
     delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    static extern uint GetRawInputDeviceInfo(IntPtr device, uint command, StringBuilder data, ref uint size);
-
-    [DllImport("user32.dll")]
-    static extern bool ClipCursor(ref RECT rect);
-
-    [DllImport("user32.dll", EntryPoint = "ClipCursor")]
-    static extern bool ClipCursorOff(IntPtr rect);
-
-    [DllImport("user32.dll")]
-    static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
-
-    [DllImport("user32.dll")]
-    static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
 
     [DllImport("user32.dll")]
     static extern IntPtr GetForegroundWindow();
@@ -439,19 +724,147 @@ public sealed class KcInputTestForm : IDisposable
     static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extraInfo);
 
     const int WM_KEYDOWN = 0x0100;
-    const uint RIDI_DEVICENAME = 0x20000007;
     const int WH_KEYBOARD_LL = 13;
     const uint LLKHF_INJECTED = 0x10;
     const byte VK_MASK = 0xE8; // unassigned virtual key, used to keep Win from opening the Start menu
     const uint KEYEVENTF_KEYUP = 0x0002;
-    const double KeyUnit = 64;  // canvas units per key unit (the picture is scaled by a Viewbox)
-    const double KeyGap = 3;    // half of the gap between two keys, in canvas units
+
+    readonly Func<IntPtr> handle;
+    IntPtr hook = IntPtr.Zero;
+    LowLevelKeyboardProc proc;
+
+    public KcWinKeyMask(Func<IntPtr> handle)
+    {
+        this.handle = handle;
+    }
+
+    public void Enable(bool on)
+    {
+        if (on && hook == IntPtr.Zero)
+        {
+            proc = Callback;
+            hook = SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(null), 0);
+        }
+        else if (!on && hook != IntPtr.Zero)
+        {
+            UnhookWindowsHookEx(hook);
+            hook = IntPtr.Zero;
+        }
+    }
+
+    public void Dispose()
+    {
+        Enable(false);
+    }
+
+    IntPtr Callback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        IntPtr h = handle();
+        if (nCode >= 0 && h != IntPtr.Zero && GetForegroundWindow() == h)
+        {
+            int msg = wParam.ToInt32();
+            if (msg == WM_KEYDOWN || msg == KcUi.WM_SYSKEYDOWN)
+            {
+                KBDLLHOOKSTRUCT k = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
+                if ((k.Flags & LLKHF_INJECTED) == 0 && (k.VkCode == 0x5B || k.VkCode == 0x5C))
+                {
+                    // A key event while Win is held keeps Windows from opening the Start menu on release.
+                    keybd_event(VK_MASK, 0, 0, UIntPtr.Zero);
+                    keybd_event(VK_MASK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                }
+            }
+        }
+        return CallNextHookEx(hook, nCode, wParam, lParam);
+    }
+}
+
+// The window of the interactive test (keyboard-check.ps1). It runs on the PowerShell thread, which
+// pumps it with KcUi.DoEvents.
+public sealed class KcInputTestForm : IDisposable
+{
+    public const int StateNormal = KcKeyboardView.StateNormal;
+    public const int StateCurrent = KcKeyboardView.StateCurrent;
+    public const int StatePass = KcKeyboardView.StatePass;
+    public const int StateFail = KcKeyboardView.StateFail;
+    public const int StateSkip = KcKeyboardView.StateSkip;
+    public const int StateHold = KcKeyboardView.StateHold;     // a layer key held during the step
+    public const int StateMod = KcKeyboardView.StateMod;       // a modifier held during the step
+    public const int StateDanger = KcKeyboardView.StateDanger; // must not be pressed (bootloader, reset, Bluetooth)
+    public const int StateCombo = KcKeyboardView.StateCombo;   // pressed together with other keys
+
+    // Kinds of the chips of SetSequence.
+    public const int ChipLayer = 0;
+    public const int ChipMod = 1;
+    public const int ChipTap = 2;
+    public const int ChipCombo = 3;
+    public const int ChipRelease = 4;
+    public const int ChipCheck = 5;
+
+    // Kinds of the chips of SetLayerPath and states of SetLayerOverview.
+    public const int PathStart = 0;
+    public const int PathHeld = 1;
+    public const int PathTarget = 2;
+    public const int PathSwitched = 3;
+    public const int LayerIdle = 0;
+    public const int LayerTesting = 1;
+    public const int LayerPass = 2;
+    public const int LayerFail = 3;
+    public const int LayerSkip = 4;
+
+    // States of the key caps of SetOutputs.
+    public const int CapNeutral = KcDraw.CapNeutral;
+    public const int CapOk = KcDraw.CapOk;
+    public const int CapNg = KcDraw.CapNg;
+    public const int CapPending = KcDraw.CapPending;
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern uint GetRawInputDeviceInfo(IntPtr device, uint command, StringBuilder data, ref uint size);
+
+    [DllImport("user32.dll")]
+    static extern bool ClipCursor(ref RECT rect);
+
+    [DllImport("user32.dll", EntryPoint = "ClipCursor")]
+    static extern bool ClipCursorOff(IntPtr rect);
+
+    [DllImport("user32.dll")]
+    static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+
+    const uint RIDI_DEVICENAME = 0x20000007;
     const double RoomyHeight = 700; // window content height (DIP) from which the texts have full size
 
-    // Theme keys per key state (StateNormal .. StateSkip) and per status level (0 .. 3).
-    static readonly string[] KeyFill = { "KcKeyNormalFill", "KcKeyCurrentFill", "KcKeyPassFill", "KcKeyFailFill", "KcKeySkipFill" };
-    static readonly string[] KeyEdge = { "KcKeyNormalEdge", "KcKeyCurrentEdge", "KcKeyPassEdge", "KcKeyFailEdge", "KcKeySkipEdge" };
-    static readonly string[] KeyInk = { "KcKeyNormalInk", "KcKeyCurrentInk", "KcKeyPassInk", "KcKeyFailInk", "KcKeySkipInk" };
+    // Theme keys per chip kind (ChipLayer .. ChipCheck), per path kind and per overview state.
+    static readonly string[] ChipFill = { "KcKeyHoldFill", "KcKeyModFill", "KcKeyCurrentFill", "KcKeyComboFill", "KcLayerIdleFill", "KcKeyPassFill" };
+    static readonly string[] ChipEdge = { "KcKeyHoldEdge", "KcKeyModEdge", "KcKeyCurrentEdge", "KcKeyComboEdge", "KcLayerIdleEdge", "KcKeyPassEdge" };
+    static readonly string[] ChipInk = { "KcKeyHoldInk", "KcKeyModInk", "KcKeyCurrentInk", "KcKeyComboInk", "KcLayerIdleInk", "KcKeyPassInk" };
+    static readonly string[] PathFill = { "KcLayerIdleFill", "KcKeyHoldFill", "KcLayerOnFill", "KcKeyComboFill" };
+    static readonly string[] PathEdge = { "KcLayerIdleEdge", "KcKeyHoldEdge", "KcLayerOnEdge", "KcKeyComboEdge" };
+    static readonly string[] PathInk = { "KcLayerIdleInk", "KcKeyHoldInk", "KcLayerOnInk", "KcKeyComboInk" };
+    static readonly string[] OverviewFill = { "KcLayerIdleFill", "KcLayerOnFill", "KcOkTint", "KcNgTint", "KcKeySkipFill" };
+    static readonly string[] OverviewEdge = { "KcLayerIdleEdge", "KcLayerOnEdge", "KcOkEdge", "KcNgEdge", "KcKeySkipEdge" };
+    static readonly string[] OverviewInk = { "KcLayerIdleInk", "KcLayerOnInk", "KcOkInk", "KcNgInk", "KcKeySkipInk" };
+    // Theme keys per status level (0 .. 3).
     static readonly string[] StatusTint = { "KcInfoTint", "KcOkTint", "KcNgTint", "KcWarnTint" };
     static readonly string[] StatusEdge = { "KcInfoEdge", "KcOkEdge", "KcNgEdge", "KcWarnEdge" };
     static readonly string[] StatusMark = { "KcInfoMark", "KcOkMark", "KcNgMark", "KcWarnMark" };
@@ -468,7 +881,6 @@ public sealed class KcInputTestForm : IDisposable
 
     readonly object sync = new object();
     readonly List<KcInputEvent> events = new List<KcInputEvent>();
-    readonly List<KeyView> keys = new List<KeyView>();
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly Window window;
     readonly FrameworkElement root;
@@ -484,6 +896,22 @@ public sealed class KcInputTestForm : IDisposable
     readonly TextBlock legendPass;
     readonly TextBlock legendFail;
     readonly TextBlock legendSkip;
+    readonly FrameworkElement legendHoldItem;
+    readonly FrameworkElement legendModItem;
+    readonly FrameworkElement legendDangerItem;
+    readonly TextBlock legendHold;
+    readonly TextBlock legendMod;
+    readonly TextBlock legendDanger;
+    readonly FrameworkElement layerStrip;
+    readonly Panel layerPath;
+    readonly Panel layerOverview;
+    readonly TextBlock layerOverviewCaption;
+    readonly Panel sequencePanel;
+    readonly FrameworkElement outputPanel;
+    readonly TextBlock expectedCaption;
+    readonly TextBlock actualCaption;
+    readonly Panel expectedCaps;
+    readonly Panel actualCaps;
     readonly Border statusBanner;
     readonly Ellipse statusMark;
     readonly Path statusIcon;
@@ -494,19 +922,20 @@ public sealed class KcInputTestForm : IDisposable
     readonly Button retryButton;
     readonly Button skipButton;
     readonly Button abortButton;
-    readonly DropShadowEffect glow = new DropShadowEffect();
+    readonly KcKeyboardView keyboard;
+    readonly KcWinKeyMask winMask;
     readonly DispatcherTimer clipTimer = new DispatcherTimer();
     string action = "";
     string statusValue = "";
     int statusLevel = -1;
     int progressValue = -1;
     int progressMax;
+    string outputsSignature = "";
+    string overviewSignature = "";
     bool closed;
     bool confine;
     bool maskWin;
     IntPtr hwnd = IntPtr.Zero;
-    IntPtr hook = IntPtr.Zero;
-    LowLevelKeyboardProc hookProc;
 
     public KcInputTestForm()
     {
@@ -515,7 +944,9 @@ public sealed class KcInputTestForm : IDisposable
         root = content;
         window.Title = "keyboard-check";
         window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        KcUi.FitSize(window, 1100, 780, 800, 600);
+        // minimum height: with the steps of the behaviors test (layer strip, chips, key caps of the input)
+        // the keyboard picture still has room
+        KcUi.FitSize(window, 1100, 780, 800, 680);
         window.Topmost = true;
         InputMethod.SetIsInputMethodEnabled(window, false);
 
@@ -531,6 +962,22 @@ public sealed class KcInputTestForm : IDisposable
         legendPass = KcUi.Find<TextBlock>(root, "LegendPass");
         legendFail = KcUi.Find<TextBlock>(root, "LegendFail");
         legendSkip = KcUi.Find<TextBlock>(root, "LegendSkip");
+        legendHoldItem = KcUi.Find<FrameworkElement>(root, "LegendHoldItem");
+        legendModItem = KcUi.Find<FrameworkElement>(root, "LegendModItem");
+        legendDangerItem = KcUi.Find<FrameworkElement>(root, "LegendDangerItem");
+        legendHold = KcUi.Find<TextBlock>(root, "LegendHold");
+        legendMod = KcUi.Find<TextBlock>(root, "LegendMod");
+        legendDanger = KcUi.Find<TextBlock>(root, "LegendDanger");
+        layerStrip = KcUi.Find<FrameworkElement>(root, "LayerStrip");
+        layerPath = KcUi.Find<Panel>(root, "LayerPath");
+        layerOverview = KcUi.Find<Panel>(root, "LayerOverview");
+        layerOverviewCaption = KcUi.Find<TextBlock>(root, "LayerOverviewCaption");
+        sequencePanel = KcUi.Find<Panel>(root, "SequencePanel");
+        outputPanel = KcUi.Find<FrameworkElement>(root, "OutputPanel");
+        expectedCaption = KcUi.Find<TextBlock>(root, "ExpectedCaption");
+        actualCaption = KcUi.Find<TextBlock>(root, "ActualCaption");
+        expectedCaps = KcUi.Find<Panel>(root, "ExpectedCaps");
+        actualCaps = KcUi.Find<Panel>(root, "ActualCaps");
         statusBanner = KcUi.Find<Border>(root, "StatusBanner");
         statusMark = KcUi.Find<Ellipse>(root, "StatusMark");
         statusIcon = KcUi.Find<Path>(root, "StatusIcon");
@@ -548,10 +995,8 @@ public sealed class KcInputTestForm : IDisposable
 
         root.SizeChanged += delegate { FitTexts(); };
 
-        glow.Color = (Color)window.FindResource("KcKeyGlowColor");
-        glow.BlurRadius = 24;
-        glow.ShadowDepth = 0;
-        glow.Opacity = 0.9;
+        keyboard = new KcKeyboardView(window, keyboardCanvas);
+        winMask = new KcWinKeyMask(delegate { return maskWin ? hwnd : IntPtr.Zero; });
 
         window.PreviewKeyDown += KcUi.SwallowKey;
         window.PreviewKeyUp += KcUi.SwallowKey;
@@ -561,7 +1006,7 @@ public sealed class KcInputTestForm : IDisposable
         {
             closed = true;
             ReleaseClip();
-            RemoveHook();
+            winMask.Enable(false);
             clipTimer.Stop();
         };
         window.Deactivated += delegate { ReleaseClip(); };
@@ -712,73 +1157,168 @@ public sealed class KcInputTestForm : IDisposable
     // Keys of the physical layout (x / y / w / h in key units).
     public void SetKeys(int[] pos, double[] x, double[] y, double[] w, double[] h, string[] legends)
     {
-        keys.Clear();
-        keyboardCanvas.Children.Clear();
-        if (pos.Length == 0)
-        {
-            keyboardCanvas.Width = 0;
-            keyboardCanvas.Height = 0;
-            return;
-        }
-        double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
-        for (int i = 0; i < pos.Length; i++)
-        {
-            minX = Math.Min(minX, x[i]);
-            minY = Math.Min(minY, y[i]);
-            maxX = Math.Max(maxX, x[i] + w[i]);
-            maxY = Math.Max(maxY, y[i] + h[i]);
-        }
-        keyboardCanvas.Width = Math.Max(maxX - minX, 1) * KeyUnit;
-        keyboardCanvas.Height = Math.Max(maxY - minY, 1) * KeyUnit;
-        for (int i = 0; i < pos.Length; i++)
-        {
-            TextBlock text = new TextBlock();
-            text.Text = legends[i] ?? "";
-            text.FontSize = 19;
-            text.FontWeight = FontWeights.SemiBold;
-            text.TextAlignment = TextAlignment.Center;
-            // long legends shrink to fit the key, short ones keep the font size
-            Viewbox fit = new Viewbox();
-            fit.Stretch = Stretch.Uniform;
-            fit.StretchDirection = StretchDirection.DownOnly;
-            fit.Margin = new Thickness(7, 5, 7, 5);
-            fit.Child = text;
-            Border box = new Border();
-            box.Width = Math.Max(w[i] * KeyUnit - 2 * KeyGap, 1);
-            box.Height = Math.Max(h[i] * KeyUnit - 2 * KeyGap, 1);
-            box.CornerRadius = new CornerRadius(10);
-            box.Child = fit;
-            Canvas.SetLeft(box, (x[i] - minX) * KeyUnit + KeyGap);
-            Canvas.SetTop(box, (y[i] - minY) * KeyUnit + KeyGap);
-            keyboardCanvas.Children.Add(box);
-            KeyView k = new KeyView();
-            k.Pos = pos[i];
-            k.Box = box;
-            k.Legend = text;
-            keys.Add(k);
-            Paint(k);
-        }
+        keyboard.SetKeys(pos, x, y, w, h, legends);
     }
 
     public void SetKeyState(int pos, int state)
     {
-        foreach (KeyView k in keys)
-        {
-            if (k.Pos == pos)
-            {
-                k.State = state;
-                Paint(k);
-            }
-        }
+        keyboard.SetKeyState(pos, state);
     }
 
     public void ClearKeyStates()
     {
-        foreach (KeyView k in keys)
+        keyboard.ClearKeyStates();
+    }
+
+    // Legends of the keys of a layer (pos[i] gets legends[i]; a line break makes two lines). Keys not
+    // listed keep their legend.
+    public void SetKeyLegends(int[] pos, string[] legends)
+    {
+        keyboard.SetKeyLegends(pos, legends);
+    }
+
+    // Back to the legends given to SetKeys (the BASE layer).
+    public void ResetKeyLegends()
+    {
+        keyboard.ResetKeyLegends();
+    }
+
+    // Small badge on a key ("" hides it): order of the presses (1, 2, ...) or the tap count (x2).
+    public void SetKeyBadge(int pos, string text)
+    {
+        keyboard.SetKeyBadge(pos, text);
+    }
+
+    public void ClearKeyBadges()
+    {
+        keyboard.ClearKeyBadges();
+    }
+
+    // Texts of the extra swatches of the color legend (held layer key, held modifier, must not press);
+    // an empty text hides its swatch.
+    public void SetExtraLegendTexts(string hold, string mod, string danger)
+    {
+        legendHold.Text = hold ?? "";
+        legendMod.Text = mod ?? "";
+        legendDanger.Text = danger ?? "";
+        KcUi.SetVisible(legendHoldItem, legendHold.Text.Length > 0);
+        KcUi.SetVisible(legendModItem, legendMod.Text.Length > 0);
+        KcUi.SetVisible(legendDangerItem, legendDanger.Text.Length > 0);
+    }
+
+    // Layers the step goes through, in order, joined by arrows (kinds: PathStart .. PathSwitched).
+    // An empty array hides the path (and the strip when there is no overview either).
+    public void SetLayerPath(string[] names, int[] kinds)
+    {
+        layerPath.Children.Clear();
+        for (int i = 0; i < names.Length; i++)
         {
-            k.State = StateNormal;
-            Paint(k);
+            if (i > 0)
+            {
+                layerPath.Children.Add(KcDraw.Arrow(window));
+            }
+            int kind = i < kinds.Length ? KcDraw.Clamp(kinds[i], 0, PathFill.Length - 1) : PathStart;
+            Border chip = KcDraw.Chip(window, null, names[i], PathFill[kind], PathEdge[kind], PathInk[kind], 15);
+            chip.Margin = new Thickness(0, 2, 0, 2);
+            if (kind == PathTarget)
+            {
+                chip.BorderThickness = new Thickness(2);
+            }
+            layerPath.Children.Add(chip);
         }
+        UpdateLayerStrip();
+    }
+
+    // All layers as small chips with their result (states: LayerIdle .. LayerSkip). Does nothing when
+    // nothing changed. An empty array hides the overview.
+    public void SetLayerOverview(string caption, string[] names, int[] states)
+    {
+        StringBuilder sig = new StringBuilder(caption ?? "");
+        for (int i = 0; i < names.Length; i++)
+        {
+            sig.Append('|').Append(names[i]).Append(':').Append(i < states.Length ? states[i] : 0);
+        }
+        if (sig.ToString() == overviewSignature)
+        {
+            return;
+        }
+        overviewSignature = sig.ToString();
+        layerOverviewCaption.Text = names.Length > 0 ? (caption ?? "") : "";
+        layerOverview.Children.Clear();
+        for (int i = 0; i < names.Length; i++)
+        {
+            int s = i < states.Length ? KcDraw.Clamp(states[i], 0, OverviewFill.Length - 1) : LayerIdle;
+            Border chip = KcDraw.Chip(window, null, names[i], OverviewFill[s], OverviewEdge[s], OverviewInk[s], 12);
+            chip.Padding = new Thickness(8, 2, 8, 2);
+            chip.Margin = new Thickness(0, 2, 6, 2);
+            layerOverview.Children.Add(chip);
+        }
+        UpdateLayerStrip();
+    }
+
+    // The presses of the step as chips: captions[i] (small, e.g. "hold") above texts[i], colored by
+    // kinds[i] (ChipLayer .. ChipCheck); joiners[i] is put before chip i ("+" or "" for an arrow).
+    // An empty array hides the row.
+    public void SetSequence(string[] captions, string[] texts, int[] kinds, string[] joiners)
+    {
+        sequencePanel.Children.Clear();
+        for (int i = 0; i < texts.Length; i++)
+        {
+            if (i > 0)
+            {
+                string j = i < joiners.Length ? joiners[i] : "";
+                if (string.IsNullOrEmpty(j))
+                {
+                    sequencePanel.Children.Add(KcDraw.Arrow(window));
+                }
+                else
+                {
+                    TextBlock plus = new TextBlock();
+                    plus.Text = j;
+                    plus.FontSize = 18;
+                    plus.FontWeight = FontWeights.Bold;
+                    plus.Foreground = ThemeBrush("KcLayerArrow");
+                    plus.VerticalAlignment = VerticalAlignment.Center;
+                    plus.Margin = new Thickness(8, 0, 8, 0);
+                    sequencePanel.Children.Add(plus);
+                }
+            }
+            int kind = i < kinds.Length ? KcDraw.Clamp(kinds[i], 0, ChipFill.Length - 1) : ChipTap;
+            string caption = i < captions.Length ? captions[i] : "";
+            Border chip = KcDraw.Chip(window, caption, texts[i], ChipFill[kind], ChipEdge[kind], ChipInk[kind], 16);
+            chip.Margin = new Thickness(0, 3, 0, 3);
+            sequencePanel.Children.Add(chip);
+        }
+        KcUi.SetVisible(sequencePanel, texts.Length > 0);
+    }
+
+    // Expected and actual input as key caps (states: CapNeutral .. CapPending). emptyText is shown when
+    // there is no actual input yet. Does nothing when nothing changed (called on every check).
+    public void SetOutputs(string expectedTitle, string[] expected, int[] expectedStates,
+                           string actualTitle, string[] actual, int[] actualStates, string emptyText)
+    {
+        StringBuilder sig = new StringBuilder();
+        sig.Append(expectedTitle).Append('|').Append(actualTitle).Append('|').Append(emptyText);
+        KcDraw.AppendSignature(sig, expected, expectedStates);
+        KcDraw.AppendSignature(sig, actual, actualStates);
+        if (sig.ToString() == outputsSignature)
+        {
+            return;
+        }
+        outputsSignature = sig.ToString();
+        expectedCaption.Text = expectedTitle ?? "";
+        actualCaption.Text = actualTitle ?? "";
+        KcDraw.Caps(window, expectedCaps, expected, expectedStates, "");
+        KcDraw.Caps(window, actualCaps, actual, actualStates, emptyText);
+        outputPanel.Visibility = Visibility.Visible;
+    }
+
+    public void ClearOutputs()
+    {
+        outputsSignature = "";
+        expectedCaps.Children.Clear();
+        actualCaps.Children.Clear();
+        outputPanel.Visibility = Visibility.Collapsed;
     }
 
     // Returns the pressed button ("next" / "retry" / "skip" / "abort") once, or "".
@@ -830,15 +1370,7 @@ public sealed class KcInputTestForm : IDisposable
     public void MaskWinKey(bool on)
     {
         maskWin = on;
-        if (on && hook == IntPtr.Zero)
-        {
-            hookProc = HookCallback;
-            hook = SetWindowsHookEx(WH_KEYBOARD_LL, hookProc, GetModuleHandle(null), 0);
-        }
-        else if (!on)
-        {
-            RemoveHook();
-        }
+        winMask.Enable(on);
     }
 
     // Saves a picture of the window content as PNG (for the tests).
@@ -864,7 +1396,7 @@ public sealed class KcInputTestForm : IDisposable
     public void Dispose()
     {
         ReleaseClip();
-        RemoveHook();
+        winMask.Dispose();
         clipTimer.Stop();
         Close();
     }
@@ -876,25 +1408,24 @@ public sealed class KcInputTestForm : IDisposable
         return (Brush)window.FindResource(key);
     }
 
-    void Paint(KeyView k)
+    void UpdateLayerStrip()
     {
-        int s = k.State >= 0 && k.State < KeyFill.Length ? k.State : StateNormal;
-        k.Box.Background = ThemeBrush(KeyFill[s]);
-        k.Box.BorderBrush = ThemeBrush(KeyEdge[s]);
-        k.Box.BorderThickness = new Thickness(s == StateCurrent ? 3 : 1.5);
-        k.Box.Effect = s == StateCurrent ? glow : null;
-        Panel.SetZIndex(k.Box, s == StateCurrent ? 1 : 0);
-        k.Legend.Foreground = ThemeBrush(KeyInk[s]);
+        KcUi.SetVisible(layerStrip, layerPath.Children.Count > 0 || layerOverview.Children.Count > 0);
     }
 
     // On a low window (small screen, high scaling) the long instructions would push the keyboard
-    // picture out: the texts shrink with the height (down to 72 %).
+    // picture out: the texts shrink with the height (down to 72 %), and so do the layer strip, the
+    // chips of the presses and the key caps of the input (with the steps of the behaviors test).
     void FitTexts()
     {
         double f = Math.Max(0.72, Math.Min(1.0, root.ActualHeight / RoomyHeight));
         instructionText.FontSize = 26 * f;
         detailText.FontSize = 15 * f;
         statusText.FontSize = 16 * f;
+        ScaleTransform scale = new ScaleTransform(f, f);
+        layerStrip.LayoutTransform = scale;
+        sequencePanel.LayoutTransform = scale;
+        outputPanel.LayoutTransform = scale;
     }
 
     void OnSourceInitialized(object sender, EventArgs e)
@@ -969,34 +1500,6 @@ public sealed class KcInputTestForm : IDisposable
     void ReleaseClip()
     {
         ClipCursorOff(IntPtr.Zero);
-    }
-
-    void RemoveHook()
-    {
-        if (hook != IntPtr.Zero)
-        {
-            UnhookWindowsHookEx(hook);
-            hook = IntPtr.Zero;
-        }
-    }
-
-    IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
-    {
-        if (nCode >= 0 && maskWin && hwnd != IntPtr.Zero && GetForegroundWindow() == hwnd)
-        {
-            int msg = wParam.ToInt32();
-            if (msg == WM_KEYDOWN || msg == KcUi.WM_SYSKEYDOWN)
-            {
-                KBDLLHOOKSTRUCT k = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
-                if ((k.Flags & LLKHF_INJECTED) == 0 && (k.VkCode == 0x5B || k.VkCode == 0x5C))
-                {
-                    // A key event while Win is held keeps Windows from opening the Start menu on release.
-                    keybd_event(VK_MASK, 0, 0, UIntPtr.Zero);
-                    keybd_event(VK_MASK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                }
-            }
-        }
-        return CallNextHookEx(hook, nCode, wParam, lParam);
     }
 }
 
@@ -1368,6 +1871,395 @@ public sealed class KcInputMonitorForm : IDisposable
                 events.Add(e);
             }
         }
+    }
+}
+
+// The window of keyboard-check.ps1 -Mode Trace: how the layers change and how each pressed key is
+// resolved, read from the log of the ZMK logging firmware (the log is parsed in PowerShell, zmk-log.ps1).
+// Driven by a PowerShell polling loop (KcUi.DoEvents) like KcInputTestForm. It is not topmost and does not
+// record Raw Input; keys typed while it is in front are swallowed and the Win key is masked.
+public sealed class KcLayerTraceForm : IDisposable
+{
+    // States of the layer chips (SetLayers).
+    public const int LayerOff = 0;
+    public const int LayerOn = 1;
+    public const int LayerTop = 2;
+    // States of the rows of the resolution (SetResolve).
+    public const int RowSkipped = 0;   // active, not looked at (below the resolved layer)
+    public const int RowTrans = 1;     // &trans: went on to the next layer
+    public const int RowResolved = 2;  // the binding was taken from this layer
+    public const int RowMismatch = 3;  // the log names another behavior than the expected values
+
+    const int MaxTimeline = 400;
+
+    static readonly string[] LayerFill = { "KcLayerIdleFill", "KcKeyHoldFill", "KcLayerOnFill" };
+    static readonly string[] LayerEdge = { "KcLayerIdleEdge", "KcKeyHoldEdge", "KcLayerOnEdge" };
+    static readonly string[] LayerInk = { "KcLayerIdleInk", "KcKeyHoldInk", "KcLayerOnInk" };
+    static readonly string[] RowFill = { "KcLayerIdleFill", "KcKeySkipFill", "KcLayerOnFill", "KcNgTint" };
+    static readonly string[] RowEdge = { "KcLayerIdleEdge", "KcKeySkipEdge", "KcLayerOnEdge", "KcNgEdge" };
+    static readonly string[] RowInk = { "KcLayerIdleInk", "KcKeySkipInk", "KcLayerOnInk", "KcNgInk" };
+    static readonly string[] Marks = { "KcTextFaint", "KcOkMark", "KcNgMark", "KcWarnMark" };
+    static readonly string[] StatusInk = { "KcTextMuted", "KcOkMark", "KcNgMark", "KcWarnMark" };
+
+    readonly Window window;
+    readonly FrameworkElement root;
+    readonly TextBlock titleText;
+    readonly TextBlock keyboardText;
+    readonly Ellipse portMark;
+    readonly TextBlock portText;
+    readonly TextBlock layersCaption;
+    readonly Panel layerChips;
+    readonly TextBlock hintText;
+    readonly TextBlock pictureCaption;
+    readonly TextBlock resolveTitle;
+    readonly Panel cascadePanel;
+    readonly Panel stepsPanel;
+    readonly TextBlock outputCaption;
+    readonly Panel outputCaps;
+    readonly TextBlock timelineCaption;
+    readonly ListBox timeline;
+    readonly TextBlock statusText;
+    readonly Button stopButton;
+    readonly Button pauseButton;
+    readonly Button clearButton;
+    readonly Button saveButton;
+    readonly KcKeyboardView keyboard;
+    readonly KcWinKeyMask winMask;
+    string action = "";
+    string layersSignature = "";
+    string resolveSignature = "";
+    bool selectionChanged;
+    bool closed;
+    IntPtr hwnd = IntPtr.Zero;
+
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+
+    public KcLayerTraceForm()
+    {
+        FrameworkElement content;
+        window = KcUi.CreateWindow("LayerTraceWindow.xaml", out content);
+        root = content;
+        window.Title = "keyboard-check";
+        window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        KcUi.FitSize(window, 1200, 840, 860, 620);
+        InputMethod.SetIsInputMethodEnabled(window, false);
+
+        titleText = KcUi.Find<TextBlock>(root, "TitleText");
+        keyboardText = KcUi.Find<TextBlock>(root, "KeyboardText");
+        portMark = KcUi.Find<Ellipse>(root, "PortMark");
+        portText = KcUi.Find<TextBlock>(root, "PortText");
+        layersCaption = KcUi.Find<TextBlock>(root, "LayersCaption");
+        layerChips = KcUi.Find<Panel>(root, "LayerChips");
+        hintText = KcUi.Find<TextBlock>(root, "HintText");
+        pictureCaption = KcUi.Find<TextBlock>(root, "PictureCaption");
+        resolveTitle = KcUi.Find<TextBlock>(root, "ResolveTitle");
+        cascadePanel = KcUi.Find<Panel>(root, "CascadePanel");
+        stepsPanel = KcUi.Find<Panel>(root, "StepsPanel");
+        outputCaption = KcUi.Find<TextBlock>(root, "OutputCaption");
+        outputCaps = KcUi.Find<Panel>(root, "OutputCaps");
+        timelineCaption = KcUi.Find<TextBlock>(root, "TimelineCaption");
+        timeline = KcUi.Find<ListBox>(root, "Timeline");
+        statusText = KcUi.Find<TextBlock>(root, "StatusText");
+        stopButton = KcUi.Find<Button>(root, "StopButton");
+        pauseButton = KcUi.Find<Button>(root, "PauseButton");
+        clearButton = KcUi.Find<Button>(root, "ClearButton");
+        saveButton = KcUi.Find<Button>(root, "SaveButton");
+        SetupButton(stopButton, "stop");
+        SetupButton(pauseButton, "pause");
+        SetupButton(clearButton, "clear");
+        SetupButton(saveButton, "save");
+        timeline.SelectionChanged += delegate { selectionChanged = true; };
+
+        keyboard = new KcKeyboardView(window, KcUi.Find<Canvas>(root, "KeyboardCanvas"));
+        winMask = new KcWinKeyMask(delegate { return hwnd; });
+
+        window.PreviewKeyDown += KcUi.SwallowKey;
+        window.PreviewKeyUp += KcUi.SwallowKey;
+        window.PreviewTextInput += KcUi.SwallowText;
+        window.SourceInitialized += OnSourceInitialized;
+        window.Closed += delegate
+        {
+            closed = true;
+            winMask.Enable(false);
+        };
+    }
+
+    void SetupButton(Button button, string name)
+    {
+        button.Click += delegate { action = name; };
+    }
+
+    // ---- called from PowerShell ----
+
+    public Window Window { get { return window; } }
+
+    public bool IsClosed { get { return closed; } }
+
+    public bool IsForeground { get { return hwnd != IntPtr.Zero && GetForegroundWindow() == hwnd; } }
+
+    public void Show()
+    {
+        window.Show();
+    }
+
+    public void Activate()
+    {
+        window.Activate();
+    }
+
+    public void Close()
+    {
+        if (!closed && hwnd != IntPtr.Zero)
+        {
+            window.Close();
+        }
+    }
+
+    public void SetButtonTexts(string stop, string pause, string clear, string save)
+    {
+        stopButton.Content = stop ?? "";
+        pauseButton.Content = pause ?? "";
+        clearButton.Content = clear ?? "";
+        saveButton.Content = save ?? "";
+    }
+
+    public void SetTexts(string title, string hint)
+    {
+        titleText.Text = title ?? "";
+        hintText.Text = hint ?? "";
+        KcUi.SetVisible(hintText, hintText.Text.Length > 0);
+    }
+
+    public void SetCaptions(string layers, string picture, string output, string timelineTitle)
+    {
+        layersCaption.Text = layers ?? "";
+        pictureCaption.Text = picture ?? "";
+        outputCaption.Text = output ?? "";
+        timelineCaption.Text = timelineTitle ?? "";
+    }
+
+    // Caption of the keyboard picture (which layer it shows).
+    public void SetPictureCaption(string text)
+    {
+        pictureCaption.Text = text ?? "";
+    }
+
+    public void SetKeyboardName(string text)
+    {
+        keyboardText.Text = text ?? "";
+    }
+
+    // level: 0 = neutral, 1 = ok (receiving), 2 = ng, 3 = warning
+    public void SetPort(string text, int level)
+    {
+        portText.Text = text ?? "";
+        portMark.Fill = KcDraw.Res(window, Marks[KcDraw.Clamp(level, 0, Marks.Length - 1)]);
+    }
+
+    public void SetStatus(string text, int level)
+    {
+        statusText.Text = text ?? "";
+        statusText.Foreground = KcDraw.Res(window, StatusInk[KcDraw.Clamp(level, 0, StatusInk.Length - 1)]);
+    }
+
+    public void SetKeys(int[] pos, double[] x, double[] y, double[] w, double[] h, string[] legends)
+    {
+        keyboard.SetKeys(pos, x, y, w, h, legends);
+    }
+
+    public void SetKeyState(int pos, int state)
+    {
+        keyboard.SetKeyState(pos, state);
+    }
+
+    public void ClearKeyStates()
+    {
+        keyboard.ClearKeyStates();
+    }
+
+    public void SetKeyLegends(int[] pos, string[] legends)
+    {
+        keyboard.SetKeyLegends(pos, legends);
+    }
+
+    // All layers as chips (states: LayerOff / LayerOn / LayerTop). Does nothing when nothing changed.
+    public void SetLayers(string[] names, int[] states)
+    {
+        StringBuilder sig = new StringBuilder();
+        KcDraw.AppendSignature(sig, names, states);
+        if (sig.ToString() == layersSignature)
+        {
+            return;
+        }
+        layersSignature = sig.ToString();
+        layerChips.Children.Clear();
+        for (int i = 0; i < names.Length; i++)
+        {
+            int s = i < states.Length ? KcDraw.Clamp(states[i], 0, LayerFill.Length - 1) : LayerOff;
+            Border chip = KcDraw.Chip(window, null, names[i], LayerFill[s], LayerEdge[s], LayerInk[s], 14);
+            chip.Margin = new Thickness(0, 2, 8, 2);
+            if (s == LayerTop)
+            {
+                chip.BorderThickness = new Thickness(2);
+            }
+            layerChips.Children.Add(chip);
+        }
+    }
+
+    // How a key was resolved: one row per layer from the top (rowLayers[i] / rowTexts[i], states RowSkipped ..
+    // RowMismatch), the steps of the behavior and the keys sent. Does nothing when nothing changed.
+    public void SetResolve(string title, string[] rowLayers, string[] rowTexts, int[] rowStates, string[] steps,
+                           string[] outputs, string emptyOutput)
+    {
+        StringBuilder sig = new StringBuilder(title ?? "");
+        KcDraw.AppendSignature(sig, rowLayers, rowStates);
+        KcDraw.AppendSignature(sig, rowTexts, new int[0]);
+        KcDraw.AppendSignature(sig, steps, new int[0]);
+        KcDraw.AppendSignature(sig, outputs, new int[0]);
+        if (sig.ToString() == resolveSignature)
+        {
+            return;
+        }
+        resolveSignature = sig.ToString();
+        resolveTitle.Text = title ?? "";
+        cascadePanel.Children.Clear();
+        for (int i = 0; i < rowLayers.Length; i++)
+        {
+            int s = i < rowStates.Length ? KcDraw.Clamp(rowStates[i], 0, RowFill.Length - 1) : RowSkipped;
+            Border chip = KcDraw.Chip(window, null, rowLayers[i], RowFill[s], RowEdge[s], RowInk[s], 13);
+            chip.MinWidth = 110;
+            chip.Margin = new Thickness(0, 0, 10, 0);
+            TextBlock text = new TextBlock();
+            text.Text = i < rowTexts.Length ? (rowTexts[i] ?? "") : "";
+            text.FontSize = 14;
+            text.TextWrapping = TextWrapping.Wrap;
+            text.VerticalAlignment = VerticalAlignment.Center;
+            text.Foreground = KcDraw.Res(window, s == RowResolved ? "KcText" : "KcTextMuted");
+            if (s == RowResolved || s == RowMismatch)
+            {
+                text.FontWeight = FontWeights.SemiBold;
+            }
+            DockPanel row = new DockPanel();
+            row.Margin = new Thickness(0, 0, 0, 6);
+            DockPanel.SetDock(chip, Dock.Left);
+            row.Children.Add(chip);
+            row.Children.Add(text);
+            cascadePanel.Children.Add(row);
+        }
+        stepsPanel.Children.Clear();
+        for (int i = 0; i < steps.Length; i++)
+        {
+            TextBlock t = new TextBlock();
+            t.Text = steps[i] ?? "";
+            t.FontSize = 14;
+            t.TextWrapping = TextWrapping.Wrap;
+            t.Margin = new Thickness(0, 2, 0, 2);
+            t.Foreground = KcDraw.Res(window, "KcText");
+            stepsPanel.Children.Add(t);
+        }
+        int[] none = new int[outputs.Length];
+        KcDraw.Caps(window, outputCaps, outputs, none, emptyOutput);
+    }
+
+    // Adds a line at the top of the timeline (the newest first).
+    public void AddTimeline(string line)
+    {
+        timeline.Items.Insert(0, line ?? "");
+        while (timeline.Items.Count > MaxTimeline)
+        {
+            timeline.Items.RemoveAt(timeline.Items.Count - 1);
+        }
+    }
+
+    // Rewrites a line of the timeline (fromTop: 0 = the newest), e.g. when more log lines of the key came.
+    public void SetTimelineLine(int fromTop, string text)
+    {
+        if (fromTop < 0 || fromTop >= timeline.Items.Count)
+        {
+            return;
+        }
+        string line = text ?? "";
+        if (line == (timeline.Items[fromTop] as string))
+        {
+            return;
+        }
+        int selected = timeline.SelectedIndex;
+        bool changed = selectionChanged;
+        timeline.Items[fromTop] = line;
+        if (selected == fromTop)
+        {
+            timeline.SelectedIndex = selected;
+        }
+        selectionChanged = changed;
+    }
+
+    public void ClearTimeline()
+    {
+        timeline.Items.Clear();
+    }
+
+    // Index of the selected line (0 = the newest), or -1.
+    public int SelectedIndex { get { return timeline.SelectedIndex; } }
+
+    // True once after the user selected another line.
+    public bool TakeSelectionChanged()
+    {
+        bool c = selectionChanged;
+        selectionChanged = false;
+        return c;
+    }
+
+    public void ClearSelection()
+    {
+        timeline.SelectedIndex = -1;
+        selectionChanged = false;
+    }
+
+    // Returns the pressed button ("stop" / "pause" / "clear" / "save") once, or "". "stop" once closed.
+    public string TakeAction()
+    {
+        string a = action;
+        action = "";
+        if (closed && a.Length == 0)
+        {
+            return "stop";
+        }
+        return a;
+    }
+
+    public void MaskWinKey(bool on)
+    {
+        winMask.Enable(on);
+    }
+
+    public void SaveSnapshot(string path)
+    {
+        KcUi.SaveSnapshot(root, path);
+    }
+
+    public void Dispose()
+    {
+        winMask.Dispose();
+        Close();
+    }
+
+    // ---- internals ----
+
+    void OnSourceInitialized(object sender, EventArgs e)
+    {
+        hwnd = new WindowInteropHelper(window).Handle;
+        KcUi.ApplyDarkTitleBar(hwnd);
+        HwndSource.FromHwnd(hwnd).AddHook(WndProc);
+    }
+
+    IntPtr WndProc(IntPtr h, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (KcUi.FilterSystemKeys(msg, wParam))
+        {
+            handled = true;
+        }
+        return IntPtr.Zero;
     }
 }
 

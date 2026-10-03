@@ -66,6 +66,59 @@
   <SolidColorBrush x:Key="KcKeySkipEdge" Color="#475569"/>
   <SolidColorBrush x:Key="KcKeySkipInk" Color="#64748B"/>
   <Color x:Key="KcKeyGlowColor">#3B82F6</Color>
+  <!-- keys held during a step: layer keys (violet) and modifiers (amber); keys pressed together (teal) -->
+  <SolidColorBrush x:Key="KcKeyHoldFill" Color="#2E1065"/>
+  <SolidColorBrush x:Key="KcKeyHoldEdge" Color="#A78BFA"/>
+  <SolidColorBrush x:Key="KcKeyHoldInk" Color="#F5F3FF"/>
+  <SolidColorBrush x:Key="KcKeyModFill" Color="#451A03"/>
+  <SolidColorBrush x:Key="KcKeyModEdge" Color="#F59E0B"/>
+  <SolidColorBrush x:Key="KcKeyModInk" Color="#FEF3C7"/>
+  <SolidColorBrush x:Key="KcKeyComboFill" Color="#042F2E"/>
+  <SolidColorBrush x:Key="KcKeyComboEdge" Color="#2DD4BF"/>
+  <SolidColorBrush x:Key="KcKeyComboInk" Color="#CCFBF1"/>
+  <!-- keys that must not be pressed (bootloader, reset, Bluetooth): red stripes -->
+  <DrawingBrush x:Key="KcKeyDangerFill" TileMode="Tile" Viewport="0,0,12,12" ViewportUnits="Absolute">
+    <DrawingBrush.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="#1F0A0E">
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="0,0,12,12"/>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Pen>
+            <Pen Brush="#7F1D1D" Thickness="3"/>
+          </GeometryDrawing.Pen>
+          <GeometryDrawing.Geometry>
+            <GeometryGroup>
+              <LineGeometry StartPoint="0,12" EndPoint="12,0"/>
+              <LineGeometry StartPoint="-6,6" EndPoint="6,-6"/>
+              <LineGeometry StartPoint="6,18" EndPoint="18,6"/>
+            </GeometryGroup>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+  <SolidColorBrush x:Key="KcKeyDangerEdge" Color="#EF4444"/>
+  <SolidColorBrush x:Key="KcKeyDangerInk" Color="#FCA5A5"/>
+  <!-- small badge on a key: order of the presses, tap count -->
+  <SolidColorBrush x:Key="KcBadgeFill" Color="#FBBF24"/>
+  <SolidColorBrush x:Key="KcBadgeInk" Color="#0F172A"/>
+
+  <!-- layer chips: the path of the current step and the overview of all layers -->
+  <SolidColorBrush x:Key="KcLayerIdleFill" Color="#1E293B"/>
+  <SolidColorBrush x:Key="KcLayerIdleEdge" Color="#334155"/>
+  <SolidColorBrush x:Key="KcLayerIdleInk" Color="#94A3B8"/>
+  <SolidColorBrush x:Key="KcLayerOnFill" Color="#1D4ED8"/>
+  <SolidColorBrush x:Key="KcLayerOnEdge" Color="#93C5FD"/>
+  <SolidColorBrush x:Key="KcLayerOnInk" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="KcLayerArrow" Color="#64748B"/>
+
+  <!-- key caps of the expected / actual input -->
+  <SolidColorBrush x:Key="KcCapFill" Color="#273449"/>
+  <SolidColorBrush x:Key="KcCapEdge" Color="#64748B"/>
+  <SolidColorBrush x:Key="KcCapInk" Color="#F1F5F9"/>
 
   <!-- the corner between the two scroll bars of a ScrollViewer uses this system brush -->
   <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#1E293B"/>
@@ -311,6 +364,19 @@
     <Setter Property="BorderThickness" Value="1.5"/>
     <Setter Property="Margin" Value="18,0,6,0"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <Style x:Key="KcLegendItem" TargetType="StackPanel">
+    <Setter Property="Orientation" Value="Horizontal"/>
+    <Setter Property="Visibility" Value="Collapsed"/>
+  </Style>
+
+  <Style x:Key="KcSectionCaption" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{StaticResource KcTextFaint}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="0,0,10,0"/>
   </Style>
 
   <Style x:Key="KcLegendText" TargetType="TextBlock">

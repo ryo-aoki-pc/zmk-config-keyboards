@@ -248,7 +248,9 @@ powershell -ExecutionPolicy Bypass -File tools\flash-keyball.ps1 [<ファイル.
 | roBa | `https://github.com/ryo-aoki-pc/zmk-config-roBa/releases/download/firmware-latest/<artifact-name>.uf2` |
 | torabo-tsuki-lp | `https://github.com/ryo-aoki-pc/zmk-keyboard-torabo-tsuki-lp/releases/download/firmware-latest/<artifact-name>.uf2` |
 
-ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、全エントリ (左右・Studio 版・設定リセット) が置かれます。
+ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、全エントリ (左右・Studio 版・ログ版・設定リセット) が置かれます。
+ログ版 (`<セントラル>_logging`) は、USB の COM ポートにデバッグログを出す右手側のファームで、
+[レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) で使います。
 
 - 公開リポジトリのリリースなので、ログインや gh CLI は不要
 - Actions の Artifacts と違い、90 日で期限切れにならない
@@ -309,6 +311,8 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 
 2. 書き込むファイルの一覧が出るので、確認して Enter を押す。ここで次の切り替えもできる
    - `s`: 右手側を ZMK Studio 対応版にするか (既定は通常版)
+   - `g`: 右手側をログ版 (`_logging`。[レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) 用) にするか。
+     Studio 版とログ版は、どちらか一方だけ。調べ終わったら通常版に戻す
    - `r` / `l` (LisM のみ): 右 / 左のトラックボール有無 (既定は左右ともトラックボールあり)
 3. スクリプトが必要なファイルを [`firmware-latest`](#最新ファームウェアの取得元-firmware-latest-リリース) からまとめてダウンロードする
 4. 「[1/2] 右手側にセントラルを書き込みます」のように表示されたら、**表示された側の** XIAO をブートローダにする
@@ -328,7 +332,7 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 コマンドラインから実行する場合 (`-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに書き込む):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
+powershell -ExecutionPolicy Bypass -File tools\flash-zmk.ps1 [-Keyboard LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode Both|ResetBoth|Right|Left|ResetOnly] [-Studio | -Logging] [-RightVariant trackball|non_trackball] [-LeftVariant trackball|non_trackball]
 ```
 
 #### エクスプローラでのコピー時に「予期しないエラー」が出る場合
@@ -403,10 +407,24 @@ powershell -ExecutionPolicy Bypass -File tools\flash-uf2.ps1 <ファイル.uf2> 
 - Vial / ZMK Studio で変えた内容が、キーボードに残っている
 - Keyball の CPI やスクロールの倍率が、EEPROM に古い値のまま残っている (ファームを書き直しても戻らない)
 - overlay の XY / スクロールの反転、AML の設定が意図と違う
+- レイヤーの移動・長押し・モッドモーフ・タップダンス・`&to` の切り替えが、押したときに意図どおりに動かない
+  (ビヘイビアの中身はファームに焼き込まれていて、読み出し検査では確かめられない)
+
+ZMK のキーボードでは、自由に押したキーのレイヤーの遷移と解決を見ることもできます ([レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム))。
 
 ### 使い方
 
 1. `tools/keyboard-check.cmd` をダブルクリックし、機種と検査の内容を番号で選ぶ。接続中の機種には「検出」と表示される
+
+   | 番号 | 検査の内容 |
+   | --- | --- |
+   | 1 (Enter) | 読み出し検査 + 実動作テスト (キーのタップ → レイヤー・ビヘイビア → トラックボール → 正規化) |
+   | 2 | 読み出し検査だけ |
+   | 3 | 実動作テストだけ |
+   | 4 | トラックボールの正規化だけ (楕円・速さ) |
+   | 5 | レイヤー・タップダンス・モッドモーフ・コンボだけ |
+   | 6 | [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) (ZMK のログ版ファーム。合否は出さない) |
+
 2. 読み出し検査のあと、テスト用のウィンドウが開く。ウィンドウの指示に従って、キーを押したりボールを転がしたりする
 3. 最後に PASS / FAIL / WARN / SKIP の一覧が出る。結果は `tools/.cache/keyboard-check/reports/` にも保存される
 
@@ -449,6 +467,71 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
 - AML 中の `F` は ZMK では文字になる (`zip_temp_layer` が keymap より先に AML を切る) ので、AML が切れたかは `D` (AML 中はスクロールのキー) を押したまま `F` で確かめる
 - Win / Alt でも AML が切れるが、AML 中でも BASE でも同じキーが出るため、実動作テストでは確かめない (設定ファイルの整合と、Keyball のキーマップの読み出しで確かめる)
 - テスト中は、Win キーでスタートメニューが開かず、キーボードから送られたクリックはウィンドウの中だけで起きるようにしてある
+
+### レイヤー・ビヘイビアのテスト
+
+キーのタップの次に、レイヤーやビヘイビアを手順どおりに押して、PC に届いた入力を確かめます (メニューの 5 だけでもできる)。
+手順と「期待する入力」は、submodule のキーマップから ZMK の動きを真似て作ったもの (`tools/expected/behaviors.py`) です。
+
+| 種類 | 押すもの | LisM の例 |
+| --- | --- | --- |
+| レイヤーの移動 (押したまま) | `&mo` / `&lt` のキーを押したまま、そのレイヤーのキー。入り方 (どのレイヤーキーか) ごとに 1〜2 キー | `SYM` + `Q` → `1`、`Space` 長押し + `H` → `←`、`VIM_BASE` + `SYM` + `P` → `Home`、`FUNC` + `R` → `F4` |
+| 長押し (mod-tap) | `&mt` のキーを押したまま、反対の手のキー | `A` 長押し + `H` → `Ctrl+H` |
+| モッドモーフ | 修飾キーなし / あり (レイヤーの中の Ctrl / Shift のキーを押したまま) | `VIM_BASE` + `U` → `Ctrl+Z`、`VIM_BASE` + `A` (Ctrl) + `U` → `PgUp` (Ctrl は付かない) |
+| タップダンス | 決まった回数だけ素早くタップ | `VIM_BASE` + `D` を 2 回 → `Home`、`Shift+End`、`Ctrl+X` |
+| レイヤーの切り替え (`&to`) | 切り替わるキー → 全部離す → そのレイヤーのキー → … → BASE に戻るキー → BASE の文字 | `VIM_BASE` + `V` → 離して `N` → `F3`、`SYM` + `P` → `Shift+Home` (VIM_VIS_SYM)、`V` → `→` (BASE に戻る)、`Q` → `Q` |
+| コンボ | 同時に押す | (今はどの機種にもコンボが無いので「コンボは定義されていません」と INFO。キーマップに足せば自動でテストに入る) |
+
+テスト用のウィンドウには、手順をグラフィカルに表示します。
+
+- **レイヤーの帯**: この手順で通るレイヤー (`BASE → VIM_BASE → VIM_VISUAL`) と、全レイヤーの結果 (合格は緑、違いは赤)
+- **手順のチップ**: 押したまま (レイヤーは紫、修飾キーは橙) + タップ (青) → …
+- **キーボードの図**: その手順のレイヤーの表示に切り替わる。押すキーには押す順のバッジ (`1` `2` `×2`) が付き、押さないキー (bootloader / reset / Bluetooth) は赤の斜線
+- **期待する入力と実際の入力**: キーキャップで並べ、押すたびに更新する (一致は緑、違いは赤)
+
+判定と安全:
+
+- 順番だけで比べる (時刻は見ない)。修飾キーは左右を区別せず、修飾キーだけの出入り (モッドモーフのマスクなど) は数えない。
+  マクロの途中でモーフのキーを先に離したときに付く修飾キー (`Ctrl+X` に付く Shift など) は、付いていても合格
+- 違ったら 1 回だけやり直す。ボールやマウスが動いた (AML になった) ときは、失敗にせずやり直す
+- `&to` の手順で失敗・スキップ・中止したときは、BASE に戻す手順 (`V` → `Q` など) を案内し、戻ったことを確かめてから続ける
+- 押すとキーボードの状態が変わるキー (bootloader / reset / Bluetooth / 出力切り替え) とその隣のキーは、手順に入れない
+  (FUNC レイヤーは F4 / F6 などで確かめる)。BT レイヤーと AML のレイヤー (MOUS / SCRL) はこのテストの対象外。
+  Win / Alt を押したままにする手順や、`Ctrl+Esc` などシステムが反応する組み合わせも作らない
+- マクロは `Ctrl+X` / `Ctrl+V` などを送るので、手順の前に毎回、テスト用のウィンドウが前面かを確かめる (前面でなければクリックを促す)
+- 読み出し検査でキーの割り当てが違っていた位置を使う手順は飛ばす
+- **KQ-mini**: LisM の手順を Keyball39 の位置に置き換えて、KQ-mini + Keyball39 が LisM と同じに動くかを確かめる。
+  キーオーバーライド (モッドモーフ) は、修飾キーより先にタップしたキーを離す。Keyball39 (PC に直結) は BASE を送るだけなので対象外
+
+### レイヤーの動きを見る (ログ版ファーム)
+
+ZMK のキーボードで、**自由に押したキー**がどのレイヤーで、どう解決されたかを表示します (メニューの 6、または `-Mode Trace`)。
+PC に届く入力だけでは、レイヤーキーを押した瞬間や `&trans` のフォールスルーは見えないので、キーボードが USB の COM ポートに出す
+デバッグログ (ZMK の `zmk-usb-logging`) を読みます。合否は出しません。
+
+準備:
+
+1. 右手側 (セントラル) にログ版を書き込む: `tools/flash-zmk.cmd` で機種と「3. 右手側 (セントラル) だけ」を選び、ファイルの一覧で `g`
+   (`-Logging`)。ログ版は ZMK Studio が入っていない
+2. 右手側を USB でつなぐ (BLE ではログが出ない)
+3. 調べ終わったら、通常版 (または Studio 版) に戻す (ログ版はログを出す分だけ処理が増える)
+
+ウィンドウの見方:
+
+- **レイヤー**: 有効なレイヤーが点灯し、有効な最上位のレイヤーを強調する
+- **キーボードの図**: 有効な最上位のレイヤーの表示に切り替わり、押しているキーが光る (レイヤーキーは紫)
+- **最後に押したキーの解決** (時系列の行を選ぶと、その行の解決): 上のレイヤーから順に、`&trans` で下へ行ったレイヤー・
+  バインディングが決まったレイヤー・見なかったレイヤーを並べる。続けて、ビヘイビアの中
+  (ホールドタップがタップかホールドか・何で決まったか、タップダンスの回数と決まり方、モッドモーフでどちらになったか、
+  `&mo` / `&to` とレイヤーのオン・オフ) と、送ったキーのキーキャップ
+- **時系列**: 押す / 離すごとに 1 行 (新しい順)。ボールで AML になったときなど、キーと関係なくレイヤーが変わったときも 1 行
+- 「ログを保存」で、生のログと時系列を `tools/.cache/keyboard-check/trace/` に保存する
+
+- このウィンドウを前面にしておくと、押したキーはどこにも入力されない (Win キーでスタートメニューも開かない)
+- モッドモーフの分岐はログに出ないので、押したときの修飾キーと期待値の定義から決める。
+  ログのビヘイビアの名前が期待値と違うときは、赤で「期待値と違う」と出る (古いファームや、キーマップが違うファーム)
+- ボールを動かすとログが増えて欠けることがある。欠けたら下の行に件数が出るので、ボールに触れずに押し直す
+- 左手側 (ペリフェラル) のキーは、ログに押す / 離すの区別が出ないので、交互に数える。ログが欠けて押す / 離すが逆になったら、キーを全部離して「クリア」を押す
 
 ### トラックボールの正規化 (楕円補正・速さ)
 
@@ -495,6 +578,8 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
 | AML のクリックが FAIL (文字が入力された) | AML (ZMK の `zip_temp_layer` / `aml_threshold`、Keyball の `AUTO_MOUSE_*`) が動いていない。ボールの動きが小さすぎたときは FAIL ではなくやり直しになる |
 | AML のしきい値が FAIL (わずかな動きでクリックになった) | しきい値の無い古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む |
 | Keyball39 の AML のしきい値が SKIP / FAIL | SKIP はしきい値の無い古いファーム、FAIL は `config.h` の `KEYBALL_AML_THRESHOLD` が違うファーム。`tools/flash-keyball.cmd` で最新のファームを書き込む |
+| レイヤー・ビヘイビアのテストが FAIL (ZMK) | ファームが古いか、キーマップのビヘイビア (mod-morph の mods、tap-dance、マクロ) が意図と違う。`tools/flash-zmk.cmd` で最新のファームを書き込む。どこで違うかは [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) で確かめられる |
+| レイヤー・ビヘイビアのテストが FAIL (KQ-mini) | Vial で変えたタップダンス・キーオーバーライド・マクロが残っている。Vial の「File → Load saved layout」で `KEYMAP.vil` を読み込む。モッドモーフの手順は、修飾キーより先にタップしたキーを離してやり直す |
 | AML の Ctrl / Shift での解除が FAIL (修飾キーだけが入力された) | Ctrl / Shift で AML を解除しない古いファームが書き込まれている。`tools/flash-*.cmd` で最新のファームを書き込む。長押しになった場合 (Ctrl / Shift になる) は、短く押してやり直す |
 | 読み出し検査は PASS なのに、タップホールドや AML の動作が意図と違う | [入力イベントを記録して調べる](#入力イベントを記録して調べる-toolsinput-monitorcmd) で、PC に届いたキーとタイミング (押下時間、修飾キーが出た時刻、ボールの移動からの経過) を見る |
 
@@ -509,10 +594,10 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
 `-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに検査します。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive] [-Section All|Keys|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
+powershell -ExecutionPolicy Bypass -File tools\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive|Trace] [-Section All|Keys|Behaviors|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
 ```
 
-終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です。
+終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です (`-Mode Trace` は合否を出さないので 0)。
 
 ## 入力イベントを記録して調べる (`tools/input-monitor.cmd`)
 

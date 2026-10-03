@@ -40,22 +40,40 @@
     </Grid>
   </Border>
 
-  <!-- instruction, keyboard picture, result of the step -->
-  <Grid Grid.Row="1" Margin="28,22,28,16">
+  <!-- layers, instruction, keyboard picture, expected / actual input, result of the step -->
+  <Grid Grid.Row="1" Margin="28,16,28,14">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*" MinHeight="120"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*" MinHeight="64"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <TextBlock x:Name="InstructionText" Grid.Row="0" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap"
+    <!-- layers: the path of the step (left) and all layers with their result (right) -->
+    <Grid x:Name="LayerStrip" Grid.Row="0" Margin="0,0,0,12" Visibility="Collapsed">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <WrapPanel x:Name="LayerPath" Grid.Column="0" VerticalAlignment="Center"/>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+        <TextBlock x:Name="LayerOverviewCaption" Style="{DynamicResource KcSectionCaption}"/>
+        <WrapPanel x:Name="LayerOverview" VerticalAlignment="Center" MaxWidth="460"/>
+      </StackPanel>
+    </Grid>
+
+    <TextBlock x:Name="InstructionText" Grid.Row="1" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap"
                Foreground="{DynamicResource KcText}"/>
-    <TextBlock x:Name="DetailText" Grid.Row="1" FontSize="15" TextWrapping="Wrap" Margin="0,8,0,0"
+    <!-- the presses of the step as chips: hold (violet / amber) + tap (blue) -> ... -->
+    <WrapPanel x:Name="SequencePanel" Grid.Row="2" Margin="0,10,0,0" Visibility="Collapsed"/>
+    <TextBlock x:Name="DetailText" Grid.Row="3" FontSize="15" TextWrapping="Wrap" Margin="0,8,0,0"
                Foreground="{DynamicResource KcTextMuted}" Visibility="Collapsed"/>
 
-    <Border x:Name="KeyboardCard" Grid.Row="2" Style="{DynamicResource KcCard}" Margin="0,18,0,0"
+    <Border x:Name="KeyboardCard" Grid.Row="4" Style="{DynamicResource KcCard}" Margin="0,14,0,0"
             Padding="20,18,20,14">
       <Grid>
         <Grid.RowDefinitions>
@@ -65,11 +83,21 @@
         <Viewbox x:Name="KeyboardView" Grid.Row="0" Stretch="Uniform" TextOptions.TextFormattingMode="Ideal">
           <Canvas x:Name="KeyboardCanvas"/>
         </Viewbox>
-        <StackPanel x:Name="Legend" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
-                    Margin="0,14,0,0" Visibility="Collapsed">
+        <WrapPanel x:Name="Legend" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
+                   Margin="0,14,0,0" Visibility="Collapsed">
           <Border Style="{DynamicResource KcLegendSwatch}" Margin="0,0,6,0"
                   Background="{DynamicResource KcKeyCurrentFill}" BorderBrush="{DynamicResource KcKeyCurrentEdge}"/>
           <TextBlock x:Name="LegendCurrent" Style="{DynamicResource KcLegendText}"/>
+          <StackPanel x:Name="LegendHoldItem" Style="{DynamicResource KcLegendItem}">
+            <Border Style="{DynamicResource KcLegendSwatch}"
+                    Background="{DynamicResource KcKeyHoldFill}" BorderBrush="{DynamicResource KcKeyHoldEdge}"/>
+            <TextBlock x:Name="LegendHold" Style="{DynamicResource KcLegendText}"/>
+          </StackPanel>
+          <StackPanel x:Name="LegendModItem" Style="{DynamicResource KcLegendItem}">
+            <Border Style="{DynamicResource KcLegendSwatch}"
+                    Background="{DynamicResource KcKeyModFill}" BorderBrush="{DynamicResource KcKeyModEdge}"/>
+            <TextBlock x:Name="LegendMod" Style="{DynamicResource KcLegendText}"/>
+          </StackPanel>
           <Border Style="{DynamicResource KcLegendSwatch}"
                   Background="{DynamicResource KcKeyPassFill}" BorderBrush="{DynamicResource KcKeyPassEdge}"/>
           <TextBlock x:Name="LegendPass" Style="{DynamicResource KcLegendText}"/>
@@ -79,12 +107,33 @@
           <Border Style="{DynamicResource KcLegendSwatch}"
                   Background="{DynamicResource KcKeySkipFill}" BorderBrush="{DynamicResource KcKeySkipEdge}"/>
           <TextBlock x:Name="LegendSkip" Style="{DynamicResource KcLegendText}"/>
-        </StackPanel>
+          <StackPanel x:Name="LegendDangerItem" Style="{DynamicResource KcLegendItem}">
+            <Border Style="{DynamicResource KcLegendSwatch}"
+                    Background="{DynamicResource KcKeyDangerFill}" BorderBrush="{DynamicResource KcKeyDangerEdge}"/>
+            <TextBlock x:Name="LegendDanger" Style="{DynamicResource KcLegendText}"/>
+          </StackPanel>
+        </WrapPanel>
       </Grid>
     </Border>
 
+    <!-- expected and actual input as key caps (the actual ones are updated while typing) -->
+    <Grid x:Name="OutputPanel" Grid.Row="5" Margin="0,12,0,0" Visibility="Collapsed">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <DockPanel Grid.Column="0" LastChildFill="True" Margin="0,0,12,0">
+        <TextBlock x:Name="ExpectedCaption" DockPanel.Dock="Left" Style="{DynamicResource KcSectionCaption}"/>
+        <WrapPanel x:Name="ExpectedCaps" VerticalAlignment="Center"/>
+      </DockPanel>
+      <DockPanel Grid.Column="1" LastChildFill="True">
+        <TextBlock x:Name="ActualCaption" DockPanel.Dock="Left" Style="{DynamicResource KcSectionCaption}"/>
+        <WrapPanel x:Name="ActualCaps" VerticalAlignment="Center"/>
+      </DockPanel>
+    </Grid>
+
     <!-- hidden (not collapsed) while empty, so the keyboard picture does not jump -->
-    <Border x:Name="StatusBanner" Grid.Row="3" Margin="0,14,0,0" MinHeight="50" CornerRadius="10"
+    <Border x:Name="StatusBanner" Grid.Row="6" Margin="0,12,0,0" MinHeight="50" CornerRadius="10"
             BorderThickness="1" Padding="14,10" Visibility="Hidden"
             Background="{DynamicResource KcInfoTint}" BorderBrush="{DynamicResource KcInfoEdge}">
       <Grid>
@@ -101,7 +150,7 @@
       </Grid>
     </Border>
 
-    <TextBlock x:Name="LogText" Grid.Row="4" FontSize="12.5" Margin="0,10,0,0" TextTrimming="CharacterEllipsis"
+    <TextBlock x:Name="LogText" Grid.Row="7" FontSize="12.5" Margin="0,10,0,0" TextTrimming="CharacterEllipsis"
                Foreground="{DynamicResource KcTextFaint}" Visibility="Collapsed"/>
   </Grid>
 
