@@ -16,7 +16,7 @@
 | 3 | VIM_SYM | VIM_NORMAL_SYM | SYM 層に対応する Vim ノーマル |
 | 4 | VIM_VISUAL | VIM_VISUAL_BASE | BASE 層に対応する Vim ビジュアル |
 | 5 | VIM_VIS_SYM | VIM_VISUAL_SYM | SYM 層に対応する Vim ビジュアル |
-| 6 | FUNC | FUNCTION | ファンクションキー |
+| 6 | FUNC | FUNCTION | ファンクションキー (F1〜F12)・Insert・PrintScreen など |
 | 7 | BT | BLUETOOTH | Bluetooth／出力切替 |
 | 8 | MOUS | MOUSE_MOVE | マウス移動 (AML・最上位) |
 | 9 | SCRL | MOUSE_SCROLL | スクロール／クリック |
@@ -38,6 +38,7 @@
 | アーティファクト | 全エントリに `artifact-name` を付与し、Studio 版 / 非 Studio 版の両方を生成 |
 | ローカルビルド | `Makefile` + `scripts/` + `.devcontainer/` (`make` / `make single` など) |
 | タップホールド | `&mt` / `&lt` = tapping-term 150 / quick-tap 0 / flavor balanced |
+| FUNC レイヤー | `Q`〜`P` で F1〜F10、F10 の下の `-` / `/` で F11 / F12。`D` / `F` / `G` で PrintScreen / ScrollLock / Pause (標準のキーボードと同じ並び)、`C` (PrintScreen の下) で Insert、`Z` でアプリケーションキー (メニュー)。キー数の違う機種も BASE と同じ文字の位置。KQ-mini + Keyball39 も同じ (FUNC は Keyball39 の `` ` `` を押したまま) |
 | AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置は D / K (`&mo SCRL`) だけ、マウスクリックでタイマー延長。D / K を押したままスクロールしている間も延長する (スクロールのチェーンの先頭に `&zip_temp_layer 8 10000`。KUKEY42 はドライバのスクロールが通る `trackball_listener`、Keyball39 は `auto_mouse_activation` でホイールも数える)。修飾キーの位置 (A / - / Z / / / Win / Alt) を押しても AML が切れる。MOUSE_MOVE ではそこを `&trans` にしてあり、BASE と同じキーになる (A / - / Z / / はタップで文字、長押しで Ctrl / Shift)。マウスを使った直後に `a` や `z` を入力できる |
 | AML の発動条件 | キー入力の振動などでボールがわずかに動いても AML にならない。キーを押した・離したあと `require-prior-idle-ms` (200ms) は発動せず (すべてのキーの押下と解放を数える)、止まっていた状態から動いた量 (X と Y それぞれ向き付きで足すので、行ったり来たりする振動は打ち消し合う) が 10 (加速の後の値 = カーソルの移動量) に達したら発動する。トラックボールのリスナーで `zip_temp_layer` の代わりに [zmk-input-processor-aml-threshold](https://github.com/ryo-aoki-pc/zmk-input-processor-aml-threshold) の `aml_threshold` (`threshold 10`) を使う。カーソルの動き、AML 中のタイムアウトの延長、クリックでの延長は変わらない。Keyball39 も同じ (`keymaps/via/config.h` の `KEYBALL_AML_THRESHOLD`、待ちは `AUTO_MOUSE_DELAY`)。調整は [AML の発動条件の調整](#aml-の発動条件の調整) |
 | マウスレイヤーの修飾キー | MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。修飾キーとクリック・ホイールを組み合わせるときは、`D` / `K` を押してから修飾キーを押す (例: `D` → `Z` → `F` で Shift + クリック、`D` → `A` → ボールで Ctrl + ホイール)。修飾キーを先に押すと AML が切れ、`D` が文字になる。修飾キーを押したままボールを転がすと、押してから 200ms たったあとにカーソルが 10 以上動いたところで AML に戻る |
@@ -47,7 +48,7 @@
 | スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
 | BLE | ZMK の既定値のまま (送信出力・PHY・接続間隔・スタックなどを機種ごとに変えない)。例外: torabo-tsuki-lp は BMP の上流に合わせて送信出力 +8dBm (`CONFIG_BT_CTLR_TX_PWR_PLUS_8`) |
 | LED | XIAO の 5 台は RGB LED ウィジェット ([zmk-rgbled-widget](https://github.com/caksoylar/zmk-rgbled-widget) の `rgbled_adapter`、`CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH=30` / `CRITICAL=10`) でバッテリー残量と接続状態を表示する。充電中の表示 (`CONFIG_CHARGE_INDICATOR`) は LisM だけ (LisM の `src/charge_indicator.c`。[4mplelab/zmk-feature-charge-indicator](https://github.com/4mplelab/zmk-feature-charge-indicator) を取り込んで、[USB を挿すと止まる不具合](#lism-を-usb-でつなぐと操作できなくなる場合) を直したもの)。torabo-tsuki-lp は BMP のステータス LED (`CONFIG_ZMK_STATUS_LED`) |
-| ブートローダ | 左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿すと、その側がブートローダになる (Keyball の Bootmagic と同じ操作)。各リポジトリの `src/usb_bootmagic.c` (`zmk,usb-bootmagic`) で、キーは左右の overlay の `row` / `column` で指定する。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照 |
+| ブートローダ | 左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿すと、その側がブートローダになる (Keyball の Bootmagic と同じ操作)。各リポジトリの `src/usb_bootmagic.c` (`zmk,usb-bootmagic`) で、キーは左右の overlay の `row` / `column` で指定する。キーマップには、リセット (`&sys_reset`)・ブートローダ (`&bootloader`) のキーを置かない (押し間違えると、キーボードが再起動したりブートローダで止まったりするため。KQ-mini にも `QK_BOOT` / `QK_RBT` は無い)。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照 |
 
 ### カーソルの加速の調整
 
@@ -271,7 +272,7 @@ powershell -ExecutionPolicy Bypass -File tools\scripts\flash.ps1 [-Keyboard LisM
    - ファームウェアを書き込む
 3. 「完了」と表示されれば終わり。KQ-mini の LED が点灯して入力できるようになるまで、数十秒かかることがある
 
-- 自動で切り替わらないとき: KQ-mini の FUNC レイヤーの `QK_BOOT` キーを押す。ツールはそのまま `RPI-RP2` ドライブが現れるのを待つ
+- 自動で切り替わらないとき: KQ-mini を PC につなぎ直してから、もう一度書き込む (KQ-mini のキーマップにはブートローダのキーが無い)
 - キーマップ: LisM 基準のキーマップとタップホールド設定は、書き込み後の初回起動時に EEPROM へ自動で適用される (Vial での読み込みは不要)
 - 手元の `.uf2` を書き込むとき: そのファイルを `tools/flash.cmd` (または `tools/scripts/flash-kq-mini.cmd`) にドラッグ＆ドロップする
 
@@ -375,12 +376,6 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
     挿すまでの間 `q` / `p` が入力される。気になるときは、電源スイッチを OFF にしてから挿す
   - この機能が入ったファームウェアを一度書き込むまでは使えない (初回はリセットボタンを使う)
 - **リセットボタンを素早く 2 回押す**: どの状態でも使える
-- **FUNC レイヤーの `&bootloader` キー**: 押したキーがある側が切り替わる
-  - 右手側: FUNC を押しながら `N`
-  - 左手側: FUNC を押しながら `B` (Pyuron は左手に FUNC が無いので、右手の FUNC + 左手の `B`)。
-    **右手側の電源が入っていて、左右がつながっているときだけ**使える
-    (左のキー入力は右手側 (セントラル) がキーマップで解釈し、BLE で左手側に切り替えを指示するため。
-    右の電源が切れていると何も起きない)
 - 設定リセット用のファームウェアにはキーの処理が無いので、それが動いている側はリセットボタンでしか切り替えられない。
   書き込みツールの「設定リセットしてから左右に書き込む」では、2 番目 (右手側のセントラル) と
   4 番目 (左手側のペリフェラル) を書き込むときがこれにあたる (ツールの案内にも出る)。設定リセット後は左右のペアリングも切れるので、
@@ -391,8 +386,6 @@ ZMK の `<artifact-name>` は各リポジトリの `build.yaml` のもので、�
 - **電源スイッチを OFF にしてから USB ケーブルでつなぐ**: `BLEMICROPRO` という名前のドライブが現れる。どの状態でも使える
 - **電源スイッチを ON のまま、`Q` (左手側) / `P` (右手側) を押しながら USB ケーブルでつなぐ**: XIAO と同じ
   ([XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照)。この方法なら、書き込んだファームウェアはそのまま起動する
-- **FUNC レイヤーの `&bootloader` キー**: XIAO と同じく右手側は FUNC + `N`、左手側は FUNC + `B`
-  (左手側は右手側の電源が入っていて、左右がつながっているときだけ)
 - 電源スイッチが OFF の状態でブートローダにしたときは、書き込んだファームウェアは、USB ケーブルを抜いて電源スイッチを ON にし、
   USB ケーブルを差し直すと起動する。電源スイッチが OFF のままだと、再起動してもブートローダに戻る
 
@@ -566,7 +559,7 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
 
 | 種類 | 押すもの | LisM の例 |
 | --- | --- | --- |
-| レイヤーの移動 (押したまま) | `&mo` / `&lt` のキーを押したまま、そのレイヤーのキー。入り方 (どのレイヤーキーか) ごとに 1〜2 キー | `SYM` + `Q` → `1`、`Space` 長押し + `H` → `←`、`VIM_BASE` + `SYM` + `P` → `Home`、`FUNC` + `R` → `F4` |
+| レイヤーの移動 (押したまま) | `&mo` / `&lt` のキーを押したまま、そのレイヤーのキー。入り方 (どのレイヤーキーか) ごとに 1〜2 キー | `SYM` + `Q` → `1`、`Space` 長押し + `H` → `←`、`VIM_BASE` + `SYM` + `P` → `Home`、`FUNC` + `Q` → `F1` |
 | 長押し (mod-tap) | `&mt` のキーを押したまま、反対の手のキー | `A` 長押し + `H` → `Ctrl+H` |
 | モッドモーフ | 修飾キーなし / あり (レイヤーの中の Ctrl / Shift のキーを押したまま) | `VIM_BASE` + `U` → `Ctrl+Z`、`VIM_BASE` + `A` (Ctrl) + `U` → `PgUp` (Ctrl は付かない) |
 | タップダンス | 決まった回数だけ素早くタップ | `VIM_BASE` + `D` を 2 回 → `Home`、`Shift+End`、`Ctrl+X` |
@@ -577,7 +570,7 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
 
 - **レイヤーの帯**: この手順で通るレイヤー (`BASE → VIM_BASE → VIM_VISUAL`) と、全レイヤーの結果 (合格は緑、違いは赤)
 - **手順のチップ**: 押したまま (レイヤーは紫、修飾キーは橙) + タップ (青) → …
-- **キーボードの図**: その手順のレイヤーの表示に切り替わる。押すキーには押す順のバッジ (`1` `2` `×2`) が付き、押さないキー (bootloader / reset / Bluetooth) は赤の斜線
+- **キーボードの図**: その手順のレイヤーの表示に切り替わる。押すキーには押す順のバッジ (`1` `2` `×2`) が付き、押さないキー (Bluetooth / 出力切り替え) は赤の斜線
 - **期待する入力と実際の入力**: キーキャップで並べ、押すたびに更新する (一致は緑、違いは赤)
 
 判定と安全:
@@ -586,8 +579,9 @@ ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) 
   マクロの途中でモーフのキーを先に離したときに付く修飾キー (`Ctrl+X` に付く Shift など) は、付いていても合格
 - 違ったら 1 回だけやり直す。ボールやマウスが動いた (AML になった) ときは、失敗にせずやり直す
 - `&to` の手順で失敗・スキップ・中止したときは、BASE に戻す手順 (`V` → `Q` など) を案内し、戻ったことを確かめてから続ける
-- 押すとキーボードの状態が変わるキー (bootloader / reset / Bluetooth / 出力切り替え) とその隣のキーは、手順に入れない
-  (FUNC レイヤーは F4 / F6 などで確かめる)。BT レイヤーと AML のレイヤー (MOUS / SCRL) はこのテストの対象外。
+- 押すとキーボードの状態が変わるキー (Bluetooth / 出力切り替え。どれも BT レイヤーにある) とその隣のキーは、手順に入れない。
+  FUNC レイヤーは F1 / F6 などで確かめ、PrintScreen などシステムが反応するキーは押さずに読み出し検査で確かめる。
+  BT レイヤーと AML のレイヤー (MOUS / SCRL) はこのテストの対象外。
   Win / Alt を押したままにする手順や、`Ctrl+Esc` などシステムが反応する組み合わせも作らない
 - マクロは `Ctrl+X` / `Ctrl+V` などを送るので、手順の前に毎回、テスト用のウィンドウが前面かを確かめる (前面でなければクリックを促す)
 - 読み出し検査でキーの割り当てが違っていた位置を使う手順は飛ばす
