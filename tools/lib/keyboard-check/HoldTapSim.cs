@@ -26,6 +26,52 @@ public sealed class KcHtBinding
     public string Src = "";
     public KcHtBinding Hold;
     public KcHtBinding Tap;
+    // Optional bindings used by the headless full-keyboard simulator.
+    public KcHtBinding[] Bindings = new KcHtBinding[0];
+    public int MaskMods;
+    public int KeepMods;
+    public int Term = 200;
+    public int WaitMs = 15;
+    public int TapMs = 30;
+    public KcSimMacroStep[] Steps = new KcSimMacroStep[0];
+}
+
+public sealed class KcSimMacroStep
+{
+    public string Kind = "tap";
+    public KcHtBinding Binding;
+    public int Ms;
+}
+
+// Hooks are optional; the existing hold-tap visualizer and reference vectors use none.
+public interface IKcHtHost
+{
+    long Now { get; }
+    int[] ActiveLayers { get; }
+    void Schedule(long at, Action action);
+    void InvokeBinding(KcHtBinding binding, int pos, bool down, long timestamp, int index);
+    void SetLayer(int layer, bool down, string label, int pos);
+    void Emit(KcHtOutput output);
+}
+
+public interface IKcHtExtension
+{
+    void Attach(IKcHtHost host);
+    void BeforePosition(int pos, bool down, long timestamp);
+    void BeforeKeymap(int pos, bool down, long timestamp);
+    bool Invoke(KcHtBinding binding, int pos, bool down, long timestamp, int index);
+    void Output(KcHtOutput output);
+}
+
+public sealed class KcSimOverrideRule
+{
+    public string Trigger = "0x0000";
+    public KcHtBinding Replacement;
+    public int Layers = -1;
+    public int TriggerMods;
+    public int NegativeModMask;
+    public int SuppressedMods;
+    public int Options = 0x87;
 }
 
 public sealed class KcHtZmkConfig
@@ -75,6 +121,8 @@ public sealed class KcHtKeymap
     public Dictionary<string, KcHtZmkConfig> Behaviors = new Dictionary<string, KcHtZmkConfig>(StringComparer.Ordinal);
     // QMK: settings and the chordal hold hand of each position ('L' / 'R' / '*')
     public KcHtQmkSettings Qmk = new KcHtQmkSettings();
+    public bool SeparateModRelease;
+    public KcSimOverrideRule[] Overrides = new KcSimOverrideRule[0];
     public Dictionary<int, char> Hands = new Dictionary<int, char>();
     // QMK: the matrix cell of each position (keys with the same cell are the same key for QMK). Missing = pos
     public Dictionary<int, int> Cells = new Dictionary<int, int>();
@@ -134,6 +182,8 @@ public sealed class KcHtKeymap
         k.Hands = Hands;
         k.Cells = Cells;
         k.Qmk = Qmk;
+        k.SeparateModRelease = SeparateModRelease;
+        k.Overrides = Overrides;
         k.Behaviors = new Dictionary<string, KcHtZmkConfig>(Behaviors, StringComparer.Ordinal);
         return k;
     }
@@ -148,7 +198,7 @@ public sealed class KcHtKeymap
         {
             for (int i = 0; i < layersDesc.Length; i++)
             {
-                if (on.ContainsKey(layersDesc[i])) return layersDesc[i];
+                if (on.ContainsKey(layersDesc[i]) && on[layersDesc[i]].Kind != "trans") return layersDesc[i];
             }
         }
         return 0;
@@ -171,7 +221,7 @@ public sealed class KcHtKeymap
             for (int i = 0; i < layersDesc.Length; i++)
             {
                 KcHtBinding b;
-                if (on.TryGetValue(layersDesc[i], out b)) return b;
+                if (on.TryGetValue(layersDesc[i], out b) && b.Kind != "trans") return b;
             }
         }
         return NoneBinding;
@@ -230,6 +280,7 @@ public sealed class KcHtDecision
 public sealed class KcHtOutput
 {
     public long T;
+    public long EventT = -1;
     public bool Down;
     public string Kind = "key"; // key / layer / other
     public int Usage = -1;
@@ -237,6 +288,12 @@ public sealed class KcHtOutput
     public int Layer = -1;
     public string Label = "";
     public int Pos = -1;
+    public int X;
+    public int Y;
+    public int Wheel;
+    public int HWheel;
+    public int Buttons;
+    public int[] ActiveLayers = new int[0];
 }
 
 public sealed class KcHtResult
@@ -264,7 +321,7 @@ public sealed class KcHtResult
 //   times are tick multiples, and each input happens a wait (difference of T) after the previous input was
 //   processed (kscan_mock).
 // ---------------------------------------------------------------------------------------------------------
-public sealed class KcZmkHoldTapSim
+public sealed class KcZmkHoldTapSim : IKcHtHost
 {
     const int CapturedMax = 40;
 
@@ -289,6 +346,7 @@ public sealed class KcZmkHoldTapSim
         public long Ready;
         public int Seq;
         public Ht Ht;
+        public Action Action;
         public int Index;
     }
 
@@ -320,6 +378,8 @@ public sealed class KcZmkHoldTapSim
     readonly KcHtInput[] events;
     readonly int tick;
     readonly bool trace;
+    IKcHtExtension extension;
+    long endTime = long.MaxValue;
     readonly KcHtResult result = new KcHtResult();
     long clock;
     int seq;
@@ -348,6 +408,45 @@ public sealed class KcZmkHoldTapSim
         KcZmkHoldTapSim s = new KcZmkHoldTapSim(keymap, events ?? new KcHtInput[0], tickMs, trace);
         s.Execute();
         return s.result;
+    }
+
+    public static KcHtResult Run(KcHtKeymap keymap, KcHtInput[] events, int tickMs, bool trace,
+                                 long endMs, IKcHtExtension extension)
+    {
+        KcZmkHoldTapSim s = new KcZmkHoldTapSim(keymap, events ?? new KcHtInput[0], tickMs, trace);
+        s.endTime = endMs;
+        s.extension = extension;
+        if (extension != null) extension.Attach(s);
+        s.Execute();
+        return s.result;
+    }
+
+    public long Now { get { return clock; } }
+    public int[] ActiveLayers
+    {
+        get { List<int> copy = new List<int>(layers); copy.Sort(); copy.Reverse(); return copy.ToArray(); }
+    }
+    public void Schedule(long at, Action action)
+    {
+        if (at < clock) throw new ArgumentOutOfRangeException("at", "Cannot schedule in the past.");
+        Work w = new Work(); w.Kind = 3; w.Ready = at; w.Seq = ++seq; w.Action = action;
+        pending.Add(w);
+    }
+    public void InvokeBinding(KcHtBinding b, int pos, bool down, long timestamp, int index)
+    {
+        Invoke(b, pos, down, timestamp, index);
+    }
+    public void SetLayer(int layer, bool down, string label, int pos)
+    {
+        if (layer < 0) throw new ArgumentOutOfRangeException("layer");
+        if (layer == 0 || layers.Contains(layer) == down) return;
+        if (down) layers.Add(layer); else layers.Remove(layer);
+        AddOutput(down, "layer", -1, 0, layer, label, pos);
+    }
+    public void Emit(KcHtOutput o)
+    {
+        o.T = clock; o.ActiveLayers = ActiveLayers; result.Hid.Add(o);
+        if (extension != null) extension.Output(o);
     }
 
     void Line(string text)
@@ -411,11 +510,12 @@ public sealed class KcZmkHoldTapSim
                 pending.Add(w);
             }
         }
-        if (ev.Length > 0) clock = ev[0].T;
+        if (ev.Length > 0 && extension == null) clock = ev[0].T;
         int guard = 0;
         while (true)
         {
             if (++guard > 1000000) throw new InvalidOperationException("hold-tap simulation does not end");
+            if (clock > endTime) break;
             MoveReady();
             if (queue.Count == 0)
             {
@@ -425,6 +525,7 @@ public sealed class KcZmkHoldTapSim
                 {
                     if (p.Ready < next) next = p.Ready;
                 }
+                if (next > endTime) break;
                 if (next > clock) clock = next;
                 continue;
             }
@@ -434,6 +535,10 @@ public sealed class KcZmkHoldTapSim
             {
                 w.Ht.Timer = null;
                 Decide(w.Ht, "timer");
+            }
+            else if (w.Kind == 3)
+            {
+                w.Action();
             }
             else if (w.Kind == 1)
             {
@@ -462,9 +567,11 @@ public sealed class KcZmkHoldTapSim
                 pe.State = info.Down;
                 pe.Ts = clock;
                 pe.Index = w.Index;
+                if (extension != null) extension.BeforePosition(pe.Pos, pe.State, pe.Ts);
                 RaisePosition(pe);
             }
         }
+        if (endTime != long.MaxValue && clock < endTime) clock = endTime;
         result.EndT = clock;
     }
 
@@ -516,7 +623,7 @@ public sealed class KcZmkHoldTapSim
             if (!isMod && hidDown.Contains(kc.Usage))
             {
                 Line(string.Format("kp_pressed: unregistering usage_page 0x07 keycode 0x{0:X2} since it was already pressed", kc.Usage));
-                AddOutput(false, "key", kc.Usage, kc.Mods, -1, kc.Label, kc.Pos);
+                AddOutput(false, extension == null ? "key" : "repeat-release", kc.Usage, kc.Mods, -1, kc.Label, kc.Pos);
             }
             hidDown.Add(kc.Usage);
             Line(string.Format("kp_pressed: usage_page 0x07 keycode 0x{0:X2} implicit_mods 0x{1:X2} explicit_mods 0x{2:X2}", kc.Usage, implicitMods, explicitMods));
@@ -526,13 +633,14 @@ public sealed class KcZmkHoldTapSim
             hidDown.Remove(kc.Usage);
             Line(string.Format("kp_released: usage_page 0x07 keycode 0x{0:X2} implicit_mods 0x{1:X2} explicit_mods 0x{2:X2}", kc.Usage, implicitMods, explicitMods));
         }
-        AddOutput(kc.Pressed, "key", kc.Usage, kc.Mods, -1, kc.Label, kc.Pos);
+        AddOutput(kc.Pressed, "key", kc.Usage, kc.Mods, -1, kc.Label, kc.Pos, kc.Ts);
     }
 
-    void AddOutput(bool down, string kind, int usage, int mods, int layer, string label, int pos)
+    void AddOutput(bool down, string kind, int usage, int mods, int layer, string label, int pos, long eventTime = -1)
     {
         KcHtOutput o = new KcHtOutput();
         o.T = clock;
+        o.EventT = eventTime < 0 ? clock : eventTime;
         o.Down = down;
         o.Kind = kind;
         o.Usage = usage;
@@ -540,7 +648,9 @@ public sealed class KcZmkHoldTapSim
         o.Layer = layer;
         o.Label = label ?? "";
         o.Pos = pos;
+        o.ActiveLayers = ActiveLayers;
         result.Hid.Add(o);
+        if (extension != null) extension.Output(o);
     }
 
     void StoreLastTapped(long ts)
@@ -616,6 +726,7 @@ public sealed class KcZmkHoldTapSim
 
     void Keymap(PosEv ev)
     {
+        if (extension != null) extension.BeforeKeymap(ev.Pos, ev.State, ev.Ts);
         int[] ls;
         if (ev.State)
         {
@@ -636,6 +747,7 @@ public sealed class KcZmkHoldTapSim
 
     void Invoke(KcHtBinding b, int pos, bool pressed, long ts, int index)
     {
+        if (extension != null && extension.Invoke(b, pos, pressed, ts, index)) return;
         switch (b.Kind)
         {
             case "kp":
@@ -911,7 +1023,7 @@ public sealed class KcZmkHoldTapSim
 //   hold), other-press (hold on other key press), chordal (chordal hold: same hand), flow-tap, quick-tap
 //   (pressed again within the quick tap term), retro (retro tapping sent the tap on release).
 // ---------------------------------------------------------------------------------------------------------
-public sealed class KcQmkTapHoldSim
+public sealed class KcQmkTapHoldSim : IKcHtHost
 {
     const int WbSize = 8;
     const int RegisteredTapsSize = 8;
@@ -936,6 +1048,8 @@ public sealed class KcQmkTapHoldSim
     readonly KcHtQmkSettings st;
     readonly KcHtInput[] events;
     readonly bool trace;
+    IKcHtExtension extension;
+    long endTime = long.MaxValue;
     readonly KcHtResult result = new KcHtResult();
     long clock;
 
@@ -979,8 +1093,97 @@ public sealed class KcQmkTapHoldSim
         return s.result;
     }
 
+    sealed class ExternalWork
+    {
+        public long At;
+        public long Seq;
+        public Action Action;
+    }
+    readonly List<ExternalWork> external = new List<ExternalWork>();
+    long externalSeq;
+    public static KcHtResult Run(KcHtKeymap keymap, KcHtInput[] events, bool trace,
+                                 long endMs, IKcHtExtension extension)
+    {
+        KcQmkTapHoldSim s = new KcQmkTapHoldSim(keymap, events ?? new KcHtInput[0], trace);
+        s.endTime = endMs; s.extension = extension;
+        if (extension != null) extension.Attach(s);
+        s.Execute();
+        return s.result;
+    }
+    public int RealModifiers { get { return realMods; } }
+    public int AllModifiers { get { return realMods | weakMods; } }
+    public void AddWeakModifiers(int mods) { weakMods |= mods; SendReport(); }
+    public void RemoveWeakModifiers(int mods) { weakMods &= ~mods; SendReport(); }
+    public void ClearModifiers(int mask) { realMods &= ~mask; SendReport(); }
+    public void Delay(int ms) { Wait(ms); }
+    public long Now { get { return clock; } }
+    public int[] ActiveLayers { get { return LayersDesc(); } }
+    public void Schedule(long at, Action action)
+    {
+        if (at < clock) throw new ArgumentOutOfRangeException("at", "Cannot schedule in the past.");
+        ExternalWork w = new ExternalWork(); w.At = at; w.Seq = ++externalSeq; w.Action = action;
+        external.Add(w);
+    }
+    public void InvokeBinding(KcHtBinding b, int pos, bool down, long timestamp, int index)
+    {
+        Rec r = new Rec(); r.Pos = pos; r.Pressed = down; r.Time = timestamp; r.Index = index;
+        ProcessAction(r, b);
+    }
+    public void SetLayer(int layer, bool down, string label, int pos)
+    {
+        if (layer < 0) throw new ArgumentOutOfRangeException("layer");
+        if (layer == 0 || layers.Contains(layer) == down) return;
+        if (down) LayerOn(layer, label, pos); else LayerOff(layer, label, pos);
+    }
+    public void Emit(KcHtOutput o)
+    {
+        o.T = clock; o.ActiveLayers = ActiveLayers; result.Hid.Add(o);
+        if (extension != null) extension.Output(o);
+    }
+
+    // The full simulator shares one clock across physical keys, tapping ticks and peripherals.
+    // QMK processes a physical key at the tapping deadline before its next idle scan.
+    void ExecuteExtended()
+    {
+        for (int i = 0; i < events.Length; i++) result.Inputs.Add(events[i].Copy());
+        int input = 0;
+        int guard = 0;
+        while (++guard <= 1000000)
+        {
+            long keyAt = input < events.Length ? events[input].T : long.MaxValue;
+            external.Sort(delegate(ExternalWork a, ExternalWork b) {
+                int c = a.At.CompareTo(b.At); return c != 0 ? c : a.Seq.CompareTo(b.Seq); });
+            long externalAt = external.Count == 0 ? long.MaxValue : external[0].At;
+            long tickAt = long.MaxValue;
+            if (!tappingKey.Tick) tickAt = Math.Max(tappingKey.Time + st.TappingTerm, clock + 1);
+            else if (wbHead != wbTail) tickAt = clock + 1;
+            long next = Math.Min(keyAt, Math.Min(externalAt, tickAt));
+            if (next > endTime || clock > endTime) break;
+            if (next > clock) clock = next;
+            if (externalAt <= keyAt && externalAt <= tickAt)
+            {
+                ExternalWork work = external[0]; external.RemoveAt(0); work.Action();
+            }
+            else if (keyAt <= tickAt)
+            {
+                KcHtInput info = events[input];
+                Rec r = new Rec(); r.Pos = info.Pos; r.Pressed = info.Down; r.Time = clock;
+                r.Tick = false; r.Index = input; result.Inputs[input].At = clock; input++;
+                extension.BeforePosition(r.Pos, r.Pressed, r.Time); ActionExec(r);
+            }
+            else
+            {
+                Rec idle = new Rec(); idle.Time = clock; ActionExec(idle);
+            }
+        }
+        if (guard > 1000000) throw new InvalidOperationException("Keyboard simulation does not end.");
+        if (clock < endTime) clock = endTime;
+        result.EndT = clock;
+    }
+
     void Execute()
     {
+        if (extension != null) { ExecuteExtended(); return; }
         for (int i = 0; i < events.Length; i++) result.Inputs.Add(events[i].Copy());
         // in time order (same time: in the given order)
         int[] order = new int[events.Length];
@@ -990,7 +1193,7 @@ public sealed class KcQmkTapHoldSim
             int c = events[a].T.CompareTo(events[b].T);
             return c != 0 ? c : a.CompareTo(b);
         });
-        if (events.Length > 0) clock = events[order[0]].T;
+        if (events.Length > 0 && extension == null) clock = events[order[0]].T;
         for (int oi = 0; oi < order.Length; oi++)
         {
             int i = order[oi];
@@ -1004,9 +1207,11 @@ public sealed class KcQmkTapHoldSim
             r.Tick = false;
             r.Index = i;
             result.Inputs[i].At = clock;
+            if (extension != null) extension.BeforePosition(r.Pos, r.Pressed, r.Time);
             ActionExec(r);
         }
-        RunTicksBefore(long.MaxValue);
+        RunTicksBefore(endTime == long.MaxValue ? endTime : endTime + 1);
+        if (endTime != long.MaxValue && clock < endTime) clock = endTime;
         result.EndT = clock;
     }
 
@@ -1658,6 +1863,7 @@ public sealed class KcQmkTapHoldSim
     void ProcessRecord(Rec record)
     {
         if (record.Tick) return;
+        if (extension != null) extension.BeforeKeymap(record.Pos, record.Pressed, record.Time);
         if (record.Index >= 0 && record.Index < result.Inputs.Count)
         {
             KcHtInput info = result.Inputs[record.Index];
@@ -1680,6 +1886,7 @@ public sealed class KcQmkTapHoldSim
 
     void ProcessAction(Rec record, KcHtBinding b)
     {
+        if (extension != null && extension.Invoke(b, record.Pos, record.Pressed, record.Time, record.Index)) return;
         int tapCount = record.TapCount;
         bool pressed = record.Pressed;
         switch (b.Kind)
@@ -1949,10 +2156,11 @@ public sealed class KcQmkTapHoldSim
         return "0x" + usage.ToString("X2");
     }
 
-    void AddOutput(bool down, string kind, int usage, int mods, int layer, string label, int pos)
+    void AddOutput(bool down, string kind, int usage, int mods, int layer, string label, int pos, long eventTime = -1)
     {
         KcHtOutput o = new KcHtOutput();
         o.T = clock;
+        o.EventT = eventTime < 0 ? clock : eventTime;
         o.Down = down;
         o.Kind = kind;
         o.Usage = usage;
@@ -1960,7 +2168,9 @@ public sealed class KcQmkTapHoldSim
         o.Layer = layer;
         o.Label = label ?? "";
         o.Pos = pos;
+        o.ActiveLayers = ActiveLayers;
         result.Hid.Add(o);
+        if (extension != null) extension.Output(o);
     }
 }
 

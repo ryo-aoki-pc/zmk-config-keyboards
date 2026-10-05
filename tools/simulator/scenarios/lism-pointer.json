@@ -1,0 +1,640 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "name": "lism / AMLは出力9では発動しない",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -18,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "mouse": [
+          {
+            "t": 300,
+            "x": 9,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "lism / AMLは累積10で発動して10000msで解除",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -18,
+          "y": 0
+        },
+        {
+          "t": 308,
+          "type": "move",
+          "side": "right",
+          "x": -2,
+          "y": 0
+        }
+      ],
+      "end_ms": 10308,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 308,
+            "layer": 8,
+            "down": true
+          },
+          {
+            "t": 10308,
+            "layer": 8,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "mouse": [
+          {
+            "t": 300,
+            "x": 9,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 308,
+            "x": 1,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "lism / AMLの累積は逆向きの振動で打ち消す",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -18,
+          "y": 0
+        },
+        {
+          "t": 308,
+          "type": "move",
+          "side": "right",
+          "x": 18,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / AMLの累積は101ms途切れるとリセット",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -18,
+          "y": 0
+        },
+        {
+          "t": 401,
+          "type": "move",
+          "side": "right",
+          "x": -18,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / キー解放から199msはAMLを抑制",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 10,
+          "type": "release",
+          "pos": 0
+        },
+        {
+          "t": 209,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "t": 0,
+            "usage": 20,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "t": 10,
+            "usage": 20,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / キー解放から200msでAMLを許可",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 10,
+          "type": "release",
+          "pos": 0
+        },
+        {
+          "t": 210,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "t": 0,
+            "usage": 20,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "t": 10,
+            "usage": 20,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "t": 210,
+            "layer": 8,
+            "down": true
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            8
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / AMLの期限は追加入力で延長",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        },
+        {
+          "t": 9999,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "end_ms": 19999,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          },
+          {
+            "t": 19999,
+            "layer": 8,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / スクロールは1/16でAMLの期限も延長",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        },
+        {
+          "t": 320,
+          "type": "press",
+          "pos": 12
+        },
+        {
+          "t": 520,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 16
+        },
+        {
+          "t": 550,
+          "type": "release",
+          "pos": 12
+        }
+      ],
+      "end_ms": 10520,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          },
+          {
+            "t": 320,
+            "layer": 9,
+            "down": true
+          },
+          {
+            "t": 550,
+            "layer": 9,
+            "down": false
+          },
+          {
+            "t": 10520,
+            "layer": 8,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 520,
+            "x": 0,
+            "y": 0,
+            "wheel": 1,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "lism / スクロールの横軸は反転する",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        },
+        {
+          "t": 320,
+          "type": "press",
+          "pos": 12
+        },
+        {
+          "t": 520,
+          "type": "move",
+          "side": "right",
+          "x": 16,
+          "y": 0
+        },
+        {
+          "t": 550,
+          "type": "release",
+          "pos": 12
+        }
+      ],
+      "end_ms": 600,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          },
+          {
+            "t": 320,
+            "layer": 9,
+            "down": true
+          },
+          {
+            "t": 550,
+            "layer": 9,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            8
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 520,
+            "x": 0,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": -1,
+            "buttons": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "lism / Aの押下でAMLを解除してタップする",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        },
+        {
+          "t": 350,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 400,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "t": 400,
+            "usage": 4,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "t": 400,
+            "usage": 4,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          },
+          {
+            "t": 350,
+            "layer": 8,
+            "down": false
+          }
+        ],
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / SCRLのクリックがAMLの期限を延長する",
+      "board": "lism",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        },
+        {
+          "t": 330,
+          "type": "press",
+          "pos": 12
+        },
+        {
+          "t": 350,
+          "type": "press",
+          "pos": 13
+        },
+        {
+          "t": 370,
+          "type": "release",
+          "pos": 13
+        },
+        {
+          "t": 400,
+          "type": "release",
+          "pos": 12
+        }
+      ],
+      "end_ms": 10370,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          },
+          {
+            "t": 330,
+            "layer": 9,
+            "down": true
+          },
+          {
+            "t": 350,
+            "layer": 8,
+            "down": false
+          },
+          {
+            "t": 350,
+            "layer": 8,
+            "down": true
+          },
+          {
+            "t": 400,
+            "layer": 9,
+            "down": false
+          },
+          {
+            "t": 10370,
+            "layer": 8,
+            "down": false
+          }
+        ],
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 350,
+            "x": 0,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 1
+          },
+          {
+            "t": 370,
+            "x": 0,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    }
+  ]
+}

@@ -188,6 +188,7 @@ git commit -m "Update submodules"
 | `tools/keyball-check.cmd` | [Keyball39 のトラックボールの診断](#keyball39-のトラックボールが動かない場合) |
 
 スクリプトの本体 (`.ps1`) は `tools/scripts/` にあります。`tools/scripts/` には、機種を絞った書き込み用の `.cmd` もあります。
+実機なしの自動テストは [`tools/scripts/keyboard-sim.ps1`](#実機なしで自動テストする) から実行します。
 
 | `.cmd` | ダブルクリック | ファイルのドロップ |
 | --- | --- | --- |
@@ -769,6 +770,131 @@ powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 [-Keyb
 ```
 
 終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です (`-Mode Trace` / `-Mode HoldTap` は合否を出さないので 0)。
+
+## 実機なしで自動テストする
+
+`tools/scripts/keyboard-sim.ps1` は、キーの押下・解放とボールの移動を仮想時計で処理し、
+HID キー出力・レイヤー・マウス出力を JSON の期待値と比較します。実時間の待機や画面操作は不要です。
+シミュレータ本体、シナリオ、テスト、CI はすべてこの親リポジトリにあります。
+submodule は設定の読み取り元であり、ファイルや参照コミットを書き換えません。
+
+### シミュレータの準備と実行
+
+Python 3.10 以上と PowerShell 7 を用意し、親リポジトリのルートで実行します。
+Python の追加パッケージやファームウェア用ツールチェーンは不要です。
+必要な submodule だけを、親が固定したコミットで取得できます (孫 submodule の取得は不要)。
+
+```bash
+git submodule update --init --depth 1 \
+  zmk-keymap-docgen zmk-config-LisM zmk-config-KUKEY42 zmk-config-AroundFortyRB \
+  zmk-config-Pyuron zmk-config-roBa zmk-keyboard-torabo-tsuki-lp keyball \
+  vial-qmk-kq-mini zmk-input-processor-xy-accel zmk-input-processor-aml-threshold
+```
+
+```powershell
+pwsh -NoProfile -File tools/scripts/keyboard-sim.ps1 -ReportJson tools/.cache/simulator/results.json -ReportJUnit tools/.cache/simulator/results.xml
+```
+
+既定では `tools/simulator/scenarios/` 内の JSON を名前順に実行します。
+`-Scenario <ファイルまたはフォルダ>` で入力を変更し、`-Board lism` などで機種を絞れます。
+Python のコマンド名が `python3` の環境では `-Python python3` を指定します。
+終了コードは、全件成功で `0`、期待値の不一致・設定不備・未対応処理・対象 0 件で `1` です。
+JSON レポートには実際の出力と参照した設定のコミット、JUnit レポートには各シナリオの成否が入ります。
+
+機種 ID は `lism` / `kukey42` / `aroundfortyrb` / `pyuron` / `roba` / `torabo-tsuki-lp` / `keyball39` / `kq-mini` です。
+`-Board keyball-kq-mini` は Keyball39 の HID キー出力を KQ-mini に渡す連携を検査します。
+この場合の `pos` は Keyball39 の物理位置で、`expect` は KQ-mini を通したキー・レイヤーとマウス出力を比較します。
+マウスボタンも KQ-mini の入力として処理するため、クリックによるタップホールドの確定を検査できます。
+Keyball39 側の出力も JSON レポートの `actual.upstream` に記録します。
+実行時にチェックアウト中のキーマップ・設定を読み込みます。`tools/expected/*.json` をシミュレーションの入力には使いません。
+キー位置や各レイヤーの割り当ては、次のコマンドの `keys[].pos` / `keys[].on` で確認できます。
+
+```bash
+python tools/simulator/export_model.py --keyboard lism
+```
+
+### シナリオを書く
+
+次は LisM の位置 `0` (Q) を 50ms 押す例です。JSON を親リポジトリの `tools/simulator/scenarios/` に追加します。
+期待値は仕様から定め、実際の出力をそのままコピーして正解にはしません。
+
+```json
+{
+  "schema": 1,
+  "scenarios": [{
+    "name": "q-tap",
+    "board": "lism",
+    "events": [
+      {"t": 0, "type": "press", "pos": 0},
+      {"t": 50, "type": "release", "pos": 0}
+    ],
+    "end_ms": 100,
+    "expect": {
+      "keys": [
+        {"t": 0, "usage": 20, "down": true, "mods": 0},
+        {"t": 50, "usage": 20, "down": false, "mods": 0}
+      ],
+      "layers": [],
+      "mouse": [],
+      "state": {"layers": [0], "keys": [], "buttons": 0}
+    }
+  }]
+}
+```
+
+| 項目 | 意味 |
+| --- | --- |
+| `t` / `end_ms` | 開始からの整数ミリ秒。入力は時刻順で `end_ms` 以下に並べ、最後までタイマーを処理する |
+| `press` / `release` | `pos` のキーを押す・離す。押下と解放は対応させる |
+| `move` | `{"t": 250, "type": "move", "side": "right", "x": 20, "y": 0}` のように左右のボールの移動を指定する。`x` / `y` は listener の軸変換前のドライバ出力 (整数、−32767〜32767)、`side` の既定は `right` |
+| `advance` | `{"t": 10000, "type": "advance"}` のように、入力せず時間を進める |
+| `expect.keys` | `t`、HID `usage`、押下 `down`、修飾ビット `mods` の配列 |
+| `expect.layers` | `t`、レイヤー番号 `layer`、有効化 `down` の配列 |
+| `expect.mouse` | `t`、`x`、`y`、`wheel`、`hwheel`、ボタンのビットマスク `buttons` の配列 |
+| `expect.state` | 終了時の有効レイヤー `layers`、押下中の HID usage `keys`、`buttons` |
+
+`expect` は 1 項目以上必要です。指定した出力の配列は**件数と順序も含めてすべて**比較します。
+各出力のフィールドは省略できるため、時刻を検査しない場合は `t` を省けます。
+`"keys": []` はキー出力がないことを検査し、`keys` 自体を省略するとキー出力を検査しません。
+`"expect": {"state": {"layers": [0]}}` のように、終了時の状態だけを検査することもできます。
+存在しないキー、未知の検証項目、未対応・近似の処理は成功扱いにしません。
+
+同時刻のボール入力・予約された処理はキー入力より先に実行し、同種の入力は記述順を保ちます。
+ZMK のタップホールドは同時刻のキー入力よりタイムアウトを先に判定します。
+QMK は物理キー入力を処理してから、アイドル時のタッピング判定を進めます。
+境界を検査するときは、この順序も期待値に含めてください。
+
+### 検証範囲と CI
+
+ZMK / QMK のタップホールド、レイヤー切替、ZMK の mod-morph・tap-dance・マクロ、
+Vial のタップダンス・マクロ・キーオーバーライドをシナリオから検証します。
+Bluetooth プロファイル切替など、再現していない処理を実行すると失敗します。
+ボールは軸変換・加速・スクロール・AML の発動、延長、解除を検証します。
+1 件の `move` は X → Y (同期) の順で揃ったドライバ入力フレームとして、USB 接続時の論理処理を再現します。
+ZMK は入力フレームを即時処理し、Keyball39 は 8ms ごとのポーリングで処理するため、入力時刻と出力時刻が異なることがあります。
+KUKEY42 のドライバ内スクロールは未対応で、その操作を含むシナリオは失敗します (カーソル移動は対応)。
+
+Keyball39 → KQ-mini のマウス連携は、固定された実装と `KEYMAP.vil` の設定を確認し、
+マウス入力が既定の割り当てで、ジェスチャーが無効の場合に検証します。
+マウスの割り当てやジェスチャーなどを変更した設定では、連携のマウス操作を含むシナリオは失敗します。
+また、同じ連携シナリオでホイール出力とキーボードのキー出力が混在する場合は未対応として失敗します。
+キー出力を伴わないカーソル移動・ホイール、マウスボタンの連携は検証できます。
+
+これは設定から動作を計算するモデルであり、ファームウェアそのものを動かすエミュレータではありません。
+USB / BLE の通信や BLE 送信のまとめ処理、スムーズスクロールの通信、実機のセンサー・割り込み・EEPROM、Windows の画面は別途実機で検証します。
+
+シミュレータの単体テストと、既存の検査ツールの回帰テストは次のコマンドで実行できます。
+
+```powershell
+python -m unittest discover -s tools/simulator -v
+python -m unittest discover -s tools/expected -v
+pwsh -NoProfile -File tools/tests/run.ps1
+```
+
+`.github/workflows/keyboard-check.yml` は Linux で設定の整合性、単体テスト、同梱シナリオを実行します。
+JSON / JUnit レポートは失敗時も `simulator-results` artifact に保存します。
+Windows PowerShell 5.1 のジョブでも同じ固定コミットの submodule と Python を用意し、
+実機なしでライブラリと各機種の設定を使うテストを実行します。
 
 ## 入力イベントを記録して調べる (`tools/input-monitor.cmd`)
 

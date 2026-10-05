@@ -2,6 +2,7 @@
 #
 #   expected   : 期待値 (tools/expected/*.json) が submodule の内容と合っているか。
 #                submodule の参照を更新したら python tools/expected/generate.py を実行してコミットする
+#                現在の設定からシミュレータを実行し、JSON / JUnit を artifact に上げる
 #   powershell : Windows PowerShell 5.1 でスクリプトの構文・C# のコンパイル・テストが通るか
 #                (実機は使わない。偽のデバイスで読み出し検査や判定の計算を確かめる)。
 #                テスト用・記録用のウィンドウを画面外に描いた PNG を artifact (window-screenshots) に上げる
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   expected:
-    name: Expected values (generate.py --check)
+    name: Expected values and simulator
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,12 +33,13 @@ jobs:
         with:
           persist-credentials: false
 
-      # vial-qmk-kq-mini (QMK 本体を含み大きい) は使わないので取得しない
+      # 親リポジトリが固定したコミットを取得。ファームのビルド用の孫 submodule は不要
       - name: Checkout submodules
         run: |
           git submodule update --init --depth 1 \
             zmk-keymap-docgen zmk-config-LisM zmk-config-KUKEY42 zmk-config-AroundFortyRB zmk-config-Pyuron \
-            zmk-config-roBa zmk-keyboard-torabo-tsuki-lp keyball
+            zmk-config-roBa zmk-keyboard-torabo-tsuki-lp keyball vial-qmk-kq-mini \
+            zmk-input-processor-xy-accel zmk-input-processor-aml-threshold
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -58,6 +60,31 @@ jobs:
         shell: pwsh
         run: ./tools/tests/run.ps1
 
+      - name: Unit tests (simulator source models)
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -m unittest discover -s tools/simulator -v
+
+      - name: Simulator scenarios
+        shell: pwsh
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          ./tools/scripts/keyboard-sim.ps1 `
+            -ReportJson tools/.cache/simulator/results.json `
+            -ReportJUnit tools/.cache/simulator/results.xml
+          exit $LASTEXITCODE
+
+      - name: Upload simulator reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-results
+          path: |
+            tools/.cache/simulator/results.json
+            tools/.cache/simulator/results.xml
+          if-no-files-found: ignore
+
   powershell:
     name: Windows PowerShell 5.1
     runs-on: windows-latest
@@ -68,10 +95,24 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Checkout submodules
+        shell: bash
+        run: |
+          git submodule update --init --depth 1 \
+            zmk-keymap-docgen zmk-config-LisM zmk-config-KUKEY42 zmk-config-AroundFortyRB zmk-config-Pyuron \
+            zmk-config-roBa zmk-keyboard-torabo-tsuki-lp keyball vial-qmk-kq-mini \
+            zmk-input-processor-xy-accel zmk-input-processor-aml-threshold
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Unit tests (Windows PowerShell 5.1)
         shell: powershell
         env:
           KC_SCREENSHOT_DIR: ${{ runner.temp }}\kc-screenshots
+          PYTHONDONTWRITEBYTECODE: '1'
         run: |
           $PSVersionTable.PSVersion.ToString()
           powershell -NoProfile -ExecutionPolicy Bypass -File tools\tests\run.ps1
