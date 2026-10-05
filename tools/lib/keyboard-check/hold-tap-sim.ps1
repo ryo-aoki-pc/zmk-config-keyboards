@@ -20,8 +20,8 @@ $script:KcHtLibDir = $PSScriptRoot
 
 function Import-KcHoldTapSim {
     if ('KcZmkHoldTapSim' -as [type]) { return }
-    $source = [System.IO.File]::ReadAllText((Join-Path $script:KcHtLibDir 'HoldTapSim.cs'), [System.Text.Encoding]::UTF8)
-    Add-Type -TypeDefinition $source -Language CSharp
+    $paths = @('HoldTapSim.cs', 'KeyboardSim.cs', 'QmkOverrideSim.cs', 'PointerSim.cs', 'PointerPeripheral.cs') | ForEach-Object { Join-Path $script:KcHtLibDir $_ }
+    Add-Type -Path $paths
 }
 
 function Get-KcHtValue($Object, [string]$Name, $Default) {

@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "name": "kq-mini / A保持中のクリックでpermissive holdが確定",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 330,
+          "type": "press",
+          "pos": 4
+        },
+        {
+          "t": 350,
+          "type": "press",
+          "pos": 209
+        },
+        {
+          "t": 360,
+          "type": "release",
+          "pos": 209
+        },
+        {
+          "t": 400,
+          "type": "release",
+          "pos": 4
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "t": 360,
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "t": 400,
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "mouse": [
+          {
+            "t": 360,
+            "x": 0,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 1
+          },
+          {
+            "t": 360,
+            "x": 0,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "keyball-kq-mini / SCRLのCtrlとクリックを中継",
+      "board": "keyball-kq-mini",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 40
+        },
+        {
+          "t": 320,
+          "type": "press",
+          "pos": 12
+        },
+        {
+          "t": 330,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 350,
+          "type": "press",
+          "pos": 13
+        },
+        {
+          "t": 360,
+          "type": "release",
+          "pos": 13
+        },
+        {
+          "t": 400,
+          "type": "release",
+          "pos": 10
+        },
+        {
+          "t": 410,
+          "type": "release",
+          "pos": 12
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "t": 330,
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "t": 400,
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "mouse": [
+          {
+            "t": 304,
+            "x": 45,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 350,
+            "x": 0,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 1
+          },
+          {
+            "t": 360,
+            "x": 0,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "upstream": {
+          "keys": [
+            {
+              "t": 330,
+              "usage": 224,
+              "down": true,
+              "mods": 1
+            },
+            {
+              "t": 400,
+              "usage": 224,
+              "down": false,
+              "mods": 0
+            }
+          ],
+          "mouse": [
+            {
+              "t": 304,
+              "x": 45,
+              "y": 0,
+              "wheel": 0,
+              "hwheel": 0,
+              "buttons": 0
+            },
+            {
+              "t": 350,
+              "x": 0,
+              "y": 0,
+              "wheel": 0,
+              "hwheel": 0,
+              "buttons": 1
+            },
+            {
+              "t": 360,
+              "x": 0,
+              "y": 0,
+              "wheel": 0,
+              "hwheel": 0,
+              "buttons": 0
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

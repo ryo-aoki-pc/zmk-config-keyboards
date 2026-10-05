@@ -1,0 +1,2170 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "name": "lism / Q を押して離す",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / A を149msで離すとタップ",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true
+          },
+          {
+            "usage": 4,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / A を151msで離すとCtrl",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Enter を149msで離すとタップ",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 37
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 37
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 40,
+            "down": true
+          },
+          {
+            "usage": 40,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Enter を保持してQで1を入力",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 37
+        },
+        {
+          "t": 151,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 170,
+          "type": "release",
+          "pos": 0
+        },
+        {
+          "t": 200,
+          "type": "release",
+          "pos": 37
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true
+          },
+          {
+            "usage": 30,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true
+          },
+          {
+            "layer": 1,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / SYM を先に離しても1の解放を保持",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 35
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 35
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true,
+            "t": 10,
+            "mods": 0
+          },
+          {
+            "usage": 30,
+            "down": false,
+            "t": 30,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 1,
+            "down": false,
+            "t": 20
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "aroundfortyrb / Q を押して離す",
+      "board": "aroundfortyrb",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "aroundfortyrb / A を149msで離すとタップ",
+      "board": "aroundfortyrb",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true
+          },
+          {
+            "usage": 4,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "aroundfortyrb / A を151msで離すとCtrl",
+      "board": "aroundfortyrb",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "aroundfortyrb / Enter を149msで離すとタップ",
+      "board": "aroundfortyrb",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 37
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 37
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 40,
+            "down": true
+          },
+          {
+            "usage": 40,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "aroundfortyrb / Enter を保持してQで1を入力",
+      "board": "aroundfortyrb",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 37
+        },
+        {
+          "t": 151,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 170,
+          "type": "release",
+          "pos": 0
+        },
+        {
+          "t": 200,
+          "type": "release",
+          "pos": 37
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true
+          },
+          {
+            "usage": 30,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true
+          },
+          {
+            "layer": 1,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "aroundfortyrb / SYM を先に離しても1の解放を保持",
+      "board": "aroundfortyrb",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 36
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 36
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true,
+            "t": 10,
+            "mods": 0
+          },
+          {
+            "usage": 30,
+            "down": false,
+            "t": 30,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 1,
+            "down": false,
+            "t": 20
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kukey42 / Q を押して離す",
+      "board": "kukey42",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kukey42 / A を149msで離すとタップ",
+      "board": "kukey42",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true
+          },
+          {
+            "usage": 4,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kukey42 / A を151msで離すとCtrl",
+      "board": "kukey42",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kukey42 / Enter を149msで離すとタップ",
+      "board": "kukey42",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 41
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 41
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 40,
+            "down": true
+          },
+          {
+            "usage": 40,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kukey42 / Enter を保持してQで1を入力",
+      "board": "kukey42",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 41
+        },
+        {
+          "t": 151,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 170,
+          "type": "release",
+          "pos": 0
+        },
+        {
+          "t": 200,
+          "type": "release",
+          "pos": 41
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true
+          },
+          {
+            "usage": 30,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true
+          },
+          {
+            "layer": 1,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kukey42 / SYM を先に離しても1の解放を保持",
+      "board": "kukey42",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 39
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 39
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true,
+            "t": 10,
+            "mods": 0
+          },
+          {
+            "usage": 30,
+            "down": false,
+            "t": 30,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 1,
+            "down": false,
+            "t": 20
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "roba / Q を押して離す",
+      "board": "roba",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "roba / A を149msで離すとタップ",
+      "board": "roba",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true
+          },
+          {
+            "usage": 4,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "roba / A を151msで離すとCtrl",
+      "board": "roba",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "roba / Enter を149msで離すとタップ",
+      "board": "roba",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 41
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 41
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 40,
+            "down": true
+          },
+          {
+            "usage": 40,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "roba / Enter を保持してQで1を入力",
+      "board": "roba",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 41
+        },
+        {
+          "t": 151,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 170,
+          "type": "release",
+          "pos": 0
+        },
+        {
+          "t": 200,
+          "type": "release",
+          "pos": 41
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true
+          },
+          {
+            "usage": 30,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true
+          },
+          {
+            "layer": 1,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "roba / SYM を先に離しても1の解放を保持",
+      "board": "roba",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 39
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 39
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true,
+            "t": 10,
+            "mods": 0
+          },
+          {
+            "usage": 30,
+            "down": false,
+            "t": 30,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 1,
+            "down": false,
+            "t": 20
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "pyuron / Q を押して離す",
+      "board": "pyuron",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "pyuron / A を149msで離すとタップ",
+      "board": "pyuron",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true
+          },
+          {
+            "usage": 4,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "pyuron / A を151msで離すとCtrl",
+      "board": "pyuron",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "pyuron / Enter を149msで離すとタップ",
+      "board": "pyuron",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 37
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 37
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 40,
+            "down": true
+          },
+          {
+            "usage": 40,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "pyuron / Enter を保持してQで1を入力",
+      "board": "pyuron",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 37
+        },
+        {
+          "t": 151,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 170,
+          "type": "release",
+          "pos": 0
+        },
+        {
+          "t": 200,
+          "type": "release",
+          "pos": 37
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true
+          },
+          {
+            "usage": 30,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true
+          },
+          {
+            "layer": 1,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "pyuron / SYM を先に離しても1の解放を保持",
+      "board": "pyuron",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 35
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 35
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true,
+            "t": 10,
+            "mods": 0
+          },
+          {
+            "usage": 30,
+            "down": false,
+            "t": 30,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 1,
+            "down": false,
+            "t": 20
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "torabo-tsuki-lp / Q を押して離す",
+      "board": "torabo-tsuki-lp",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 13
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 13
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "torabo-tsuki-lp / A を149msで離すとタップ",
+      "board": "torabo-tsuki-lp",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 25
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 25
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true
+          },
+          {
+            "usage": 4,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "torabo-tsuki-lp / A を151msで離すとCtrl",
+      "board": "torabo-tsuki-lp",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 25
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 25
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "torabo-tsuki-lp / Enter を149msで離すとタップ",
+      "board": "torabo-tsuki-lp",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 60
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 60
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 40,
+            "down": true
+          },
+          {
+            "usage": 40,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "torabo-tsuki-lp / Enter を保持してQで1を入力",
+      "board": "torabo-tsuki-lp",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 60
+        },
+        {
+          "t": 151,
+          "type": "press",
+          "pos": 13
+        },
+        {
+          "t": 170,
+          "type": "release",
+          "pos": 13
+        },
+        {
+          "t": 200,
+          "type": "release",
+          "pos": 60
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true
+          },
+          {
+            "usage": 30,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true
+          },
+          {
+            "layer": 1,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "torabo-tsuki-lp / SYM を先に離しても1の解放を保持",
+      "board": "torabo-tsuki-lp",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 58
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 13
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 58
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 13
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true,
+            "t": 10,
+            "mods": 0
+          },
+          {
+            "usage": 30,
+            "down": false,
+            "t": 30,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 1,
+            "down": false,
+            "t": 20
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / Q を押して離す",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 20
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 20
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / A を149msで離すとタップ",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 4
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 4
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true
+          },
+          {
+            "usage": 4,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / A を151msで離すとCtrl",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 4
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 4
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / Enter を149msで離すとタップ",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 40
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 40
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 40,
+            "down": true
+          },
+          {
+            "usage": 40,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / Enter を保持してQで1を入力",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 40
+        },
+        {
+          "t": 151,
+          "type": "press",
+          "pos": 20
+        },
+        {
+          "t": 170,
+          "type": "release",
+          "pos": 20
+        },
+        {
+          "t": 200,
+          "type": "release",
+          "pos": 40
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true
+          },
+          {
+            "usage": 30,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true
+          },
+          {
+            "layer": 1,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / SYM を先に離しても1の解放を保持",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 230
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 20
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 230
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 20
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 30,
+            "down": true,
+            "t": 10,
+            "mods": 0
+          },
+          {
+            "usage": 30,
+            "down": false,
+            "t": 30,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 1,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 1,
+            "down": false,
+            "t": 20
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "keyball39 / Aを保持しても生のAを送る",
+      "board": "keyball39",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 4,
+            "down": false,
+            "t": 151,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "keyball39 / SYM位置は右Altを送る",
+      "board": "keyball39",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 35
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 35
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 230,
+            "down": true
+          },
+          {
+            "usage": 230,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "keyball-kq-mini / Qをそのまま中継",
+      "board": "keyball-kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 0
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 0
+        }
+      ],
+      "end_ms": 300,
+      "expect": {
+        "keys": [
+          {
+            "usage": 20,
+            "down": true,
+            "t": 0,
+            "mods": 0
+          },
+          {
+            "usage": 20,
+            "down": false,
+            "t": 20,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "mouse": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "upstream": {
+          "keys": [
+            {
+              "usage": 20,
+              "down": true,
+              "t": 0,
+              "mods": 0
+            },
+            {
+              "usage": 20,
+              "down": false,
+              "t": 20,
+              "mods": 0
+            }
+          ],
+          "layers": [],
+          "mouse": [],
+          "state": {
+            "layers": [
+              0
+            ],
+            "keys": [],
+            "buttons": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "keyball-kq-mini / 149msのAをタップに変換",
+      "board": "keyball-kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 149,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 300,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 4,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "mouse": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "upstream": {
+          "keys": [
+            {
+              "usage": 4,
+              "down": true,
+              "t": 0,
+              "mods": 0
+            },
+            {
+              "usage": 4,
+              "down": false,
+              "t": 149,
+              "mods": 0
+            }
+          ],
+          "layers": [],
+          "mouse": [],
+          "state": {
+            "layers": [
+              0
+            ],
+            "keys": [],
+            "buttons": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "keyball-kq-mini / 151msのAをCtrlに変換",
+      "board": "keyball-kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 151,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 300,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "mouse": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "upstream": {
+          "keys": [
+            {
+              "usage": 4,
+              "down": true,
+              "t": 0,
+              "mods": 0
+            },
+            {
+              "usage": 4,
+              "down": false,
+              "t": 151,
+              "mods": 0
+            }
+          ],
+          "layers": [],
+          "mouse": [],
+          "state": {
+            "layers": [
+              0
+            ],
+            "keys": [],
+            "buttons": 0
+          }
+        }
+      }
+    }
+  ]
+}

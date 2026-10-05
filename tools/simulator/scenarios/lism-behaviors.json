@@ -1,0 +1,585 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "name": "lism / balanced は相手キーを押して離すとhold",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 40,
+          "type": "press",
+          "pos": 15
+        },
+        {
+          "t": 60,
+          "type": "release",
+          "pos": 15
+        },
+        {
+          "t": 90,
+          "type": "release",
+          "pos": 10
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true
+          },
+          {
+            "usage": 11,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "usage": 11,
+            "down": false,
+            "mods": 1
+          },
+          {
+            "usage": 224,
+            "down": false
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / rolling はAを先に離すとtap",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 40,
+          "type": "press",
+          "pos": 15
+        },
+        {
+          "t": 60,
+          "type": "release",
+          "pos": 10
+        },
+        {
+          "t": 90,
+          "type": "release",
+          "pos": 15
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [
+          {
+            "usage": 4,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 11,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 4,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 11,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Vim oマクロはEnd,Enter",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 36
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 8
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 8
+        },
+        {
+          "t": 950,
+          "type": "release",
+          "pos": 36
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "usage": 77,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 77,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 40,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 40,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 2,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 2,
+            "down": false,
+            "t": 950
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Vim gの単押しは無出力",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 36
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 14
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 14
+        },
+        {
+          "t": 950,
+          "type": "release",
+          "pos": 36
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "layer": 2,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 2,
+            "down": false,
+            "t": 950
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Vim ggはCtrl+Home",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 36
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 14
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 14
+        },
+        {
+          "t": 60,
+          "type": "press",
+          "pos": 14
+        },
+        {
+          "t": 70,
+          "type": "release",
+          "pos": 14
+        },
+        {
+          "t": 950,
+          "type": "release",
+          "pos": 36
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "usage": 74,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 74,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 2,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 2,
+            "down": false,
+            "t": 950
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Vim ddはHome,Shift+End,Ctrl+X",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 36
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 12
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 12
+        },
+        {
+          "t": 60,
+          "type": "press",
+          "pos": 12
+        },
+        {
+          "t": 70,
+          "type": "release",
+          "pos": 12
+        },
+        {
+          "t": 950,
+          "type": "release",
+          "pos": 36
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "usage": 74,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 74,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 225,
+            "down": true,
+            "mods": 2
+          },
+          {
+            "usage": 77,
+            "down": true,
+            "mods": 2
+          },
+          {
+            "usage": 225,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 77,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "usage": 27,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 27,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 2,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 2,
+            "down": false,
+            "t": 950
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Ctrl+uモーフはCtrlをマスクしてPageUp",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 36
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 10
+        },
+        {
+          "t": 20,
+          "type": "press",
+          "pos": 6
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 6
+        },
+        {
+          "t": 40,
+          "type": "release",
+          "pos": 10
+        },
+        {
+          "t": 950,
+          "type": "release",
+          "pos": 36
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "usage": 75,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 75,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "layer": 2,
+            "down": true,
+            "t": 0
+          },
+          {
+            "layer": 2,
+            "down": false,
+            "t": 950
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "lism / Vim vでvisualに移動してvでBASEへ",
+      "board": "lism",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 36
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 23
+        },
+        {
+          "t": 20,
+          "type": "release",
+          "pos": 23
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 36
+        },
+        {
+          "t": 50,
+          "type": "press",
+          "pos": 23
+        },
+        {
+          "t": 60,
+          "type": "release",
+          "pos": 23
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "usage": 79,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "usage": 79,
+            "down": false
+          }
+        ],
+        "layers": [
+          {
+            "layer": 2,
+            "down": true
+          },
+          {
+            "layer": 2,
+            "down": false
+          },
+          {
+            "layer": 4,
+            "down": true
+          },
+          {
+            "layer": 4,
+            "down": false
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    }
+  ]
+}

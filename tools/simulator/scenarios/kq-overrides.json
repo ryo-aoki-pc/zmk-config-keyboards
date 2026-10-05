@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "name": "kq-mini / Ctrl+Uのkey overrideでCtrlを抑制してPageUp",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 57
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 4
+        },
+        {
+          "t": 20,
+          "type": "press",
+          "pos": 24
+        },
+        {
+          "t": 30,
+          "type": "release",
+          "pos": 24
+        },
+        {
+          "t": 40,
+          "type": "release",
+          "pos": 4
+        },
+        {
+          "t": 900,
+          "type": "release",
+          "pos": 57
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "t": 10,
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "t": 20,
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "t": 20,
+            "usage": 75,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "t": 30,
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "t": 30,
+            "usage": 75,
+            "down": false,
+            "mods": 1
+          },
+          {
+            "t": 40,
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "t": 0,
+            "layer": 2,
+            "down": true
+          },
+          {
+            "t": 900,
+            "layer": 2,
+            "down": false
+          }
+        ],
+        "mouse": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / Shift+Oのkey overrideでM5のHome,Enter,Up",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 57
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 29
+        },
+        {
+          "t": 20,
+          "type": "press",
+          "pos": 18
+        },
+        {
+          "t": 250,
+          "type": "release",
+          "pos": 18
+        },
+        {
+          "t": 260,
+          "type": "release",
+          "pos": 29
+        },
+        {
+          "t": 900,
+          "type": "release",
+          "pos": 57
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "t": 10,
+            "usage": 225,
+            "down": true,
+            "mods": 2
+          },
+          {
+            "t": 20,
+            "usage": 225,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "t": 20,
+            "usage": 74,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "t": 20,
+            "usage": 74,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "t": 120,
+            "usage": 40,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "t": 120,
+            "usage": 40,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "t": 220,
+            "usage": 82,
+            "down": true,
+            "mods": 0
+          },
+          {
+            "t": 220,
+            "usage": 82,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "t": 0,
+            "layer": 2,
+            "down": true
+          },
+          {
+            "t": 900,
+            "layer": 2,
+            "down": false
+          }
+        ],
+        "mouse": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kq-mini / Shift+Yのkey overrideでtap-danceをM3に置換",
+      "board": "kq-mini",
+      "events": [
+        {
+          "t": 0,
+          "type": "press",
+          "pos": 57
+        },
+        {
+          "t": 10,
+          "type": "press",
+          "pos": 29
+        },
+        {
+          "t": 20,
+          "type": "press",
+          "pos": 28
+        },
+        {
+          "t": 150,
+          "type": "release",
+          "pos": 28
+        },
+        {
+          "t": 160,
+          "type": "release",
+          "pos": 29
+        },
+        {
+          "t": 900,
+          "type": "release",
+          "pos": 57
+        }
+      ],
+      "end_ms": 1000,
+      "expect": {
+        "keys": [
+          {
+            "t": 10,
+            "usage": 225,
+            "down": true,
+            "mods": 2
+          },
+          {
+            "t": 20,
+            "usage": 225,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "t": 20,
+            "usage": 225,
+            "down": true,
+            "mods": 2
+          },
+          {
+            "t": 20,
+            "usage": 77,
+            "down": true,
+            "mods": 2
+          },
+          {
+            "t": 20,
+            "usage": 77,
+            "down": false,
+            "mods": 2
+          },
+          {
+            "t": 20,
+            "usage": 225,
+            "down": false,
+            "mods": 0
+          },
+          {
+            "t": 120,
+            "usage": 224,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "t": 120,
+            "usage": 6,
+            "down": true,
+            "mods": 1
+          },
+          {
+            "t": 120,
+            "usage": 6,
+            "down": false,
+            "mods": 1
+          },
+          {
+            "t": 120,
+            "usage": 224,
+            "down": false,
+            "mods": 0
+          }
+        ],
+        "layers": [
+          {
+            "t": 0,
+            "layer": 2,
+            "down": true
+          },
+          {
+            "t": 900,
+            "layer": 2,
+            "down": false
+          }
+        ],
+        "mouse": [],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    }
+  ]
+}

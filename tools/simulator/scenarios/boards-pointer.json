@@ -1,0 +1,434 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "name": "aroundfortyrb / 軸変換と初回加速からAMLが発動",
+      "board": "aroundfortyrb",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          }
+        ],
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            8
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "kukey42 / 軸変換と初回加速からAMLが発動",
+      "board": "kukey42",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": 40,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          }
+        ],
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            8
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "roba / 軸変換と初回加速からAMLが発動",
+      "board": "roba",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": 20,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          }
+        ],
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            8
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "pyuron / 軸変換と初回加速からAMLが発動",
+      "board": "pyuron",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": 20,
+          "y": 20
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          }
+        ],
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": -10,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            8
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "torabo-tsuki-lp / 軸変換と初回加速からAMLが発動",
+      "board": "torabo-tsuki-lp",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": -20,
+          "y": 0
+        }
+      ],
+      "end_ms": 500,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 300,
+            "layer": 8,
+            "down": true
+          }
+        ],
+        "mouse": [
+          {
+            "t": 300,
+            "x": 10,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            8
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "keyball39 / 8ms報告とQ8加速の端数を保持",
+      "board": "keyball39",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        },
+        {
+          "t": 308,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        },
+        {
+          "t": 316,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        },
+        {
+          "t": 324,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        }
+      ],
+      "end_ms": 400,
+      "expect": {
+        "keys": [],
+        "layers": [
+          {
+            "t": 312,
+            "layer": 1,
+            "down": true
+          }
+        ],
+        "mouse": [
+          {
+            "t": 304,
+            "x": 6,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 312,
+            "x": 7,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 320,
+            "x": 7,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 328,
+            "x": 8,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0,
+            1
+          ],
+          "keys": [],
+          "buttons": 0
+        }
+      }
+    },
+    {
+      "name": "keyball-kq-mini / 8ms報告とQ8加速の端数を保持",
+      "board": "keyball-kq-mini",
+      "events": [
+        {
+          "t": 300,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        },
+        {
+          "t": 308,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        },
+        {
+          "t": 316,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        },
+        {
+          "t": 324,
+          "type": "move",
+          "side": "right",
+          "x": 0,
+          "y": 8
+        }
+      ],
+      "end_ms": 400,
+      "expect": {
+        "keys": [],
+        "layers": [],
+        "mouse": [
+          {
+            "t": 304,
+            "x": 6,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 312,
+            "x": 7,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 320,
+            "x": 7,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          },
+          {
+            "t": 328,
+            "x": 8,
+            "y": 0,
+            "wheel": 0,
+            "hwheel": 0,
+            "buttons": 0
+          }
+        ],
+        "state": {
+          "layers": [
+            0
+          ],
+          "keys": [],
+          "buttons": 0
+        },
+        "upstream": {
+          "keys": [],
+          "layers": [
+            {
+              "t": 312,
+              "layer": 1,
+              "down": true
+            }
+          ],
+          "mouse": [
+            {
+              "t": 304,
+              "x": 6,
+              "y": 0,
+              "wheel": 0,
+              "hwheel": 0,
+              "buttons": 0
+            },
+            {
+              "t": 312,
+              "x": 7,
+              "y": 0,
+              "wheel": 0,
+              "hwheel": 0,
+              "buttons": 0
+            },
+            {
+              "t": 320,
+              "x": 7,
+              "y": 0,
+              "wheel": 0,
+              "hwheel": 0,
+              "buttons": 0
+            },
+            {
+              "t": 328,
+              "x": 8,
+              "y": 0,
+              "wheel": 0,
+              "hwheel": 0,
+              "buttons": 0
+            }
+          ],
+          "state": {
+            "layers": [
+              0,
+              1
+            ],
+            "keys": [],
+            "buttons": 0
+          }
+        }
+      }
+    }
+  ]
+}
