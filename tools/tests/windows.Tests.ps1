@@ -12,6 +12,8 @@
 . (Join-Path $script:KcLib 'hold-tap-sim.ps1')
 . (Join-Path $script:KcLib 'hold-tap.ps1')
 . (Join-Path $script:KcLib 'hold-tap-ui.ps1')
+. (Join-Path $script:KcLib 'keyboard-sim.ps1')
+. (Join-Path $script:KcLib 'keyboard-sim-ui.ps1')
 . (Join-Path $script:ToolsDir 'lib\firmware-release.ps1')
 . (Join-Path $script:ToolsDir 'lib\flash-plan.ps1')
 . (Join-Path $script:ToolsDir 'lib\flash-ui.ps1')
@@ -721,9 +723,11 @@ Test-Case 'タップホールドのウィンドウを描画できる (組み合�
         Step-Wht $ctx 1060 @((New-WhtLog 5060.3 'zmk_physical_layouts_kscan_process_msgq' 'Row: 1, col: 5, position: 15, pressed: true'),
             (New-WhtLog 5060.4 'position_state_changed_listener' '10 capturing 15 down event'))
         Assert-True $form.Timeline.IsLive '押している最中'
-        $form.SetLive($true, 87)
+        # 描画・PNG 保存の所要時間で150msの判定境界を越えないよう、表示時刻を固定する。
+        $form.Timeline.SetLive($true, 87, $false)
+        $form.Timeline.Render()
         [KcUi]::DoEvents()
-        Assert-True ($form.Timeline.Now -ge 87) $form.Timeline.Now
+        Assert-Equal 87 $form.Timeline.Now '固定した表示時刻'
         Save-UiSnapshot $form 'keyboard-check-10-holdtap-live'
         Assert-Equal 'tapping-term (150 ms)' ($form.Timeline.LegendTexts -join '|') '押している最中: 判定はまだ出ない'
         Assert-Equal 1 $root.FindName('MarkLegendPanel').Children.Count
@@ -733,6 +737,8 @@ Test-Case 'タップホールドのウィンドウを描画できる (組み合�
             $right = [System.Windows.Controls.Canvas]::GetLeft($r) + $r.Width
             Assert-True ($right -le $nowX + 5) ('判定待ちの帯は「今」で切る ({0:N1} > {1:N1})' -f $right, $nowX)
         }
+        # 通常の呼び出しでは時計が進むことも別に確かめる。
+        $form.SetLive($true, 87)
         Start-Sleep -Milliseconds 150
         [KcUi]::DoEvents()
         Assert-True ($form.Timeline.Now -ge 200) ('「今」はひとりでに進む ({0})' -f $form.Timeline.Now)
@@ -800,4 +806,127 @@ Test-Case 'タップホールドのウィンドウ: 専用のスレッドで開�
     } finally {
         $form.Dispose()
     }
+}
+
+# シミュレータの画面。実機は使わず、選択・表示と最小サイズでの描画を確かめる。
+function Set-WindowsSimBoards($Form) {
+    $Form.SetBoards([string[]]@('lism', 'keyball-kq-mini', 'kukey42', 'aroundfortyrb', 'pyuron', 'roba', 'torabo-tsuki-lp', 'keyball39', 'kq-mini'),
+        [string[]]@('LisM', 'Keyball39 → KQ-mini', 'KUKEY42', 'AroundForty-RB', 'Pyuron', 'roBa', 'torabo-tsuki-lp', 'Keyball39', 'KQ-mini'), 'lism')
+}
+
+function Initialize-WindowsSimForm($Form) {
+    $labels = [ordered]@{
+        TitleText = 'キーボードシミュレータ'; SubtitleText = '機種とシナリオを選び、キー・レイヤー・マウスの出力を確認します。'
+        BoardsCaption = '機種'; ScenariosCaption = 'シナリオ'; PictureCaption = '入力したキーの位置'; ReplayCaption = '入力と出力を時刻で確認'
+        InputsCaption = '入力'; ExpectedCaption = '期待値'; ActualCaption = '実際の出力'; LogCaption = '実行ログ'
+        OpenButton = 'JSON を開く'; StandardButton = '標準に戻す'; ReportButton = 'レポート'
+        RunButton = '選択を実行'; RunAllButton = 'この機種を全件実行'; CancelButton = '中止'
+        CloseButton = '閉じる'; PlayButton = '再生 / 一時停止'
+    }
+    $Form.SetLabels([string[]]@($labels.Keys), [string[]]@($labels.Values))
+    Set-WindowsSimBoards $Form
+    $suitePath = Join-Path $script:ToolsDir 'simulator/scenarios/lism-behaviors.json'
+    $script:WindowsSimCases = ([System.IO.File]::ReadAllText($suitePath) | ConvertFrom-Json).scenarios
+    $case = $script:WindowsSimCases[0]
+    $Form.SetScenarios([string[]]@('0', '1'), [string[]]@($case.name, $script:WindowsSimCases[1].name), [string[]]@('', ''), '0')
+    $geometry = Get-KcSimUiGeometry -Model (Get-KcSimModel 'lism') -Scenario $case
+    $keys = $geometry.Keys
+    $Form.SetKeys([int[]]@($keys | ForEach-Object { $_.Pos }), [double[]]@($keys | ForEach-Object { $_.X }),
+        [double[]]@($keys | ForEach-Object { $_.Y }), [double[]]@($keys | ForEach-Object { $_.W }),
+        [double[]]@($keys | ForEach-Object { $_.H }), [string[]]@($keys | ForEach-Object { $_.Legend }))
+    $inputs = @{ events = $case.events; end_ms = $case.end_ms } | ConvertTo-Json -Depth 100
+    $Form.SetDetails($case.name, 'lism-behaviors.json / lism', $inputs, ($case.expect | ConvertTo-Json -Depth 100), '未実行')
+    $Form.SetSummary('実行できます', '入力と期待値を確認して「選択を実行」を押してください', 0)
+    $Form.SetBusy($false, $true)
+    $Form.SetReplay([long]$case.end_ms, $true)
+    $replay = Get-KcSimUiReplay -Scenario $case -Actual $null -AtMs 0
+    $Form.SetReplayState($replay.Text)
+    $Form.SetKeyStates([int[]]$replay.Pressed)
+    $Form.SetReportEnabled($false)
+}
+
+Test-Case 'シミュレータのウィンドウ: 選択・実行・結果・最小サイズを描画できる' -WindowsOnly {
+    Import-KcInputForm
+    $form = New-Object KcSimulatorForm('キーボードシミュレータ')
+    try {
+        $window = $form.Window
+        Show-UiOffscreen $window
+        $root = $window.Content
+        Initialize-WindowsSimForm $form
+        [KcUi]::DoEvents()
+        Assert-Equal 9 $root.FindName('BoardPanel').Children.Count
+        Assert-Equal 2 $root.FindName('ScenarioPanel').Children.Count
+        Assert-Equal 0 @($form.TakeActions()).Count '表示の更新で入力操作が発生しない'
+        Assert-True $root.FindName('InputsBox').IsReadOnly '入力は閲覧専用'
+        Assert-True $root.FindName('ExpectedBox').IsReadOnly '期待値は閲覧専用'
+        Assert-True $root.FindName('ActualBox').IsReadOnly '結果は閲覧専用'
+        Save-UiSnapshot $form 'simulator-1-ready'
+
+        $root.FindName('BoardPanel').Children[1].IsChecked = $true
+        Assert-Equal 'board:keyball-kq-mini' (@($form.TakeActions()) -join ',')
+        Set-WindowsSimBoards $form
+        $root.FindName('ScenarioPanel').Children[1].IsChecked = $true
+        Assert-Equal 'scenario:1' (@($form.TakeActions()) -join ',')
+        $root.FindName('RunButton').RaiseEvent((New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
+        Assert-Equal 'run' (@($form.TakeActions()) -join ',')
+        $root.FindName('ReplaySlider').Value = 50
+        Assert-Equal 'seek:50' (@($form.TakeActions()) -join ',')
+
+        $form.SetBusy($true, $true)
+        Assert-True (-not $root.FindName('RunButton').IsEnabled) '二重実行を防ぐ'
+        Assert-True $root.FindName('CancelButton').IsEnabled '中止できる'
+        $form.SetSummary('実行中', '2 件のシナリオを検証しています。', 0)
+        $form.AppendLog('PASS lism/' + $script:WindowsSimCases[0].name)
+        Save-UiSnapshot $form 'simulator-2-running'
+
+        $form.SetBusy($false, $true)
+        $form.SetScenarios([string[]]@('0', '1'), [string[]]@(('合格  ' + $script:WindowsSimCases[0].name), ('失敗  ' + $script:WindowsSimCases[1].name)),
+            [string[]]@('passed', 'failed'), '1')
+        $case = $script:WindowsSimCases[1]
+        $inputs = @{ events = $case.events; end_ms = $case.end_ms } | ConvertTo-Json -Depth 100
+        $form.SetDetails($case.name, 'lism-behaviors.json / lism', $inputs, ($case.expect | ConvertTo-Json -Depth 100),
+            '{ "status": "failed", "error": "期待したキー入力と実際の出力が一致しません" }')
+        $form.SetSummary('1 件の検証に失敗しました', 'expect.keys: 期待したキー入力と実際の出力が一致しません。シナリオを選択して詳細を確認してください。', 2)
+        $form.SetReportEnabled($true)
+        $form.SetKeyStates([int[]]@(10, 15))
+        $form.SetReplayState('100 ms / レイヤー: BASE, MOUSE / 押しているキー: 10, 15')
+        [KcUi]::DoEvents()
+        Assert-Equal 0 @($form.TakeActions()).Count '結果を反映しても操作が発生しない'
+        Assert-True $root.FindName('ReportButton').IsEnabled
+        Save-UiSnapshot $form 'simulator-3-result'
+
+        $window.Width = $window.MinWidth
+        $window.Height = $window.MinHeight
+        [KcUi]::DoEvents()
+        Save-UiSnapshot $form 'simulator-4-min'
+        Assert-True ($root.FindName('KeyboardCanvas').ActualWidth -gt 100) 'キーボード図が描画される'
+        Assert-True ($root.FindName('ScenarioScroll').ActualHeight -gt 100) 'シナリオを選べる高さ'
+        $spans = @(@('RunButton', 'RunAllButton', 'CancelButton', 'CloseButton') | ForEach-Object { Get-UiSpan $root.FindName($_) $root } | Sort-Object Left)
+        for ($i = 1; $i -lt $spans.Count; $i++) {
+            Assert-True ($spans[$i - 1].Right -le $spans[$i].Left + 0.5) '操作ボタンが重ならない'
+        }
+        Assert-True ($spans[$spans.Count - 1].Right -le $root.ActualWidth + 0.5) '操作ボタンがウィンドウに収まる'
+        Assert-UiTextNotClipped $root.FindName('RunButton')
+        Assert-UiTextNotClipped $root.FindName('RunAllButton')
+    } finally { $form.Dispose() }
+    Assert-True $form.IsClosed
+    Assert-Equal 'close' (@($form.TakeActions()) -join ',')
+}
+
+Test-Case 'シミュレータのウィンドウ: 専用スレッドからの更新と終了を処理する' -WindowsOnly {
+    Import-KcInputForm
+    $form = [KcSimulatorForm]::Launch('キーボードシミュレータ (テスト)')
+    try {
+        Initialize-WindowsSimForm $form
+        $form.SetDetails('完了', 'test.json', 'input', 'expected', 'actual')
+        $form.SetSummary('検証が完了しました', '成功 1 / 失敗 0', 1)
+        $form.SetKeyStates([int[]]@())
+        $form.AppendLog('完了: 成功 1 / 失敗 0')
+        Save-UiSnapshot $form 'simulator-5-thread'
+        Assert-Equal 0 @($form.TakeActions()).Count 'PowerShell からの更新は操作にならない'
+        Assert-True (-not $form.IsClosed)
+        $form.RequestClose()
+        Assert-True ($form.WaitClosed(5000)) '閉じた'
+        Assert-Equal 'close' (@($form.TakeActions()) -join ',')
+    } finally { $form.Dispose() }
 }

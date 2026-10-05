@@ -164,7 +164,7 @@ Test-Case '.cmd が呼ぶ .ps1 がある' {
 Test-Case 'tools 直下は利用者が実行する .cmd だけ (.ps1 と他の .cmd は scripts)' {
     $top = @(Get-ChildItem -Path $script:ToolsDir -File | Where-Object { $_.Extension -eq '.cmd' -or $_.Extension -eq '.ps1' } |
             ForEach-Object { $_.Name } | Sort-Object)
-    Assert-Equal 'flash.cmd, input-monitor.cmd, keyball-check.cmd, keyboard-check.cmd' ($top -join ', ') 'tools 直下:'
+    Assert-Equal 'flash.cmd, input-monitor.cmd, keyball-check.cmd, keyboard-check.cmd, keyboard-sim.cmd' ($top -join ', ') 'tools 直下:'
 }
 
 Test-Case '.ps1 に構文エラーが無い' {

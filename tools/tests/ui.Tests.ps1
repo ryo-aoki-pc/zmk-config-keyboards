@@ -36,7 +36,7 @@ function Get-UiClassText([string]$ClassName) {
 
 Test-Case 'ウィンドウ: どの XAML も、いずれかのクラスが読み込む' {
     $windows = Get-UiWindows
-    Assert-Equal 'KcInputTestForm,KcInputMonitorForm,KcLayerTraceForm,KcFlashForm,KcHoldTapForm' (@($windows | ForEach-Object { $_.Class }) -join ',')
+    Assert-Equal 'KcInputTestForm,KcInputMonitorForm,KcLayerTraceForm,KcFlashForm,KcHoldTapForm,KcSimulatorForm' (@($windows | ForEach-Object { $_.Class }) -join ',')
     $files = @(Get-ChildItem -LiteralPath $script:UiDir -Filter '*.xaml' -File | Where-Object { $_.Name -ne 'Theme.xaml' } | ForEach-Object { $_.Name } | Sort-Object)
     Assert-Equal ($files -join ',') (@($windows | ForEach-Object { $_.Xaml } | Sort-Object) -join ',')
 }

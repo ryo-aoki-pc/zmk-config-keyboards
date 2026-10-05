@@ -184,11 +184,13 @@ git commit -m "Update submodules"
 | --- | --- |
 | `tools/flash.cmd` | [書き込みツール](#書き込みツール-toolsflashcmd) |
 | `tools/keyboard-check.cmd` | [キーボードの設定の検査](#キーボードの設定を検査する-toolskeyboard-checkcmd) |
+| `tools/keyboard-sim.cmd` | [実機なしのシミュレータ (Windows GUI)](#シミュレータの画面-windows) |
 | `tools/input-monitor.cmd` | [入力イベントの記録](#入力イベントを記録して調べる-toolsinput-monitorcmd) |
 | `tools/keyball-check.cmd` | [Keyball39 のトラックボールの診断](#keyball39-のトラックボールが動かない場合) |
 
 スクリプトの本体 (`.ps1`) は `tools/scripts/` にあります。`tools/scripts/` には、機種を絞った書き込み用の `.cmd` もあります。
-実機なしの自動テストは [`tools/scripts/keyboard-sim.ps1`](#実機なしで自動テストする) から実行します。
+実機なしの自動テストは、[`tools/keyboard-sim.cmd` の画面](#シミュレータの画面-windows) または
+[`tools/scripts/keyboard-sim.ps1` のコマンドライン](#実機なしで自動テストする) から実行します。
 
 | `.cmd` | ダブルクリック | ファイルのドロップ |
 | --- | --- | --- |
@@ -780,7 +782,8 @@ submodule は設定の読み取り元であり、ファイルや参照コミッ�
 
 ### シミュレータの準備と実行
 
-Python 3.10 以上と PowerShell 7 を用意し、親リポジトリのルートで実行します。
+Python 3.10 以上を用意します。Windows の GUI は標準の Windows PowerShell 5.1 で動作します。
+以下のコマンドラインの例は PowerShell 7 を使い、親リポジトリのルートで実行します。
 Python の追加パッケージやファームウェア用ツールチェーンは不要です。
 必要な submodule だけを、親が固定したコミットで取得できます (孫 submodule の取得は不要)。
 
@@ -811,6 +814,31 @@ Keyball39 側の出力も JSON レポートの `actual.upstream` に記録しま
 
 ```bash
 python tools/simulator/export_model.py --keyboard lism
+```
+
+### シミュレータの画面 (Windows)
+
+上の準備後、`tools/keyboard-sim.cmd` をダブルクリックすると、機種とシナリオを選ぶ画面が開きます。
+USB / BLE のキーボードを接続する必要はありません。
+
+1. 機種とシナリオを選び、「選択を実行」または「この機種を全件実行」を押す。
+   実行中は「中止」で止められます。中止した回は合格になりません。
+2. 結果一覧でシナリオを選び、入力・期待値・実際の出力を確認する。失敗した場合はエラーの詳細も表示されます。
+3. 時刻スライダーや「再生 / 一時停止」で、キーボード図の押下位置、出力キー、有効レイヤー、マウスの状態を確認する。
+   再生は記録を画面上で確認する機能です。KQ-mini 単体は入力の HID キー一覧、Keyball39 → KQ-mini は Keyball39 の配列を表示します。
+
+独自のシナリオは「JSON を開く」から読み込むか、JSON ファイルを `tools/keyboard-sim.cmd` にドラッグ＆ドロップします。
+「標準に戻す」で、同梱の `tools/simulator/scenarios/` を読み直します。
+期待値は JSON で管理し、GUI から自動生成・書き換えは行いません。
+
+実行ごとに `tools/.cache/simulator/gui/<実行ごとのフォルダ>/` に入力のコピー `scenario.json` を保存し、
+完了時に結果の `results.json` / `results.xml` を保存します。「レポート」から保存先を開けます。
+実行と合否判定はコマンドラインと同じシミュレータを使います。
+
+起動時の機種・シナリオ・Python を指定する場合:
+
+```powershell
+powershell -NoProfile -STA -ExecutionPolicy Bypass -File tools/scripts/keyboard-sim-gui.ps1 -Scenario tools/simulator/scenarios -Board lism -Python python
 ```
 
 ### シナリオを書く
