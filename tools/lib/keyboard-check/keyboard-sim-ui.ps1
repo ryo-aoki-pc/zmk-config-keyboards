@@ -227,7 +227,13 @@ function Show-KcSimUiSelection($Ctx) {
     $inputs = [ordered]@{ events = (Get-KcSimProperty $scenario 'events'); end_ms = (Get-KcSimProperty $scenario 'end_ms') } | ConvertTo-Json -Depth 100
     $expected = ConvertTo-Json -InputObject (Get-KcSimProperty $scenario 'expect') -Depth 100
     $actual = '未実行'
-    if ($s.Results.ContainsKey($entry.Id)) { $actual = $s.Results[$entry.Id] | ConvertTo-Json -Depth 100 }
+    if ($s.Results.ContainsKey($entry.Id)) {
+        $result = $s.Results[$entry.Id]
+        $output = Get-KcSimProperty $result 'actual'
+        # 期待値と同じ項目から表示する。参照コミットや判定の詳細は完全なレポートに残す。
+        if ($null -ne $output) { $actual = ConvertTo-Json -InputObject $output -Depth 100 }
+        else { $actual = [string](Get-KcSimProperty $result 'error' '出力を取得できませんでした') }
+    }
     $source = $entry.Source + "`n" + $entry.Board
     if ($s.ModelError) { $source += "`n" + $s.ModelError }
     $Ctx.Form.SetDetails([string]$entry.Name, [string]$source, [string]$inputs, [string]$expected, [string]$actual)

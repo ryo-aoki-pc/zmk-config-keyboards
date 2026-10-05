@@ -339,6 +339,9 @@ Test-Case '画面の実行経路: 実際の CLI 子プロセスが日本語の�
             $result = $ctx.State.Results['0']
             Assert-Equal $case.name $result.name '日本語のシナリオ名'
             Assert-Equal 20 $result.actual.keys[0].usage '既存のエンジンが実際に Q を出力'
+            $display = (Get-SuiLast $ctx.Form 'SetDetails')[5] | ConvertFrom-Json
+            Assert-Equal 20 $display.keys[0].usage '画面の実際の出力は期待値でなくエンジンの結果を表示'
+            Assert-Equal @() $display.state.keys '終了時の状態も画面に表示'
             $report = [System.IO.File]::ReadAllText($reportPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
             $xml = [xml][System.IO.File]::ReadAllText($junitPath, [System.Text.Encoding]::UTF8)
             Assert-Equal $case.name $xml.testsuite.testcase.name 'JUnit の日本語名'
