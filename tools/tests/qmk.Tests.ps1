@@ -140,6 +140,29 @@ Test-Case 'Keyball39: カーソルの加速が期待値と違うと FAIL' {
     Assert-True ((Get-StatusOf $r 'カーソルの加速').Actual -like '*max-factor 1000*') (Get-StatusOf $r 'カーソルの加速').Actual
 }
 
+Test-Case 'Keyball39: 楕円の補正 (KEYBALL_SCALE_X / _Y) を期待値と比べる' {
+    # 期待値の値はテストの中で決める (実機で測った値を入れても変わらないように)
+    $exp = $kbExp | ConvertTo-Json -Depth 20 | ConvertFrom-Json
+    $fw = @($exp.interactive.trackball.firmware)[0]
+    $fw | Add-Member -NotePropertyName xy_scale -NotePropertyValue @(1031, 970) -Force
+    $item = '楕円の補正 (X / Y の倍率)'
+    $dev = New-FakeKeyball $exp
+    $r = New-KcResultList
+    Invoke-KcKeyballReadout -Query $dev.Query -Expected $exp -Common $common -Results $r
+    Assert-Equal 'PASS' (Get-StatusOf $r $item).Status
+    Assert-Equal 'KEYBALL_SCALE_X 1031 / KEYBALL_SCALE_Y 970' (Get-StatusOf $r $item).Actual
+    $dev = New-FakeKeyball $exp -Scale @(1000, 1000)
+    $r = New-KcResultList
+    Invoke-KcKeyballReadout -Query $dev.Query -Expected $exp -Common $common -Results $r
+    Assert-Equal $item (Get-FailItems $r)
+    # 楕円の補正の無い古いファーム (08 00 03 の [12-15] が 0)
+    $dev = New-FakeKeyball $exp -Scale $null
+    $r = New-KcResultList
+    Invoke-KcKeyballReadout -Query $dev.Query -Expected $exp -Common $common -Results $r
+    Assert-Equal '' (Get-FailItems $r)
+    Assert-Equal 'SKIP' (Get-StatusOf $r $item).Status
+}
+
 Test-Case 'Keyball39: AML のしきい値が違うと FAIL、しきい値の無い形式 1 のファームでは SKIP' {
     $dev = New-FakeKeyball $kbExp
     $dev.KeyballStatus[26] = 5

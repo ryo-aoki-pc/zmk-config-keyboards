@@ -597,12 +597,13 @@
           "cpi_source": "zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball の cpi",
           "cpi_setting": {"template": "cpi = <{cpi}>;", "step": 200, "min": 200, "max": 3200},
           "xy_scaler": [1, 1],
-          "matrix": null,
-          "divisor": null,
           "correction": "zip_scaler",
           "listener": "zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball_listener",
           "accel": {"model": "zmk", "label": "trackball_accel", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000},
-          "xy_scaler_set": false
+          "xy_scaler_set": false,
+          "x_scaler": [1, 1],
+          "y_scaler": [1, 1],
+          "axis_scaler_set": false
         }
       ]
     },
@@ -2631,6 +2632,7 @@
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/32 (README の共通基盤: 1/32、CPI 800 のため)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"},
+    {"level": "ok", "message": "楕円の補正 (右のボール): なし (X / Y とも等倍)"},
     {"level": "ok", "message": "タップホールド &lt: balanced / tapping-term 150 / quick-tap 0 (LisM 基準: balanced / tapping-term 150 / quick-tap 0)"},
     {"level": "ok", "message": "タップホールド &mt: balanced / tapping-term 150 / quick-tap 0 (LisM 基準: balanced / tapping-term 150 / quick-tap 0)"}
   ]

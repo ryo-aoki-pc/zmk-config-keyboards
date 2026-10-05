@@ -7,7 +7,7 @@
   "sources": [
     {"submodule": "zmk-config-LisM", "commit": "c0d06bbff6ca7a4d296b017cca809cb9bfc358c1", "files": ["config/lism.keymap", "config/lism.vialmap.json"]},
     {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["zmk_to_vial.py"]},
-    {"submodule": "keyball", "commit": "ff10c7396a4c1bf7987d3e1badd80a3b0c403196", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
+    {"submodule": "keyball", "commit": "b58a0e0f706d2e177b2e02b63cfd7f0df91c85f8", "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c"]}
   ],
   "device": {"usb_vid": "FEED", "usb_pid": "999C", "usage_page": "FF60", "usage": "61", "vial_uid": [5, 228, 161, 127, 220, 135, 203, 42]},
   "layers": [
@@ -708,11 +708,10 @@
           "cpi_setting": {"template": "#define KEYBALL_CPI_DEFAULT {cpi}", "step": 100, "min": 100, "max": 12000},
           "xy_scaler": [1, 1],
           "xy_scaler_set": false,
-          "matrix": null,
-          "divisor": null,
-          "correction": "cpi_only",
-          "listener": "Keyball のファーム (X/Y を別々に補正する機能は無い)",
-          "accel": {"model": "keyball", "label": "KEYBALL_ACCEL_*", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000, "interval_ms": 8, "clamp": 127}
+          "accel": {"model": "keyball", "label": "KEYBALL_ACCEL_*", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000, "interval_ms": 8, "clamp": 127},
+          "correction": "keyball_scale",
+          "xy_scale": [1000, 1000],
+          "listener": "keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_SCALE_X / KEYBALL_SCALE_Y"
         },
         {
           "side": "kq-mini",
@@ -722,8 +721,7 @@
           "cpi_setting": null,
           "xy_scaler": [1, 1],
           "xy_scaler_set": false,
-          "matrix": null,
-          "divisor": null,
+          "xy_scale": null,
           "correction": "none",
           "accel": null,
           "listener": "KQ-mini はマウスを等倍で中継する (倍率は変えられない)"

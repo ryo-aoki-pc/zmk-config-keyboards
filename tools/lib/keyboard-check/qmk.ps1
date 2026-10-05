@@ -290,7 +290,8 @@ function Read-KcKeyballStatus($Query) {
     return (ConvertFrom-KcKeyballStatus $r)
 }
 
-# カーソルの加速の設定 (08 00 03。config.h の KEYBALL_ACCEL_*)。読めなければ $null
+# カーソルの加速の設定 (08 00 03。config.h の KEYBALL_ACCEL_*) と楕円の補正 (KEYBALL_SCALE_X / _Y。古いファームは 0)。
+# 読めなければ $null
 function Read-KcKeyballAccel($Query) {
     $r = Invoke-KcQmk $Query ([byte[]](0x08, 0x00, 0x03)) 3
     if ($r[0] -eq 0xFF) {
@@ -300,11 +301,35 @@ function Read-KcKeyballAccel($Query) {
         min_factor = [int](ConvertFrom-KcBigEndian $r 3 2); max_factor = [int](ConvertFrom-KcBigEndian $r 5 2)
         speed_threshold = [int](ConvertFrom-KcBigEndian $r 7 2); speed_max = [int](ConvertFrom-KcBigEndian $r 9 2)
         interval_ms = [int]$r[11]
+        scale_x = [int](ConvertFrom-KcBigEndian $r 12 2); scale_y = [int](ConvertFrom-KcBigEndian $r 14 2)
     }
 }
 
 function Format-KcAccel($Accel) {
     return ('min-factor {0} / max-factor {1} / speed-threshold {2} / speed-max {3}' -f $Accel.min_factor, $Accel.max_factor, $Accel.speed_threshold, $Accel.speed_max)
+}
+
+# 楕円の補正 (KEYBALL_SCALE_X / _Y) を期待値と比べる。$Accel は Read-KcKeyballAccel の結果
+function Add-KcKeyballScaleResult($Results, [string]$Category, $Accel, $Firmware) {
+    $exp = Get-KcProp $Firmware 'xy_scale' $null
+    $item = '楕円の補正 (X / Y の倍率)'
+    if ($null -eq $Accel -or [int]$Accel.scale_x -eq 0) {
+        if ($null -ne $exp) {
+            [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status SKIP `
+                    -Actual 'このファームでは読めません' -Hint 'tools/flash.cmd (Keyball39) で最新のファームを書き込むと読めるようになります')
+        }
+        return
+    }
+    $actual = 'KEYBALL_SCALE_X {0} / KEYBALL_SCALE_Y {1}' -f $Accel.scale_x, $Accel.scale_y
+    if ($null -eq $exp) {
+        [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status INFO -Actual $actual)
+    } elseif ([int]$Accel.scale_x -eq [int]$exp[0] -and [int]$Accel.scale_y -eq [int]$exp[1]) {
+        [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status PASS -Actual $actual)
+    } else {
+        [void](Add-KcResult -Results $Results -Category $Category -Item $item -Status FAIL -Actual $actual `
+                -Expected ('KEYBALL_SCALE_X {0} / KEYBALL_SCALE_Y {1}' -f $exp[0], $exp[1]) `
+                -Hint 'ファームの config.h の KEYBALL_SCALE_X / _Y が期待値と違います。tools/flash.cmd (Keyball39) で最新のファームを書き込むか、submodule の参照を書き込んだファームにそろえてください')
+    }
 }
 
 function Read-KcKeyballBuildDate($Query) {
@@ -784,6 +809,7 @@ function Invoke-KcKeyballReadout {
                         -Hint 'ファームの config.h の KEYBALL_ACCEL_* が期待値 (LisM 基準) と違います。tools/flash.cmd (Keyball39) で最新のファームを書き込んでください')
             }
         }
+        Add-KcKeyballScaleResult $Results $cat $accel (@($Expected.interactive.trackball.firmware)[0])
         $date = Read-KcKeyballBuildDate $Query
         if ($date) {
             [void](Add-KcResult -Results $Results -Category $cat -Item 'ファームのビルド日時' -Status INFO -Actual $date)

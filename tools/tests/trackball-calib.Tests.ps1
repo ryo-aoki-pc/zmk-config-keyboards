@@ -8,12 +8,14 @@ $thresholds = $common.thresholds
 # ファームの設定は期待値の JSON の形を使い、値は計測ページの例に合わせて固定する (ファームの調整でテストが変わらないように)
 function Copy-Firmware([string]$Id, [hashtable]$Values) {
     $fw = (Get-KcExpected $Id $script:ExpectedDir).interactive.trackball.firmware[0] | ConvertTo-Json -Depth 6 | ConvertFrom-Json
-    foreach ($k in $Values.Keys) { $fw.$k = $Values[$k] }
+    foreach ($k in $Values.Keys) { $fw | Add-Member -NotePropertyName $k -NotePropertyValue $Values[$k] -Force }
     return $fw
 }
-$kukey = Copy-Firmware 'kukey42' @{ cpi = 1000; matrix = @(995, -497, -305, 2163); divisor = 1000; xy_scaler = @(1, 1) }
-$lismRight = Copy-Firmware 'lism' @{}
-$afrb = Copy-Firmware 'aroundfortyrb' @{ cpi = 400; xy_scaler = @(2, 1) }
+$noAxis = @{ x_scaler = @(1, 1); y_scaler = @(1, 1); axis_scaler_set = $false }
+$kukey = Copy-Firmware 'kukey42' @{ cpi = 1000; xy_scaler = @(1, 1); x_scaler = @(1, 2); y_scaler = @(13, 12); axis_scaler_set = $true }
+$lismRight = Copy-Firmware 'lism' $noAxis
+$afrb = Copy-Firmware 'aroundfortyrb' (@{ cpi = 400; xy_scaler = @(2, 1) } + $noAxis)
+$keyball = Copy-Firmware 'keyball39' @{ correction = 'keyball_scale'; xy_scale = @(1000, 1000); listener = 'keyball39 の config.h' }
 
 # 「KUKEY42 真円計測」ページの例のデータ (＼ 45°、縦横比 3 の楕円) と同じ点を作る
 function New-ExampleSamples {
@@ -60,25 +62,81 @@ Test-Case '楕円の当てはめが計測ページ (JavaScript) と一致する'
     Assert-Near 2.968126143976296 $split[1].Ratio 1e-9 '速い動き'
 }
 
-Test-Case '補正行列: 行列式 1、補正後は真円' {
-    $f = Get-KcEllipseFit $example
-    $m = Get-KcCorrectionMatrix $f 1.0
-    Assert-Near 1.0 ($m[0][0] * $m[1][1] - $m[0][1] * $m[1][0]) 1e-9 '行列式'
-    $after = Get-KcEllipseFit @(foreach ($p in $example) { , (Invoke-KcMatrix $m $p) })
-    Assert-Near 1.0 $after.Ratio 1e-6 '補正後の縦横比'
+# 傾きの無い楕円 (X の幅 $Wx、Y の幅 $Wy)
+function New-AxisEllipse([double]$Wx, [double]$Wy) {
+    $pts = @()
+    for ($i = 0; $i -lt 400; $i++) {
+        $t = $i / 40 * [math]::PI * 2
+        $pts += , @(([math]::Cos($t) * $Wx), ([math]::Sin($t) * $Wy))
+    }
+    return , $pts
 }
 
-Test-Case 'KUKEY42: 今の行列に掛けた matrix の行が計測ページと同じ' {
-    # 計測ページ (強さ 100%、今のファーム <995 -497 -305 2163>) の出力: matrix = <1319 (-1815) (-925) 2789>;
-    $rec = New-KcEllipseRecommendation -Samples $example -Firmware $kukey -Thresholds $thresholds
+Test-Case '軸ごとの補正: X と Y の分散をそろえ、行列式 1' {
+    $f = Get-KcEllipseFit (New-AxisEllipse 10 20)
+    Assert-Near 2.0 (Get-KcAxisRatio $f) 1e-9
+    $k = Get-KcAxisCorrection $f 1.0
+    Assert-Near ([math]::Sqrt(2)) $k[0] 1e-9
+    Assert-Near 1.0 ($k[0] * $k[1]) 1e-12 '行列式'
+    Assert-Near ([math]::Pow(2, 0.25)) (Get-KcAxisCorrection $f 0.5)[0] 1e-9 '強さ 50% は半分 (対数で)'
+    # 傾いた楕円は、軸ごとの倍率では直らない (X と Y の分散が同じ)
+    $f45 = Get-KcEllipseFit $example
+    Assert-Near 1.0 (Get-KcAxisRatio $f45) 0.05
+}
+
+Test-Case '傾きの無い楕円: zip_x_scaler / zip_y_scaler を追加する行' {
+    $rec = New-KcEllipseRecommendation -Samples (New-AxisEllipse 10 20) -Firmware $lismRight -Thresholds $thresholds
     Assert-Equal 'WARN' $rec.Status
-    Assert-Equal 'matrix = <1319 (-1815) (-925) 2789>;' $rec.Lines[0]
-    Assert-Equal 'divisor = <1000>;' $rec.Lines[1]
-    Assert-True ($rec.Lines[2] -like '// 計測: tools/keyboard-check*縦横比 2.99*') $rec.Lines[2]
-    Assert-Equal '1.00' $rec.PredictedRatio
+    # 面積を保つので X は √2 倍、Y は 1/√2 倍 (分母 16 以下の分数で近似: 17/12、7/10)
+    Assert-Equal '<&zip_x_scaler 17 12>, <&zip_y_scaler 7 10>' $rec.Lines[0]
+    Assert-True ($rec.Lines[1] -like '// 計測: tools/keyboard-check*X と Y の比 2.00*') $rec.Lines[1]
+    Assert-True (@($rec.Notes | Where-Object { $_ -like '*input-processors に追加する*zip_xy_transform*trackball_accel> より前*' }).Count -eq 1) ($rec.Notes -join ' / ')
+    Assert-Near 1.0 ([double]$rec.PredictedRatio) 0.02 '補正後の予想 (分数に丸めた分だけずれる)'
+    Assert-Equal 'X と Y の比 1.10 以下' $rec.Expected
 }
 
-Test-Case '真円に近ければ PASS' {
+Test-Case '傾いた楕円でも値を出し、残る傾きを注記する' {
+    # 計測ページの例 (＼ 45°、縦横比 3): X と Y の分散がほぼ同じなので、軸ごとの倍率はほぼ等倍
+    $rec = New-KcEllipseRecommendation -Samples $example -Firmware $lismRight -Thresholds $thresholds
+    Assert-Equal 'PASS' $rec.Status
+    Assert-Equal 0 @($rec.Lines).Count
+    Assert-True (@($rec.Notes | Where-Object { $_ -like '*変更不要*' }).Count -eq 1) ($rec.Notes -join ' / ')
+    Assert-True (@($rec.Notes | Where-Object { $_ -like '*傾き*までしか直りません*' }).Count -eq 1) ($rec.Notes -join ' / ')
+}
+
+Test-Case '今の zip_x_scaler / zip_y_scaler に掛けて、置き換える行を出す' {
+    # 今の KUKEY42 (X 1/2、Y 13/12) で測った移動量が、さらに X 0.5 倍 : Y 1 の楕円だった
+    $rec = New-KcEllipseRecommendation -Samples (New-AxisEllipse 10 20) -Firmware $kukey -Thresholds $thresholds
+    Assert-Equal 'WARN' $rec.Status
+    # X: 1/2 × √2 = 0.707 → 7/10、Y: 13/12 × 1/√2 = 0.766 → 10/13 (分母 16 以下)
+    Assert-Equal '<&zip_x_scaler 7 10>, <&zip_y_scaler 10 13>' $rec.Lines[0]
+    Assert-True (@($rec.Notes | Where-Object { $_ -like '*zip_x_scaler 1/2 / zip_y_scaler 13/12 をこの値に置き換える*' }).Count -eq 1) ($rec.Notes -join ' / ')
+}
+
+Test-Case 'わずかなずれは、分数で表せないので今の値のまま' {
+    # X と Y の比 1.03: 補正は X ×1.015 だが、分母 16 以下の分数でいちばん近いのは 1/1
+    $rec = New-KcEllipseRecommendation -Samples (New-AxisEllipse 10 10.3) -Firmware $lismRight -Thresholds $thresholds
+    Assert-Equal 'PASS' $rec.Status
+    Assert-Equal 0 @($rec.Lines).Count
+}
+
+Test-Case 'Keyball39: KEYBALL_SCALE_X / _Y の 2 行 (今の値に掛ける)' {
+    $rec = New-KcEllipseRecommendation -Samples (New-AxisEllipse 10 20) -Firmware $keyball -Thresholds $thresholds
+    Assert-Equal 'WARN' $rec.Status
+    Assert-Equal '#define KEYBALL_SCALE_X 1414' $rec.Lines[0]
+    Assert-Equal '#define KEYBALL_SCALE_Y 707' $rec.Lines[1]
+    Assert-True ($rec.Lines[2] -like '// 計測:*') $rec.Lines[2]
+    $cur = Copy-Firmware 'keyball39' @{ correction = 'keyball_scale'; xy_scale = @(1100, 900); listener = 'x' }
+    $rec = New-KcEllipseRecommendation -Samples (New-AxisEllipse 10 20) -Firmware $cur -Thresholds $thresholds -Strength 0.5
+    Assert-Equal '#define KEYBALL_SCALE_X 1308' $rec.Lines[0]   # 1100 × 2^(1/8)
+    Assert-Equal '#define KEYBALL_SCALE_Y 757' $rec.Lines[1]    # 900 / 2^(1/8)
+    # 範囲は 500〜2000
+    $rec = New-KcEllipseRecommendation -Samples (New-AxisEllipse 10 80) -Firmware $cur -Thresholds $thresholds
+    Assert-Equal '#define KEYBALL_SCALE_X 2000' $rec.Lines[0]
+    Assert-Equal '#define KEYBALL_SCALE_Y 500' $rec.Lines[1]
+}
+
+Test-Case '真円に近ければ PASS (変更不要)' {
     $circle = @()
     for ($i = 0; $i -lt 400; $i++) {
         $t = $i / 40 * [math]::PI * 2
@@ -86,18 +144,7 @@ Test-Case '真円に近ければ PASS' {
     }
     $rec = New-KcEllipseRecommendation -Samples $circle -Firmware $lismRight -Thresholds $thresholds
     Assert-Equal 'PASS' $rec.Status
-}
-
-Test-Case '傾きの無い楕円: zip_x_scaler / zip_y_scaler の推奨値' {
-    $pts = @()
-    for ($i = 0; $i -lt 400; $i++) {
-        $t = $i / 40 * [math]::PI * 2
-        $pts += , @(([math]::Cos($t) * 10), ([math]::Sin($t) * 20))
-    }
-    $rec = New-KcEllipseRecommendation -Samples $pts -Firmware $lismRight -Thresholds $thresholds
-    Assert-Equal 'WARN' $rec.Status
-    # 面積を保つので X は √2 倍、Y は 1/√2 倍 (分母 16 以下の分数で近似: 17/12、7/10)
-    Assert-Equal '<&zip_x_scaler 17 12>, <&zip_y_scaler 7 10>' $rec.Lines[0]
+    Assert-True (@($rec.Notes | Where-Object { $_ -like '*変更不要*' }).Count -eq 1) ($rec.Notes -join ' / ')
 }
 
 Test-Case '点が少ないと SKIP、速さがばらつくと注意を出す' {
@@ -285,13 +332,14 @@ function Invoke-SimKeyballAccel($Reports) {
     return , $out.ToArray()
 }
 
-# 縦横比 3 (＼ 45°) の楕円を、速さを 0.4〜1.6 倍に変えながら 10 秒右回り → 10 秒左回り
-function New-SimEllipse([double]$Base, [double]$PeriodMs) {
+# 縦横比 $Ratio (長軸の傾き $TiltDeg。既定は ＼ 45°、縦横比 3) の楕円を、速さを 0.4〜1.6 倍に変えながら
+# 10 秒右回り → 10 秒左回り
+function New-SimEllipse([double]$Base, [double]$PeriodMs, [double]$Ratio = 3.0, [double]$TiltDeg = 45.0) {
     $n = [int](20000 / $PeriodMs)
     $vx = New-Object 'double[]' $n
     $vy = New-Object 'double[]' $n
-    $a = [math]::Sqrt(3.0); $b = 1 / [math]::Sqrt(3.0)
-    $c = [math]::Cos([math]::PI / 4); $s = [math]::Sin([math]::PI / 4)
+    $a = [math]::Sqrt($Ratio); $b = 1 / [math]::Sqrt($Ratio)
+    $c = [math]::Cos($TiltDeg * [math]::PI / 180); $s = [math]::Sin($TiltDeg * [math]::PI / 180)
     $m00 = $a * $c * $c + $b * $s * $s; $m01 = ($a - $b) * $c * $s; $m11 = $a * $s * $s + $b * $c * $c
     $ph = 0.0
     for ($i = 0; $i -lt $n; $i++) {
@@ -323,8 +371,24 @@ function New-SimStroke([double]$Total, [double]$Ms, [double]$PeriodMs) {
     return , (New-SimReports $vx $vy $PeriodMs 1000)
 }
 
-$simFirmware = [pscustomobject]@{ side = 'right'; correction = 'zip_scaler'; xy_scaler = @(1, 1); listener = 'x'; accel = $zmkAccel }
-$simNoAccel = [pscustomobject]@{ side = 'right'; correction = 'zip_scaler'; xy_scaler = @(1, 1); listener = 'x'; accel = $null }
+# ZMK の zip_x_scaler / zip_y_scaler (0 に向けて切り捨て、端数を持ち越す)。加速の前に掛ける
+function Invoke-SimZmkScaler($Reports, $X, $Y) {
+    $out = New-Object 'System.Collections.Generic.List[object]'
+    $rx = 0; $ry = 0
+    foreach ($r in $Reports) {
+        $tx = [long]$r[1] * $X[0] + $rx
+        $ox = [long][math]::Truncate($tx / $X[1])
+        $rx = $tx - $ox * $X[1]
+        $ty = [long]$r[2] * $Y[0] + $ry
+        $oy = [long][math]::Truncate($ty / $Y[1])
+        $ry = $ty - $oy * $Y[1]
+        $out.Add(@($r[0], $ox, $oy))
+    }
+    return , $out.ToArray()
+}
+
+$simFirmware = [pscustomobject]@{ side = 'right'; correction = 'zip_scaler'; xy_scaler = @(1, 1); x_scaler = @(1, 1); y_scaler = @(1, 1); axis_scaler_set = $false; listener = 'x'; accel = $zmkAccel }
+$simNoAccel = [pscustomobject]@{ side = 'right'; correction = 'zip_scaler'; xy_scaler = @(1, 1); x_scaler = @(1, 1); y_scaler = @(1, 1); axis_scaler_set = $false; listener = 'x'; accel = $null }
 
 Test-Case '楕円: ファームの加速を取り除くと、本当の縦横比に戻る (ZMK)' {
     $reports = New-SimEllipse 800 15
@@ -332,7 +396,7 @@ Test-Case '楕円: ファームの加速を取り除くと、本当の縦横比�
     $rec = New-KcEllipseRecommendation -Samples $post -Firmware $simFirmware -Thresholds $thresholds
     Assert-Near 3.0 $rec.Fit.Ratio 0.09 '加速を取り除いた縦横比 (3% 以内)'
     Assert-Near 45.0 $rec.Tilt 2.0 '傾き'
-    Assert-True ($rec.Lines[-1] -like '*加速を除く*') $rec.Lines[-1]
+    Assert-Near 1.0 $rec.AxisRatio 0.05 '45° の楕円は X と Y の比がほぼ 1 (軸ごとの倍率では直らない)'
     $raw = New-KcEllipseRecommendation -Samples $post -Firmware $simNoAccel -Thresholds $thresholds
     Assert-True ($raw.Fit.Ratio -gt 3.2) ('加速を取り除かないと細長く出る: {0:F3}' -f $raw.Fit.Ratio)
 }
@@ -340,9 +404,30 @@ Test-Case '楕円: ファームの加速を取り除くと、本当の縦横比�
 Test-Case '楕円: ファームの加速を取り除くと、本当の縦横比に戻る (Keyball)' {
     $reports = New-SimEllipse 800 8
     $post = Invoke-SimKeyballAccel $reports
-    $fw = [pscustomobject]@{ side = 'right'; correction = 'cpi_only'; xy_scaler = @(1, 1); listener = 'Keyball'; accel = $keyballAccel }
+    $fw = [pscustomobject]@{ side = 'right'; correction = 'keyball_scale'; xy_scaler = @(1, 1); xy_scale = @(1000, 1000); listener = 'Keyball'; accel = $keyballAccel }
     $rec = New-KcEllipseRecommendation -Samples $post -Firmware $fw -Thresholds $thresholds
     Assert-Near 3.0 $rec.Fit.Ratio 0.09 '加速を取り除いた縦横比 (3% 以内)'
+    # 傾きの無い楕円 (Y が X の 1.5 倍): 補正の倍率は X ×√1.5、Y ×1/√1.5
+    $post = Invoke-SimKeyballAccel (New-SimEllipse 800 8 1.5 90)
+    $rec = New-KcEllipseRecommendation -Samples $post -Firmware $fw -Thresholds $thresholds
+    Assert-Near ([math]::Sqrt(1.5)) $rec.Scale[0] (0.03 * [math]::Sqrt(1.5)) 'X の倍率 (3% 以内)'
+    Assert-Near (1000 * [math]::Sqrt(1.5)) ([double]$rec.Values.xy_scale[0]) 40 'KEYBALL_SCALE_X'
+}
+
+Test-Case '楕円: 傾きの無い楕円は、今の倍率に掛けた値で円に戻る (ZMK、加速の前に倍率)' {
+    # センサーは Y が X の 2 倍に長い楕円 (縦横比 2、傾き 90°)
+    $reports = New-SimEllipse 800 15 2.0 90
+    $rec = New-KcEllipseRecommendation -Samples (Invoke-SimZmkAccel $reports) -Firmware $simFirmware -Thresholds $thresholds
+    Assert-Equal 'WARN' $rec.Status
+    Assert-Near 2.0 $rec.AxisRatio 0.06 'X と Y の比 (3% 以内)'
+    Assert-Near ([math]::Sqrt(2)) $rec.Scale[0] (0.03 * [math]::Sqrt(2)) 'X の倍率 (3% 以内)'
+    # 推奨値 (X 17/12、Y 7/10) を加速の前に入れたファームで測り直すと、X と Y の比は 1.10 以下になり、変更不要
+    $x = @([long]$rec.Values.x_scaler[0], [long]$rec.Values.x_scaler[1])
+    $y = @([long]$rec.Values.y_scaler[0], [long]$rec.Values.y_scaler[1])
+    $fw = [pscustomobject]@{ side = 'right'; correction = 'zip_scaler'; xy_scaler = @(1, 1); x_scaler = $x; y_scaler = $y; axis_scaler_set = $true; listener = 'x'; accel = $zmkAccel }
+    $again = New-KcEllipseRecommendation -Samples (Invoke-SimZmkAccel (Invoke-SimZmkScaler $reports $x $y)) -Firmware $fw -Thresholds $thresholds
+    Assert-Equal 'PASS' $again.Status ($again.Summary)
+    Assert-Equal 0 @($again.Lines).Count ($again.Lines -join ' / ')
 }
 
 Test-Case '速さ: ファームの加速を取り除くと、1 回転あたりのカウントが速さによらない' {

@@ -7,7 +7,7 @@
   "sources": [
     {
       "submodule": "keyball",
-      "commit": "ff10c7396a4c1bf7987d3e1badd80a3b0c403196",
+      "commit": "b58a0e0f706d2e177b2e02b63cfd7f0df91c85f8",
       "files": ["qmk_firmware/keyboards/keyball/keyball39/keymaps/via/keymap.c", "qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h", "qmk_firmware/keyboards/keyball/keyball39/keyball39.h", "qmk_firmware/keyboards/keyball/keyball39/keyboard.json", "qmk_firmware/keyboards/keyball/lib/keyball/keyball.h"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["vial_keymap_docgen.py"]}
@@ -191,11 +191,10 @@
           "cpi_setting": {"template": "#define KEYBALL_CPI_DEFAULT {cpi}", "step": 100, "min": 100, "max": 12000},
           "xy_scaler": [1, 1],
           "xy_scaler_set": false,
-          "matrix": null,
-          "divisor": null,
-          "correction": "cpi_only",
-          "listener": "Keyball のファーム (X/Y を別々に補正する機能は無い)",
-          "accel": {"model": "keyball", "label": "KEYBALL_ACCEL_*", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000, "interval_ms": 8, "clamp": 127}
+          "accel": {"model": "keyball", "label": "KEYBALL_ACCEL_*", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000, "interval_ms": 8, "clamp": 127},
+          "correction": "keyball_scale",
+          "xy_scale": [1000, 1000],
+          "listener": "keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_SCALE_X / KEYBALL_SCALE_Y"
         }
       ]
     },
@@ -214,6 +213,7 @@
     {"level": "ok", "message": "AML の発動条件 AUTO_MOUSE_DELAY = 200 (LisM require-prior-idle-ms 200)"},
     {"level": "ok", "message": "AML のしきい値 KEYBALL_AML_THRESHOLD = 10 (LisM 10)"},
     {"level": "ok", "message": "スクロールの倍率 1/16 (KEYBALL_SCROLL_DIV_DEFAULT 5、LisM 1/16)"},
-    {"level": "ok", "message": "カーソルの加速 KEYBALL_ACCEL_*: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"}
+    {"level": "ok", "message": "カーソルの加速 KEYBALL_ACCEL_*: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
+    {"level": "ok", "message": "楕円の補正 KEYBALL_SCALE_X / _Y = 1000 / 1000 (X 1.000 倍 / Y 1.000 倍)"}
   ]
 }

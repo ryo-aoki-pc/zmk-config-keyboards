@@ -41,8 +41,9 @@
 | FUNC レイヤー | `Q`〜`P` で F1〜F10、F10 の下の `-` / `/` で F11 / F12。`D` / `F` / `G` で PrintScreen / ScrollLock / Pause (標準のキーボードと同じ並び)、`C` (PrintScreen の下) で Insert、`Z` でアプリケーションキー (メニュー)。キー数の違う機種も BASE と同じ文字の位置。KQ-mini + Keyball39 も同じ (FUNC は Keyball39 の `` ` `` を押したまま) |
 | AML | `&zip_temp_layer 8 10000`、`require-prior-idle-ms 200`、除外位置は D / K (`&mo SCRL`) だけ、マウスクリックでタイマー延長。D / K を押したままスクロールしている間も延長する (スクロールのチェーンの先頭に `&zip_temp_layer 8 10000`。KUKEY42 はドライバのスクロールが通る `trackball_listener`、Keyball39 は `auto_mouse_activation` でホイールも数える)。修飾キーの位置 (A / - / Z / / / Win / Alt) を押しても AML が切れる。MOUSE_MOVE ではそこを `&trans` にしてあり、BASE と同じキーになる (A / - / Z / / はタップで文字、長押しで Ctrl / Shift)。マウスを使った直後に `a` や `z` を入力できる |
 | AML の発動条件 | キー入力の振動などでボールがわずかに動いても AML にならない。キーを押した・離したあと `require-prior-idle-ms` (200ms) は発動せず (すべてのキーの押下と解放を数える)、止まっていた状態から動いた量 (X と Y それぞれ向き付きで足すので、行ったり来たりする振動は打ち消し合う) が 10 (加速の後の値 = カーソルの移動量) に達したら発動する。トラックボールのリスナーで `zip_temp_layer` の代わりに [zmk-input-processor-aml-threshold](https://github.com/ryo-aoki-pc/zmk-input-processor-aml-threshold) の `aml_threshold` (`threshold 10`) を使う。カーソルの動き、AML 中のタイムアウトの延長、クリックでの延長は変わらない。Keyball39 も同じ (`keymaps/via/config.h` の `KEYBALL_AML_THRESHOLD`、待ちは `AUTO_MOUSE_DELAY`)。調整は [AML の発動条件の調整](#aml-の発動条件の調整) |
+| 楕円の補正 | ボールを円を描くように回したときに、カーソルが楕円ではなく円を描くよう、ボールごとに画面の X と Y に別々の倍率を掛ける (傾きは補正しない)。ZMK は listener の `input-processors` の `zip_xy_transform` の後・`trackball_accel` の前の `<&zip_x_scaler n d>, <&zip_y_scaler n d>` (分母 16 以下の分数)、Keyball39 は `config.h` の `KEYBALL_SCALE_X` / `KEYBALL_SCALE_Y` (1000 = 等倍)。値は機体ごとに [トラックボールの正規化](#トラックボールの正規化-楕円補正速さ) で測って入れる (LisM 基準ではない)。今は KUKEY42 だけ X 1/2・Y 13/12 (前の 2x2 行列の対角に近い値) |
 | マウスレイヤーの修飾キー | MOUSE_SCROLL の A / - / Z / / は Ctrl / Shift、Win / Alt の位置は Win / Alt。修飾キーとクリック・ホイールを組み合わせるときは、`D` / `K` を押してから修飾キーを押す (例: `D` → `Z` → `F` で Shift + クリック、`D` → `A` → ボールで Ctrl + ホイール)。修飾キーを先に押すと AML が切れ、`D` が文字になる。修飾キーを押したままボールを転がすと、押してから 200ms たったあとにカーソルが 10 以上動いたところで AML に戻る |
-| トラックボールの細かさ | センサーの値を引き伸ばさず、1 カウントでカーソルが 1 動く (2 倍などにすると 2 ずつ飛ぶ)。AroundFortyRB / roBa は CPI 800、KUKEY42 は CPI 2000 + 楕円の補正 (`trackball_matrix` の divisor 2000)。LisM / Pyuron / torabo-tsuki-lp (PAW3222) は CPI を設定せず等倍 |
+| トラックボールの細かさ | センサーの値を引き伸ばさず、1 カウントでカーソルが 1 動く (2 倍などにすると 2 ずつ飛ぶ)。AroundFortyRB / roBa は CPI 800、KUKEY42 は CPI 2000。LisM / Pyuron / torabo-tsuki-lp (PAW3222) は CPI を設定せず等倍 |
 | カーソルの加速 | 転がす速さに応じて移動量に倍率を掛ける ([zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) の `trackball_accel`)。速さ 0 で 0.5 倍 → 1000 カウント/秒で等倍 → 4000 カウント/秒以上で 1.3 倍 (`min-factor 500` / `speed-threshold 1000` / `max-factor 1300` / `speed-max 4000`)。カーソル移動だけに掛け、スクロールには掛けない。Keyball39 も同じ値 (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`)。調整は [カーソルの加速の調整](#カーソルの加速の調整) |
 | スクロール | 右へ転がすと右へ、手前へ転がすと下へスクロールする (全機種・左右のボールで同じ向き)。速さは `zip_scroll_scaler 1 16` (1/16)。例外: AroundFortyRB / roBa は CPI 800 なので `zip_scroll_scaler 1 32` (CPI 400 のときの 1/16 と同じ速さ)、KUKEY42 はドライバの `CONFIG_PMW3610_SCROLL_TICK=32`、torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
 | スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
@@ -526,7 +527,7 @@ ZMK のキーボードでは、自由に押したキーのレイヤーの遷移�
 | 機種 | 検査する内容 | 準備 |
 | --- | --- | --- |
 | Keyboard Quantizer Mini + Keyball39 | KQ-mini のキーマップ (全 8 レイヤー)、タップホールド設定 (tapping term など)、タップダンス、キーオーバーライド、コンボ、マクロ | KQ-mini を PC につなぐ。Vial は閉じる |
-| Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML (しきい値を含む)・カーソルの加速の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12)、AML のしきい値は [ryo-aoki-pc/keyball#16](https://github.com/ryo-aoki-pc/keyball/pull/16) 以降のファームで読める |
+| Keyball39 (PC に直結) | キーマップ (全 4 レイヤー)、Ball availability、CPI・スクロールの倍率・AML (しきい値を含む)・カーソルの加速・楕円の補正 (`KEYBALL_SCALE_X` / `_Y`) の設定 | Keyball を PC に直結する (KQ-mini 経由では読めない)。CPI などは [ryo-aoki-pc/keyball#12](https://github.com/ryo-aoki-pc/keyball/pull/12)、AML のしきい値は [ryo-aoki-pc/keyball#16](https://github.com/ryo-aoki-pc/keyball/pull/16) 以降のファームで読める |
 | LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp | キーマップ (全 10 レイヤー)、物理レイアウト、ZMK Studio の未保存の変更 | 右手側に ZMK Studio 版を書き込み (`tools/flash.cmd` で右手側の版を「Studio 版」にする)、USB でつなぐ。キーボードの出力を USB にする (BT レイヤー + `U`)。ブラウザの ZMK Studio は閉じる |
 
 ZMK のトラックボールの設定 (スクロールの向き・倍率・AML) は ZMK Studio では読めないので、実動作テストで確かめます。
@@ -694,23 +695,35 @@ KQ-mini と Keyball39 は対象外です (KQ-mini は判定のログを出さな
 検査の内容で「4. トラックボールの正規化だけ」(または 1 / 3) を選ぶと、次の 2 つを測って、補正の推奨値を出します。
 ファームや overlay は書き換えないので、推奨値を反映して書き込んだあと、もう一度測って確かめます。
 
-**楕円 (X / Y の比率と傾き)**: ボールを円を描くように、右回りで 10 秒、左回りで 10 秒回します。縦横比が 1.10 を超えると WARN になり、推奨値を出します。
+**楕円 (X / Y の比率)**: ボールを円を描くように、右回りで 10 秒、左回りで 10 秒回します。
+カーソルが楕円ではなく円を描くよう、画面の X と Y に別々に掛ける倍率を求めます。傾きは補正しません
+(傾いた楕円は、軸ごとの倍率で直せる分だけ直し、残る縦横比を「補正後の予想」に出します)。
+X と Y の比 (√(X の分散 / Y の分散)) が 1.10 を超えると WARN になり、設定に入れる行を出します。1.10 以下なら PASS (変更不要) です。
 
-| 機種 | 推奨値 |
-| --- | --- |
-| KUKEY42 | `KUKEY42_R.overlay` の `trackball_matrix` の `matrix` / `divisor` の行 (今の行列に補正を掛けた値) |
-| LisM / AroundFortyRB / Pyuron / roBa / torabo-tsuki-lp | listener の `input-processors` で `<&trackball_accel>` より前に足す `<&zip_x_scaler n d>, <&zip_y_scaler n d>`。傾きがあって軸ごとの倍率で直せないときは、KUKEY42 の 2x2 行列の入力プロセッサ (`src/input_processor_xy_matrix.c`) の移植が必要 |
-| Keyball39 / KQ-mini | X と Y を別々に補正する設定が無いので、測った値だけを表示する |
+| 機種 | 入れる場所 | 出す行の例 |
+| --- | --- | --- |
+| LisM | 右のボール: `snippets/trackball-central/trackball.overlay` の `central_listener`。左のボール: `snippets/trackball-central/trackball.overlay` と `snippets/non-trackball-central/non_trackball.overlay` の `peripheral_listener` (両方に同じ値) | `<&zip_x_scaler 17 12>, <&zip_y_scaler 7 10>` |
+| Pyuron | `boards/shields/Pyuron/Pyuron.dtsi` の `trackball_listener_L` / `trackball_listener_R` | 同上 |
+| AroundFortyRB / roBa | `AroundForty-RB_R.overlay` / `roBa_R.overlay` の `trackball_listener` | 同上 |
+| KUKEY42 | `KUKEY42_R.overlay` の `trackball_listener` (今の値 `<&zip_x_scaler 1 2>, <&zip_y_scaler 13 12>` を置き換える) | 同上 |
+| torabo-tsuki-lp | `torabo_tsuki_lp_right.overlay` の `pointing_listener` | 同上 |
+| Keyball39 / KQ-mini | `keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h` (KQ-mini はマウスを等倍で中継するので Keyball39 の値) | `#define KEYBALL_SCALE_X 1414` と `#define KEYBALL_SCALE_Y 707` |
 
-計算は「KUKEY42 真円計測」ページと同じです (移動量の共分散から、楕円を同じ面積の円に戻す行列を求める)。
-ページはブラウザで OS のポインタの加速が入った値を測るため、補正の強さを下げる必要がありました。
+- ZMK は、listener の `input-processors` の `zip_xy_transform` (向き) の後・`<&trackball_accel>` の前に入れる (加速は補正後の値で速さを測るため)。
+  値は分母 16 以下の分数で、それで表せる範囲で直す (例: 1.03 倍のようなわずかなずれは 1/1 のまま)
+- Keyball39 は 1000 = 等倍 (500〜2000)。`KEYBALL_SCALE_*` の無い古い keyball では、測った値を表示するだけ
+- すでに倍率が入っていれば、今の値に補正を掛けた値を出す (測り直すたびに円に近づく)。全体の速さ (X と Y の倍率の積) は変えない
+- 手順: 測る → 出た行を submodule のリポジトリの `custom` ブランチに PR で入れる → CI のビルドを `tools/flash.cmd` で書き込む →
+  もう一度測って PASS を確かめる → このリポジトリの submodule の参照を更新する (期待値の今の値も更新される)
+- 推奨値は期待値 (このリポジトリが参照している submodule) の今の値に掛けて出すので、書き込んだファームと submodule の参照をそろえてから測る
+
+楕円の当てはめは「KUKEY42 真円計測」ページと同じです (移動量の共分散)。
 このスクリプトは Raw Input で、そのボールの値だけを OS の加速の前に測るので、補正の強さは 100% のまま使えます (`-CalibStrength` で変えられる)。
 
 キーボードのファームの[カーソルの加速](#カーソルの加速の調整) (ZMK の `trackball_accel`、Keyball39 の `KEYBALL_ACCEL_*`) は、
 測った移動量から取り除いてから計算します。加速の後の値のままだと、速く動く長軸の向きほど大きく出て楕円が実際より細長くなり、
 速さも転がす速さで変わってしまうためです。取り除く計算はファームの処理と完全には同じではありませんが、
 ファームの処理を真似た計算での確認では、縦横比と 1 回転あたりのカウントの誤差は 3% 以内です。
-推奨値の補正は、加速より前 (ZMK は `<&trackball_accel>` より前) に入れます。
 
 **速さ (キーボード間)**: ボールに印を付け、右へちょうど 2 回転を 2 回、手前へちょうど 2 回転を 2 回転がします。
 ボールの直径を入れると、指の移動量あたりの速さ (実効 CPI) で比べます。
@@ -728,6 +741,8 @@ KQ-mini と Keyball39 は対象外です (KQ-mini は判定のログを出さな
 | KQ-mini のキーマップなどが FAIL | Vial で変えた内容が残っている。Vial の「File → Load saved layout」で `vial-qmk-kq-mini/keyboards/sekigon/keyboard_quantizer/mini/keymaps/vial/KEYMAP.vil` を読み込む。新しいビルドを `tools/flash.cmd` で書き込んでも戻る (同じビルドの書き直しでは戻らない) |
 | Keyball39 の CPI / スクロールの倍率が FAIL | EEPROM に古い値が残っている。Bootmagic (左手側は `Q`、右手側は `P` を押しながら USB を挿す) で初期化する |
 | Keyball39 のカーソルの加速が FAIL | `config.h` の `KEYBALL_ACCEL_*` が違うファームが書き込まれている。`tools/flash.cmd` で最新のファームを書き込む |
+| Keyball39 の楕円の補正が FAIL | `config.h` の `KEYBALL_SCALE_X` / `_Y` が期待値と違うファームが書き込まれている。`tools/flash.cmd` で最新のファームを書き込むか、[submodule を最新に更新](#submodule-を最新に更新) する |
+| 楕円が WARN | 出た行 (Details) を [入れる場所](#トラックボールの正規化-楕円補正速さ) に入れてビルドし、書き込んでからもう一度測る。ZMK の倍率はキーボードから読み出せないので、測り直して確かめる |
 | ZMK のキーマップが FAIL | ZMK Studio で保存した変更が残っている。Studio の「Restore Stock Settings」か、`tools/flash.cmd` の「設定リセットしてから左右に書き込む」 |
 | ZMK の読み出しが SKIP (応答がない) | キーボードの出力が BLE になっている。BT レイヤーのキーを押しながら `U` (`&out OUT_USB`) で USB に切り替える |
 | スクロールの向きが FAIL | overlay の `zip_xy_transform` (`X_INVERT` / `Y_INVERT` / `XY_SWAP`) を確かめる |
