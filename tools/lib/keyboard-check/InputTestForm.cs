@@ -3495,10 +3495,16 @@ public sealed class KcTimelineView
     // While a key is held: "now" is nowMs and then moves on with the clock (the view redraws itself).
     public void SetLive(bool on, double nowMs)
     {
+        SetLive(on, nowMs, true);
+    }
+
+    // Fixed time clips the same live view without advancing during replay or a snapshot.
+    public void SetLive(bool on, double nowMs, bool advanceClock)
+    {
         live = on;
         liveBase = nowMs;
         liveClock.Reset();
-        if (on)
+        if (on && advanceClock)
         {
             liveClock.Start();
             timer.Start();
@@ -4628,5 +4634,498 @@ public static class KcConsoleMode
         }
         IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
         SetConsoleMode(h, (uint)mode);
+    }
+}
+
+// A device-free simulator browser. PowerShell owns execution and queues view updates to this STA window.
+// Read-only text boxes keep normal keyboard focus so their contents can be selected and copied.
+public sealed class KcSimulatorForm : IDisposable
+{
+    readonly object sync = new object();
+    readonly List<string> actions = new List<string>();
+    readonly Window window;
+    readonly FrameworkElement root;
+    readonly Panel boardPanel;
+    readonly Panel scenarioPanel;
+    readonly ScrollViewer scenarioScroll;
+    readonly Border summaryBanner;
+    readonly TextBlock summaryTitle;
+    readonly TextBlock summaryDetail;
+    readonly TextBlock scenarioTitle;
+    readonly TextBlock sourceText;
+    readonly TextBox inputsBox;
+    readonly TextBox expectedBox;
+    readonly TextBox actualBox;
+    readonly TextBox logBox;
+    readonly TextBlock replayTime;
+    readonly TextBlock replayStateText;
+    readonly Slider replaySlider;
+    readonly Button playButton;
+    readonly Button runButton;
+    readonly Button runAllButton;
+    readonly Button cancelButton;
+    readonly Button openButton;
+    readonly Button standardButton;
+    readonly Button reportButton;
+    readonly Button closeButton;
+    readonly KcKeyboardView keyboard;
+    readonly DispatcherTimer replayTimer;
+    readonly Stopwatch replayClock = new Stopwatch();
+    string selectedBoard = "";
+    string selectedScenario = "";
+    double replayStart;
+    long replayEnd;
+    bool replayEnabled;
+    bool reportEnabled;
+    bool busy;
+    bool hasSelection;
+    bool suppress;
+    volatile bool closed;
+
+    public KcSimulatorForm(string title)
+    {
+        FrameworkElement content;
+        window = KcUi.CreateWindow("SimulatorWindow.xaml", out content);
+        root = content;
+        window.Title = title ?? "simulator";
+        window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        KcUi.FitSize(window, 1240, 880, 1000, 720);
+
+        boardPanel = KcUi.Find<Panel>(root, "BoardPanel");
+        scenarioPanel = KcUi.Find<Panel>(root, "ScenarioPanel");
+        scenarioScroll = KcUi.Find<ScrollViewer>(root, "ScenarioScroll");
+        summaryBanner = KcUi.Find<Border>(root, "SummaryBanner");
+        summaryTitle = KcUi.Find<TextBlock>(root, "SummaryTitle");
+        summaryDetail = KcUi.Find<TextBlock>(root, "SummaryDetail");
+        scenarioTitle = KcUi.Find<TextBlock>(root, "ScenarioTitle");
+        sourceText = KcUi.Find<TextBlock>(root, "SourceText");
+        inputsBox = KcUi.Find<TextBox>(root, "InputsBox");
+        expectedBox = KcUi.Find<TextBox>(root, "ExpectedBox");
+        actualBox = KcUi.Find<TextBox>(root, "ActualBox");
+        logBox = KcUi.Find<TextBox>(root, "LogBox");
+        replayTime = KcUi.Find<TextBlock>(root, "ReplayTime");
+        replayStateText = KcUi.Find<TextBlock>(root, "ReplayStateText");
+        replaySlider = KcUi.Find<Slider>(root, "ReplaySlider");
+        playButton = KcUi.Find<Button>(root, "PlayButton");
+        runButton = KcUi.Find<Button>(root, "RunButton");
+        runAllButton = KcUi.Find<Button>(root, "RunAllButton");
+        cancelButton = KcUi.Find<Button>(root, "CancelButton");
+        openButton = KcUi.Find<Button>(root, "OpenButton");
+        standardButton = KcUi.Find<Button>(root, "StandardButton");
+        reportButton = KcUi.Find<Button>(root, "ReportButton");
+        closeButton = KcUi.Find<Button>(root, "CloseButton");
+        keyboard = new KcKeyboardView(window, KcUi.Find<Canvas>(root, "KeyboardCanvas"));
+
+        replayTimer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher);
+        replayTimer.Interval = TimeSpan.FromMilliseconds(40);
+        replayTimer.Tick += delegate
+        {
+            double next = Math.Min(replayEnd, replayStart + replayClock.Elapsed.TotalMilliseconds);
+            replaySlider.Value = Math.Round(next);
+            if (next >= replayEnd) StopReplay(false);
+        };
+        replaySlider.ValueChanged += delegate
+        {
+            UpdateReplayTime();
+            if (!suppress) EnqueueSeek();
+        };
+        // A manual seek pauses playback before the slider changes its value.
+        replaySlider.PreviewMouseLeftButtonDown += delegate { StopReplay(false); };
+        playButton.Click += delegate
+        {
+            if (busy || !replayEnabled || replayEnd <= 0) return;
+            if (replayTimer.IsEnabled) { StopReplay(false); return; }
+            if (replaySlider.Value >= replayEnd) replaySlider.Value = 0;
+            replayStart = replaySlider.Value;
+            replayClock.Restart();
+            replayTimer.Start();
+        };
+        SetupButton(runButton, "run");
+        SetupButton(runAllButton, "runall");
+        SetupButton(cancelButton, "cancel");
+        SetupButton(standardButton, "standard");
+        SetupButton(reportButton, "report");
+        closeButton.Click += delegate { RequestClose(); };
+        openButton.Click += delegate
+        {
+            StopReplay(true);
+            Microsoft.Win32.OpenFileDialog dialog = new Microsoft.Win32.OpenFileDialog();
+            dialog.Title = Convert.ToString(openButton.Content);
+            dialog.Filter = "JSON (*.json)|*.json";
+            dialog.CheckFileExists = true;
+            dialog.Multiselect = false;
+            if (dialog.ShowDialog(window) == true) Enqueue("open:" + dialog.FileName);
+        };
+        window.SourceInitialized += delegate
+        {
+            KcUi.ApplyDarkTitleBar(new WindowInteropHelper(window).Handle);
+        };
+        window.Closed += delegate
+        {
+            StopReplay(true);
+            closed = true;
+        };
+        SetSummary("", "", 0);
+        UpdateReplayTime();
+        UpdateEnabled();
+    }
+
+    // Keeps the window responsive while the caller loads models or waits for the simulator process.
+    public static KcSimulatorForm Launch(string title)
+    {
+        KcSimulatorForm[] box = new KcSimulatorForm[1];
+        Exception[] error = new Exception[1];
+        ManualResetEvent ready = new ManualResetEvent(false);
+        Thread thread = new Thread(delegate()
+        {
+            try
+            {
+                KcUi.EnsureDpiAware();
+                Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
+                KcSimulatorForm form = new KcSimulatorForm(title);
+                form.window.Loaded += delegate
+                {
+                    box[0] = form;
+                    ready.Set();
+                };
+                form.window.Closed += delegate
+                {
+                    dispatcher.BeginInvokeShutdown(DispatcherPriority.Background);
+                };
+                form.window.Show();
+                form.window.Activate();
+                Dispatcher.Run();
+            }
+            catch (Exception ex)
+            {
+                error[0] = ex;
+                if (box[0] != null) box[0].closed = true;
+            }
+            finally { ready.Set(); }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Name = "keyboard-simulator";
+        thread.Start();
+        if (!ready.WaitOne(15000) || box[0] == null)
+        {
+            string reason = error[0] != null ? error[0].Message : "timeout";
+            throw new InvalidOperationException("cannot open the simulator window (" + reason + ")");
+        }
+        return box[0];
+    }
+
+    public Window Window { get { return window; } }
+    public bool IsClosed { get { return closed; } }
+
+    public string[] TakeActions()
+    {
+        lock (sync)
+        {
+            if (closed && actions.Count == 0) return new string[] { "close" };
+            string[] result = actions.ToArray();
+            actions.Clear();
+            return result;
+        }
+    }
+
+    public void RequestClose()
+    {
+        Post(delegate { if (!closed) window.Close(); });
+    }
+
+    public bool WaitClosed(int timeoutMs)
+    {
+        DateTime deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(0, timeoutMs));
+        while (!closed && DateTime.UtcNow < deadline) Thread.Sleep(20);
+        return closed;
+    }
+
+    public void Dispose() { RequestClose(); }
+
+    public void SaveSnapshot(string path)
+    {
+        if (closed) throw new InvalidOperationException("the simulator window is closed");
+        Action save = delegate { KcUi.SaveSnapshot(root, path); };
+        if (window.Dispatcher.CheckAccess()) save();
+        else window.Dispatcher.Invoke(DispatcherPriority.Normal, save);
+    }
+
+    // TextBlock names and Button names from SimulatorWindow.xaml; unknown names are rejected.
+    public void SetLabels(string[] names, string[] values)
+    {
+        Post(delegate
+        {
+            for (int i = 0; names != null && i < names.Length; i++)
+            {
+                object element = root.FindName(names[i]);
+                TextBlock text = element as TextBlock;
+                Button button = element as Button;
+                if (text != null) text.Text = At(values, i);
+                else if (button != null) button.Content = At(values, i);
+                else throw new ArgumentException("unknown simulator label: " + names[i]);
+            }
+        });
+    }
+
+    public void SetBoards(string[] ids, string[] labels, string selected)
+    {
+        Post(delegate
+        {
+            if (selectedBoard != (selected ?? "")) StopReplay(true);
+            selectedBoard = selected ?? "";
+            suppress = true;
+            try
+            {
+                boardPanel.Children.Clear();
+                for (int i = 0; ids != null && i < ids.Length; i++)
+                {
+                    string id = ids[i];
+                    RadioButton button = MakeRadio(At(labels, i), "simulator-boards");
+                    button.Padding = new Thickness(10, 5, 10, 5);
+                    button.Margin = new Thickness(0, 0, 5, 0);
+                    button.IsChecked = id == selectedBoard;
+                    button.Checked += delegate
+                    {
+                        if (suppress) return;
+                        StopReplay(true);
+                        selectedBoard = id;
+                        Enqueue("board:" + id);
+                    };
+                    boardPanel.Children.Add(button);
+                }
+            }
+            finally { suppress = false; }
+            UpdateEnabled();
+        });
+    }
+
+    public void SetScenarios(string[] ids, string[] labels, string[] statuses, string selected)
+    {
+        Post(delegate
+        {
+            bool changed = selectedScenario != (selected ?? "");
+            if (changed) StopReplay(true);
+            selectedScenario = selected ?? "";
+            double offset = scenarioScroll.VerticalOffset;
+            suppress = true;
+            try
+            {
+                scenarioPanel.Children.Clear();
+                for (int i = 0; ids != null && i < ids.Length; i++)
+                {
+                    string id = ids[i];
+                    RadioButton button = MakeRadio(At(labels, i), "simulator-scenarios");
+                    DockPanel row = new DockPanel();
+                    Ellipse dot = new Ellipse();
+                    dot.Width = 7;
+                    dot.Height = 7;
+                    dot.Margin = new Thickness(0, 6, 8, 0);
+                    dot.VerticalAlignment = VerticalAlignment.Top;
+                    string status = At(statuses, i);
+                    string ink = status == "passed" ? "KcOkMark" : status == "failed" ? "KcNgMark" :
+                        status == "running" || status == "cancelled" ? "KcWarnMark" : "KcTextFaint";
+                    dot.Fill = KcDraw.Res(window, ink);
+                    DockPanel.SetDock(dot, Dock.Left);
+                    row.Children.Add(dot);
+                    TextBlock caption = new TextBlock();
+                    caption.Text = At(labels, i);
+                    caption.TextWrapping = TextWrapping.Wrap;
+                    caption.FontSize = 12.5;
+                    row.Children.Add(caption);
+                    button.Content = row;
+                    button.IsChecked = id == selectedScenario;
+                    button.Checked += delegate
+                    {
+                        if (suppress) return;
+                        StopReplay(true);
+                        selectedScenario = id;
+                        Enqueue("scenario:" + id);
+                    };
+                    scenarioPanel.Children.Add(button);
+                }
+            }
+            finally { suppress = false; }
+            scenarioScroll.ScrollToVerticalOffset(changed ? 0 : offset);
+            UpdateEnabled();
+        });
+    }
+
+    public void SetDetails(string title, string source, string inputs, string expected, string actual)
+    {
+        Post(delegate
+        {
+            scenarioTitle.Text = title ?? "";
+            sourceText.Text = source ?? "";
+            inputsBox.Text = inputs ?? "";
+            expectedBox.Text = expected ?? "";
+            actualBox.Text = actual ?? "";
+        });
+    }
+
+    public void SetSummary(string title, string detail, int level)
+    {
+        Post(delegate
+        {
+            int index = KcDraw.Clamp(level, 0, 3);
+            summaryTitle.Text = title ?? "";
+            summaryDetail.Text = detail ?? "";
+            summaryBanner.Background = KcDraw.Res(window, KcDraw.StatusTint[index]);
+            summaryBanner.BorderBrush = KcDraw.Res(window, KcDraw.StatusEdge[index]);
+            summaryTitle.Foreground = KcDraw.Res(window, KcDraw.StatusInk[index]);
+            summaryDetail.Foreground = KcDraw.Res(window, KcDraw.StatusInk[index]);
+            KcUi.SetVisible(summaryDetail, !string.IsNullOrEmpty(detail));
+        });
+    }
+
+    public void SetBusy(bool value, bool selection)
+    {
+        Post(delegate
+        {
+            busy = value;
+            hasSelection = selection;
+            if (busy) StopReplay(true);
+            UpdateEnabled();
+        });
+    }
+
+    public void SetKeys(int[] pos, double[] x, double[] y, double[] w, double[] h, string[] legends)
+    {
+        Post(delegate { keyboard.SetKeys(pos, x, y, w, h, legends); });
+    }
+
+    public void SetKeyStates(int[] pressed)
+    {
+        Post(delegate
+        {
+            keyboard.ClearKeyStates();
+            if (pressed != null)
+            {
+                foreach (int pos in pressed) keyboard.SetKeyState(pos, KcKeyboardView.StateCurrent);
+            }
+        });
+    }
+
+    public void SetReplay(long endMs, bool enabled)
+    {
+        Post(delegate
+        {
+            StopReplay(true);
+            replayEnd = Math.Max(0, endMs);
+            replayEnabled = enabled;
+            suppress = true;
+            try
+            {
+                replaySlider.Maximum = Math.Max(1, replayEnd);
+                replaySlider.Value = 0;
+            }
+            finally { suppress = false; }
+            UpdateReplayTime();
+            UpdateEnabled();
+        });
+    }
+
+    public void SetReplayState(string text)
+    {
+        Post(delegate { replayStateText.Text = text ?? ""; });
+    }
+
+    public void SetReportEnabled(bool enabled)
+    {
+        Post(delegate { reportEnabled = enabled; UpdateEnabled(); });
+    }
+
+    public void AppendLog(string text)
+    {
+        Post(delegate
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            logBox.AppendText(text.EndsWith("\n", StringComparison.Ordinal) ? text : text + Environment.NewLine);
+            if (logBox.Text.Length > 200000) logBox.Text = logBox.Text.Substring(logBox.Text.Length - 160000);
+            logBox.ScrollToEnd();
+        });
+    }
+
+    void UpdateEnabled()
+    {
+        boardPanel.IsEnabled = !busy;
+        scenarioPanel.IsEnabled = !busy;
+        openButton.IsEnabled = !busy;
+        standardButton.IsEnabled = !busy;
+        runButton.IsEnabled = !busy && hasSelection;
+        runAllButton.IsEnabled = !busy && scenarioPanel.Children.Count > 0;
+        cancelButton.IsEnabled = busy;
+        reportButton.IsEnabled = !busy && reportEnabled;
+        playButton.IsEnabled = !busy && replayEnabled && replayEnd > 0;
+        replaySlider.IsEnabled = !busy && replayEnabled && replayEnd > 0;
+    }
+
+    void UpdateReplayTime()
+    {
+        replayTime.Text = Math.Round(replaySlider.Value).ToString(System.Globalization.CultureInfo.InvariantCulture) +
+            " / " + replayEnd.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms";
+    }
+
+    void StopReplay(bool discardSeeks)
+    {
+        replayTimer.Stop();
+        replayClock.Stop();
+        if (discardSeeks)
+        {
+            lock (sync) { actions.RemoveAll(delegate(string action) { return action.StartsWith("seek:", StringComparison.Ordinal); }); }
+        }
+    }
+
+    void EnqueueSeek()
+    {
+        string action = "seek:" + Math.Round(replaySlider.Value).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+        lock (sync)
+        {
+            actions.RemoveAll(delegate(string item) { return item.StartsWith("seek:", StringComparison.Ordinal); });
+            actions.Add(action);
+        }
+    }
+
+    RadioButton MakeRadio(string text, string group)
+    {
+        RadioButton button = new RadioButton();
+        button.Style = (Style)window.FindResource("KcNavItem");
+        button.GroupName = group;
+        button.Content = text;
+        return button;
+    }
+
+    void SetupButton(Button button, string action)
+    {
+        button.Click += delegate
+        {
+            if (action == "run" || action == "runall" || action == "standard") StopReplay(true);
+            Enqueue(action);
+        };
+    }
+
+    void Enqueue(string action)
+    {
+        lock (sync) { actions.Add(action); }
+    }
+
+    void Post(Action work)
+    {
+        if (closed) return;
+        try
+        {
+            Dispatcher dispatcher = window.Dispatcher;
+            if (dispatcher.CheckAccess()) work();
+            else dispatcher.BeginInvoke(DispatcherPriority.Normal, work);
+        }
+        catch (InvalidOperationException)
+        {
+            // The window is closing.
+        }
+    }
+
+    static string At(string[] values, int index)
+    {
+        return values != null && index < values.Length && values[index] != null ? values[index] : "";
     }
 }
