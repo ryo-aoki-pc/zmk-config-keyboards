@@ -17,7 +17,8 @@
         &to での切り替え、コンボ。手順と期待する入力を、キーボードの図・レイヤーの帯・キーキャップで表示する
       - AML のクリック、Shift + クリック、AML の Ctrl / Shift での解除、スクロールの向き、AML のタイムアウト、
         AML のしきい値 (わずかな動きでは発動しない)
-      - トラックボールの正規化: X/Y の比率と傾き (楕円補正)、キーボード間の速さ (LisM 基準)。推奨値を出す
+      - トラックボールの正規化: X/Y の比率 (楕円補正。傾きは補正しない)、キーボード間の速さ (LisM 基準)。
+        overlay / config.h に入れる値 (今の値に補正を掛けた値) を出す
 
     結果は PASS / FAIL / WARN / SKIP で表示し、tools/.cache/keyboard-check/reports/ にも保存します。
 
@@ -63,7 +64,7 @@
     速さの基準 (実効 CPI)。省略すると、前に LisM で計測した値を使います。
 
 .PARAMETER CalibStrength
-    楕円補正の強さ (0〜100、既定 100)。
+    楕円補正の強さ (0〜100、既定 100)。50 なら、測ったずれの半分 (対数で) だけ直す値を出します。
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1

@@ -231,26 +231,32 @@ function New-FakeKeyballStatusBytes($Status) {
     return , $b
 }
 
-# Keyball のファームのコマンド (08 00 03) の応答 ([3] 以降)
-function New-FakeKeyballAccelBytes($Accel) {
-    $b = New-Object byte[] 9
+# Keyball のファームのコマンド (08 00 03) の応答 ([3] 以降)。$Scale が $null なら楕円の補正の無い古いファーム (0)
+function New-FakeKeyballAccelBytes($Accel, $Scale = $null) {
+    $b = New-Object byte[] 13
     $i = 0
     foreach ($k in @('min_factor', 'max_factor', 'speed_threshold', 'speed_max')) {
         [Array]::Copy((ConvertTo-FakeBytesBE ([int]$Accel.$k) 2), 0, $b, $i, 2)
         $i += 2
     }
     $b[8] = [byte]$Accel.interval_ms
+    if ($null -ne $Scale) {
+        [Array]::Copy((ConvertTo-FakeBytesBE ([int]$Scale[0]) 2), 0, $b, 9, 2)
+        [Array]::Copy((ConvertTo-FakeBytesBE ([int]$Scale[1]) 2), 0, $b, 11, 2)
+    }
     return , $b
 }
 
-# 期待値どおりの Keyball39 (VIA)。-OldFirmware で 08 00 01 / 03 の無いファーム
-function New-FakeKeyball($Expected, [switch]$OldFirmware) {
+# 期待値どおりの Keyball39 (VIA)。-OldFirmware で 08 00 01 / 03 の無いファーム、-Scale で楕円の補正の値を変える
+function New-FakeKeyball($Expected, [switch]$OldFirmware, $Scale = 'expected') {
     $v = $Expected.readout.via
     $status = $null
     $accel = $null
     if (-not $OldFirmware) {
         $status = New-FakeKeyballStatusBytes $v.status
-        $accel = New-FakeKeyballAccelBytes (@($Expected.interactive.trackball.firmware)[0].accel)
+        $fw = @($Expected.interactive.trackball.firmware)[0]
+        if ($Scale -is [string] -and $Scale -eq 'expected') { $Scale = Get-KcProp $fw 'xy_scale' $null }
+        $accel = New-FakeKeyballAccelBytes $fw.accel $Scale
     }
     return New-FakeQmkDevice @{
         Vial = $false; Protocol = 0x000C; Uptime = 30000; LayoutOptions = [int]$v.layout_options.value

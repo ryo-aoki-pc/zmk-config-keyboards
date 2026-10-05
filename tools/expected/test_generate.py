@@ -362,9 +362,15 @@ class TestGenerate(unittest.TestCase):
 
     def test_trackball_firmware(self):
         kukey = self.data['kukey42.json']['interactive']['trackball']['firmware'][0]
-        self.assertEqual(kukey['correction'], 'matrix')
-        self.assertEqual(len(kukey['matrix']), 4)
-        self.assertGreater(kukey['divisor'], 0)
+        # 楕円の補正: ZMK はすべてのボールで zip_x_scaler / zip_y_scaler (値は機体ごとなので、形だけ確かめる)
+        for b in g.ZMK_BOARDS:
+            for fw in self.data[f'{b["id"]}.json']['interactive']['trackball']['firmware']:
+                self.assertEqual(fw['correction'], 'zip_scaler', b['id'])
+                for key in ('x_scaler', 'y_scaler'):
+                    self.assertEqual(len(fw[key]), 2, b['id'])
+                    self.assertTrue(all(v > 0 for v in fw[key]), b['id'])
+                self.assertNotIn('matrix', fw)
+        self.assertTrue(kukey['axis_scaler_set'])
         afrb = self.data['aroundfortyrb.json']['interactive']['trackball']['firmware'][0]
         for fw in (kukey, afrb):
             # PMW3610 の CPI は 200 刻み
@@ -385,6 +391,24 @@ class TestGenerate(unittest.TestCase):
         kq = self.data['kq-mini.json']['interactive']['trackball']['firmware']
         self.assertEqual(kq[0]['accel'], kb)                 # KQ-mini 経由でも Keyball の加速
         self.assertIsNone(kq[1]['accel'])
+        # 楕円の補正: KQ-mini 経由でも Keyball の KEYBALL_SCALE_X / _Y (古い keyball では無い)
+        kbf = self.data['keyball39.json']['interactive']['trackball']['firmware'][0]
+        self.assertIn(kbf['correction'], ('keyball_scale', 'cpi_only'))
+        self.assertEqual(kq[0]['xy_scale'], kbf['xy_scale'])
+        if kbf['correction'] == 'keyball_scale':
+            self.assertTrue(all(500 <= v <= 2000 for v in kbf['xy_scale']))
+
+    def test_axis_scaler_parser(self):
+        procs = """<&zip_xy_transform (INPUT_TRANSFORM_X_INVERT)>,
+            <&zip_x_scaler 17 12>, <&zip_y_scaler 7 10>, <&trackball_accel>, <&aml_threshold 8 10000>"""
+        self.assertEqual(g.axis_scaler(procs, 'zip_x_scaler'), [17, 12])
+        self.assertEqual(g.axis_scaler(procs, 'zip_y_scaler'), [7, 10])
+        self.assertIsNone(g.axis_scaler('<&trackball_accel>', 'zip_x_scaler'))
+        accel = {'label': 'trackball_accel'}
+        self.assertTrue(g.scalers_before_accel(procs, accel))
+        self.assertFalse(g.scalers_before_accel('<&trackball_accel>, <&zip_y_scaler 2 1>', accel))
+        self.assertTrue(g.keeps_aml('<&aml_threshold 8 10000>', 8, ('zip_temp_layer', 'aml_threshold')))
+        self.assertFalse(g.keeps_aml('<&aml_threshold 8 10000>', 8))
 
     def test_scroll_keeps_aml(self):
         # LisM 基準: スクロール中も AML を延ばす (すべての ZMK の機種で ok)

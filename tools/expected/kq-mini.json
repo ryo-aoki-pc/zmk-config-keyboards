@@ -708,11 +708,10 @@
           "cpi_setting": {"template": "#define KEYBALL_CPI_DEFAULT {cpi}", "step": 100, "min": 100, "max": 12000},
           "xy_scaler": [1, 1],
           "xy_scaler_set": false,
-          "matrix": null,
-          "divisor": null,
+          "accel": {"model": "keyball", "label": "KEYBALL_ACCEL_*", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000, "interval_ms": 8, "clamp": 127},
           "correction": "cpi_only",
-          "listener": "Keyball のファーム (X/Y を別々に補正する機能は無い)",
-          "accel": {"model": "keyball", "label": "KEYBALL_ACCEL_*", "min_factor": 500, "max_factor": 1300, "speed_threshold": 1000, "speed_max": 4000, "interval_ms": 8, "clamp": 127}
+          "xy_scale": null,
+          "listener": "Keyball のファーム (X/Y を別々に補正する機能は無い)"
         },
         {
           "side": "kq-mini",
@@ -722,8 +721,7 @@
           "cpi_setting": null,
           "xy_scaler": [1, 1],
           "xy_scaler_set": false,
-          "matrix": null,
-          "divisor": null,
+          "xy_scale": null,
           "correction": "none",
           "accel": null,
           "listener": "KQ-mini はマウスを等倍で中継する (倍率は変えられない)"

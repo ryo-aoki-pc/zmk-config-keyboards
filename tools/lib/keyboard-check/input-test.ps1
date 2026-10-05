@@ -621,7 +621,9 @@ function Invoke-KcEllipseCalib($Ctx, [string]$Ball) {
             }
             Show-KcStepResult $Ctx $rec.Status $text
         }
-        $Ctx.Form.SetDetail("やり直すときは「やり直し」、よければ「次へ」を押してください。`n" + ((@($rec.Lines) | Select-Object -First 1) -join ''))
+        # 貼る行 (Keyball39 は X と Y の 2 行。計測のコメント行は結果の一覧にだけ出す)
+        $paste = @($rec.Lines | Where-Object { -not ([string]$_).StartsWith('//') })
+        $Ctx.Form.SetDetail("やり直すときは「やり直し」、よければ「次へ」を押してください。`n" + ($paste -join "`n"))
         $o = Wait-KcNextOrRetry $Ctx
         if ($o -eq 'abort') { return 'abort' }
         if ($o -eq 'retry') { continue }
@@ -630,16 +632,15 @@ function Invoke-KcEllipseCalib($Ctx, [string]$Ball) {
             return 'done'
         }
         $hint = ''
-        if ($rec.Status -ne 'PASS') {
-            $hint = '推奨値 (Details) を overlay / 設定に反映してください。ツールはファームを書き換えません'
+        if ($rec.Status -ne 'PASS' -and @($paste).Count -gt 0) {
+            $hint = '推奨値 (Details) を overlay / config.h に入れてビルドし、書き込んでからもう一度測ってください。ツールはファームを書き換えません'
         }
         $details = @($rec.Lines) + @($rec.Notes)
-        Add-KcInputResult $Ctx $cat ('楕円 ({0}のボール)' -f $bn) $rec.Status ('{0}、補正後の予想 {1}' -f $rec.Summary, $rec.PredictedRatio) $hint $details `
-            ('縦横比 {0:F2} 以下' -f [double]$Ctx.Common.thresholds.ellipse_ratio_pass)
+        Add-KcInputResult $Ctx $cat ('楕円 ({0}のボール)' -f $bn) $rec.Status ('{0}、補正後の予想 {1}' -f $rec.Summary, $rec.PredictedRatio) $hint $details $rec.Expected
         $Ctx.CalibEntries.Add([pscustomobject]@{
                 time = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss'); keyboard = $Ctx.Expected.id; name = $Ctx.Expected.name; ball = $Ball; kind = 'ellipse'
-                ratio = [math]::Round($rec.Fit.Ratio, 4); tilt = [math]::Round($rec.Tilt, 2); points = $rec.Fit.N
-                matrix = @([math]::Round($rec.Matrix[0][0], 5), [math]::Round($rec.Matrix[0][1], 5), [math]::Round($rec.Matrix[1][0], 5), [math]::Round($rec.Matrix[1][1], 5))
+                ratio = [math]::Round($rec.Fit.Ratio, 4); axis_ratio = [math]::Round($rec.AxisRatio, 4); tilt = [math]::Round($rec.Tilt, 2); points = $rec.Fit.N
+                scale = @([math]::Round($rec.Scale[0], 5), [math]::Round($rec.Scale[1], 5)); values = $rec.Values
                 device = $Ctx.MouseName
             })
         return 'done'
@@ -708,7 +709,9 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
         } else {
             Show-KcStepResult $Ctx $rec.Status $text
         }
-        $Ctx.Form.SetDetail("やり直すときは「やり直し」、よければ「次へ」を押してください。`n" + ((@($rec.Lines) | Select-Object -First 1) -join ''))
+        # 貼る行 (Keyball39 は X と Y の 2 行。計測のコメント行は結果の一覧にだけ出す)
+        $paste = @($rec.Lines | Where-Object { -not ([string]$_).StartsWith('//') })
+        $Ctx.Form.SetDetail("やり直すときは「やり直し」、よければ「次へ」を押してください。`n" + ($paste -join "`n"))
         $o = Wait-KcNextOrRetry $Ctx
         if ($o -eq 'abort') { return 'abort' }
         if ($o -eq 'retry') { continue }

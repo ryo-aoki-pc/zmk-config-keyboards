@@ -1,11 +1,11 @@
-﻿# トラックボールの正規化: X/Y の比率と傾き (楕円補正) と、キーボード間の速さ (LisM 基準)。
+﻿# トラックボールの正規化: X/Y の比率 (楕円補正) と、キーボード間の速さ (LisM 基準)。
 # 計算だけを行う (Windows の API を使わない)。keyboard-check.ps1 から dot-source して使う。
 #
-# 楕円補正の計算は「KUKEY42 真円計測」ページ (fit / correction / splitBySpeed) と同じ:
-#   ボールを一定の速さで円を描くように回したときの移動量 (dx, dy) の共分散 C を求め、
-#   C^(-1/2) を行列式 1 に正規化した行列で、楕円を同じ面積の円に戻す。
-# 計測ページはブラウザで OS の加速が入った値を測っていたが、こちらは Raw Input の生の値
-# (そのボールのデバイスだけ) を使うので、補正の強さは既定で 100% にする。
+# 楕円の当てはめ (fit / splitBySpeed) は「KUKEY42 真円計測」ページと同じ:
+#   ボールを一定の速さで円を描くように回したときの移動量 (dx, dy) の共分散 C を求める。
+# 補正は X と Y に別々の倍率を掛けるだけ (傾きは補正しない)。共分散の対角 (Xx / Yy) をそろえる倍率で、
+# 対角の倍率のうち補正後の縦横比をいちばん小さくする (行列式 1 にして、全体の速さは変えない)。
+# Raw Input の生の値 (そのボールのデバイスだけ) を使うので、補正の強さは既定で 100% にする。
 # ファームのカーソルの加速 (ZMK の trackball_accel、Keyball の KEYBALL_ACCEL_*) は、記録した移動量から
 # 取り除いてから計算する (Remove-KcAccel)。
 
@@ -30,7 +30,22 @@ function Get-KcEllipseFit($Samples) {
     $l1 = $tr / 2 + $disc
     $l2 = [math]::Max($tr / 2 - $disc, $l1 * 1e-6)
     $theta = 0.5 * [math]::Atan2(2 * $xy, $xx - $yy)
-    return [pscustomobject]@{ N = $n; L1 = $l1; L2 = $l2; Theta = $theta; Ratio = [math]::Sqrt($l1 / $l2) }
+    return [pscustomobject]@{ N = $n; L1 = $l1; L2 = $l2; Theta = $theta; Ratio = [math]::Sqrt($l1 / $l2); Xx = $xx; Yy = $yy; Xy = $xy }
+}
+
+# X と Y の比 (1 以上)。軸ごとの倍率で直せる分。傾きは入らない
+function Get-KcAxisRatio($Fit) {
+    $a = [math]::Max($Fit.Xx, 1e-12)
+    $b = [math]::Max($Fit.Yy, 1e-12)
+    return [math]::Sqrt([math]::Max($a, $b) / [math]::Min($a, $b))
+}
+
+# 軸ごとの補正の倍率 @(kx, ky)。Xx と Yy をそろえる (kx * ky = 1)。$Strength は 0〜1
+function Get-KcAxisCorrection($Fit, [double]$Strength = 1.0) {
+    $a = [math]::Max($Fit.Xx, 1e-12)
+    $b = [math]::Max($Fit.Yy, 1e-12)
+    $kx = [math]::Pow($b / $a, $Strength / 4)
+    return , [double[]]@($kx, (1.0 / $kx))
 }
 
 # 長軸の向き (度)。画面の座標 (y が下向き) で、＼ が正、／ が負
@@ -38,7 +53,7 @@ function Get-KcTiltDeg($Fit) {
     return ($Fit.Theta * 180.0 / [math]::PI)
 }
 
-# 楕円を円に戻す行列 C^(-strength/2) (行列式 1 に正規化)。$Strength は 0〜1
+# 楕円を円に戻す行列 C^(-strength/2) (行列式 1 に正規化。傾きも直す)。速さで分けるときの大きさに使う。$Strength は 0〜1
 function Get-KcCorrectionMatrix($Fit, [double]$Strength = 1.0) {
     $c = [math]::Cos($Fit.Theta)
     $s = [math]::Sin($Fit.Theta)
@@ -49,13 +64,6 @@ function Get-KcCorrectionMatrix($Fit, [double]$Strength = 1.0) {
     return , @(
         [double[]]@((($a * $c * $c + $b * $s * $s) * $k), $m01),
         [double[]]@($m01, (($a * $s * $s + $b * $c * $c) * $k))
-    )
-}
-
-function Join-KcMatrix($A, $B) {
-    return , @(
-        [double[]]@(($A[0][0] * $B[0][0] + $A[0][1] * $B[1][0]), ($A[0][0] * $B[0][1] + $A[0][1] * $B[1][1])),
-        [double[]]@(($A[1][0] * $B[0][0] + $A[1][1] * $B[1][0]), ($A[1][0] * $B[0][1] + $A[1][1] * $B[1][1]))
     )
 }
 
@@ -102,13 +110,6 @@ function Get-KcRational([double]$Value, [int]$MaxDen = 16) {
         }
     }
     return , $best
-}
-
-function Format-KcDtsNumber([long]$Value) {
-    if ($Value -lt 0) {
-        return ('({0})' -f $Value)
-    }
-    return [string]$Value
 }
 
 # ---------------------------------------------------------------------------
@@ -244,17 +245,25 @@ function Get-KcInsertNote($Firmware) {
     if ($null -eq $accel -or [string]$accel.model -ne 'zmk') {
         return ''
     }
-    return ('。<&{0}> より前に置く (加速は補正の後の速さで倍率を決めるため)' -f $accel.label)
+    return ('。zip_xy_transform (向き) の後、<&{0}> より前に置く (加速は補正の後の速さで倍率を決めるため)' -f $accel.label)
 }
 
 # ---------------------------------------------------------------------------
-# (1) X/Y の比率と傾き
+# (1) X/Y の比率 (楕円補正。傾きは補正しない)
 # ---------------------------------------------------------------------------
 
-# $Firmware: 期待値の trackball.firmware の 1 件 (correction / matrix / divisor / listener / accel)
+function Format-KcFraction($Pair) {
+    return ('{0}/{1}' -f $Pair[0], $Pair[1])
+}
+
+# $Firmware: 期待値の trackball.firmware の 1 件 (correction / x_scaler / y_scaler / xy_scale / listener / accel)
+#   correction: zip_scaler (ZMK。&zip_x_scaler n d / &zip_y_scaler n d)、keyball_scale (Keyball39 の KEYBALL_SCALE_X / _Y)、
+#   それ以外 (cpi_only / none) は X と Y を別々に補正する設定が無い
 # $Samples: @(dx, dy) または @(dx, dy, 時刻 ms) の並び。時刻があれば、加速を取り除いて
 # calib_bin_ms ごとにまとめてから当てはめる
-# 戻り値: Status (PASS / WARN / INFO / SKIP)、数値、overlay に貼る行 (Lines)、説明 (Notes)
+# 測った値は今の倍率を掛けた後 (加速の前) の値なので、新しい値 = 今の値 × 補正の倍率
+# 戻り値: Status (PASS / WARN / INFO / SKIP)、数値、overlay / config.h に貼る行 (Lines)、説明 (Notes)、
+#   判定の基準の文言 (Expected)、新しい値 (Values。記録用)
 function New-KcEllipseRecommendation {
     param(
         [Parameter(Mandatory = $true)] $Samples,
@@ -275,11 +284,13 @@ function New-KcEllipseRecommendation {
         $Samples = $binned
         $method += ('{0}ms ごと、' -f [int]$Thresholds.calib_bin_ms)
     }
+    $pass = [double]$Thresholds.ellipse_ratio_pass
+    $expectedText = 'X と Y の比 {0:F2} 以下' -f $pass
     $fit = Get-KcEllipseFit $Samples
     if ($null -eq $fit -or $fit.N -lt [int]$Thresholds.calib_min_points) {
         $n = 0
         if ($null -ne $fit) { $n = $fit.N }
-        return [pscustomobject]@{ Status = 'SKIP'; Message = ('点が少なすぎます ({0} 点)。もう少し長く回してください' -f $n); Fit = $fit; Lines = @(); Notes = @() }
+        return [pscustomobject]@{ Status = 'SKIP'; Message = ('点が少なすぎます ({0} 点)。もう少し長く回してください' -f $n); Fit = $fit; Lines = @(); Notes = @(); Expected = $expectedText }
     }
     $split = Split-KcBySpeed $Samples $fit
     $notes = @()
@@ -290,61 +301,96 @@ function New-KcEllipseRecommendation {
             $notes += ('遅い動き (縦横比 {0:F2}) と速い動き ({1:F2}) で縦横比が違います。なるべく一定の速さで回してください (直らないときは、キーボードのカーソルの加速の設定が期待値と違う可能性があります)' -f $rs, $rf)
         }
     }
-    $m = Get-KcCorrectionMatrix $fit $Strength
-    $corrected = @(foreach ($p in $Samples) { , (Invoke-KcMatrix $m $p) })
-    $after = Get-KcEllipseFit $corrected
+    $axis = Get-KcAxisRatio $fit
+    $k = Get-KcAxisCorrection $fit $Strength
     $tilt = Get-KcTiltDeg $fit
-    $summary = '縦横比 {0:F2}、長軸の傾き {1:+0;-0;0}°、点 {2}' -f $fit.Ratio, $tilt, $fit.N
-    $comment = '// 計測: tools/keyboard-check (Raw Input、{4}補正の強さ {0}%) / 縦横比 {1:F2} / 傾き {2:+0;-0;0}° / 点 {3}' -f [int]($Strength * 100), $fit.Ratio, $tilt, $fit.N, $method
+    $longer = '横 (X)'
+    if ($fit.Yy -gt $fit.Xx) { $longer = '縦 (Y)' }
+    $summary = 'X と Y の比 {0:F2} ({1}が長い)、楕円の縦横比 {2:F2}、長軸の傾き {3:+0;-0;0}°、点 {4}' -f $axis, $longer, $fit.Ratio, $tilt, $fit.N
+    $comment = '// 計測: tools/keyboard-check (Raw Input、{0}補正の強さ {1}%) / X と Y の比 {2:F2} / 傾き {3:+0;-0;0}° / 点 {4}' -f $method, [int]($Strength * 100), $axis, $tilt, $fit.N
 
     $status = 'PASS'
-    if ($fit.Ratio -gt [double]$Thresholds.ellipse_ratio_pass) {
+    if ($axis -gt $pass) {
         $status = 'WARN'
     }
     $lines = @()
+    $values = $null
+    # 実際に掛かる倍率 (分数や整数に丸めた後)。補正後の予想に使う
+    $eff = @(1.0, 1.0)
     $kind = [string]$Firmware.correction
-    if ($kind -eq 'matrix') {
-        $div = [int]$Firmware.divisor
-        $cur = @($Firmware.matrix)
-        $t = @(
-            [double[]]@(([double]$cur[0] / $div), ([double]$cur[1] / $div)),
-            [double[]]@(([double]$cur[2] / $div), ([double]$cur[3] / $div))
-        )
-        $nm = Join-KcMatrix $m $t
-        $vals = @($nm[0][0], $nm[0][1], $nm[1][0], $nm[1][1]) | ForEach-Object { Format-KcDtsNumber (Get-KcRound ($_ * $div)) }
-        $lines += ('matrix = <{0}>;' -f ($vals -join ' '))
-        $lines += ('divisor = <{0}>;' -f $div)
-        $lines += $comment
-        $notes += ('{0} の matrix / divisor をこの行に置き換える (今の行列 <{1}> / {2} に補正を掛けた値)' -f $Firmware.listener, (@($cur | ForEach-Object { Format-KcDtsNumber $_ }) -join ' '), $div)
-    } elseif ($kind -eq 'zip_scaler') {
-        $off = [math]::Max([math]::Abs($m[0][1]), [math]::Abs($m[1][0]))
-        $diag = [math]::Max([math]::Abs($m[0][0]), [math]::Abs($m[1][1]))
-        if ($off -le 0.05 * $diag) {
-            $sx = Get-KcRational $m[0][0] ([int]$Thresholds.scaler_max_denominator)
-            $sy = Get-KcRational $m[1][1] ([int]$Thresholds.scaler_max_denominator)
-            $lines += ('<&zip_x_scaler {0} {1}>, <&zip_y_scaler {2} {3}>' -f $sx[0], $sx[1], $sy[0], $sy[1])
+    $changed = $false
+    if ($kind -eq 'zip_scaler') {
+        $cx = @(1, 1); $cy = @(1, 1)
+        $px = Get-KcProp $Firmware 'x_scaler' $null
+        $py = Get-KcProp $Firmware 'y_scaler' $null
+        if ($null -ne $px) { $cx = @([long]$px[0], [long]$px[1]) }
+        if ($null -ne $py) { $cy = @([long]$py[0], [long]$py[1]) }
+        $maxDen = [int]$Thresholds.scaler_max_denominator
+        $nx = Get-KcRational ($cx[0] / [double]$cx[1] * $k[0]) $maxDen
+        $ny = Get-KcRational ($cy[0] / [double]$cy[1] * $k[1]) $maxDen
+        $eff = @((($nx[0] / [double]$nx[1]) / ($cx[0] / [double]$cx[1])), (($ny[0] / [double]$ny[1]) / ($cy[0] / [double]$cy[1])))
+        # PASS のときは変えない (分数の丸めで、測るたびに隣の分数を行き来しないように)
+        $changed = ($status -ne 'PASS') -and (($nx[0] * $cx[1] -ne $cx[0] * $nx[1]) -or ($ny[0] * $cy[1] -ne $cy[0] * $ny[1]))
+        if (-not $changed) {
+            $nx = $cx; $ny = $cy; $eff = @(1.0, 1.0)
+        }
+        $values = @{ x_scaler = @($nx[0], $nx[1]); y_scaler = @($ny[0], $ny[1]) }
+        if ($changed) {
+            $lines += ('<&zip_x_scaler {0} {1}>, <&zip_y_scaler {2} {3}>' -f $nx[0], $nx[1], $ny[0], $ny[1])
             $lines += $comment
-            $notes += ('{0} の input-processors に追加する (X を {1:F3} 倍、Y を {2:F3} 倍){3}' -f $Firmware.listener, $m[0][0], $m[1][1], (Get-KcInsertNote $Firmware))
-        } else {
-            $lines += ('X'' = {0:F3} X + {1:F3} Y、Y'' = {2:F3} X + {3:F3} Y' -f $m[0][0], $m[0][1], $m[1][0], $m[1][1])
+            if ([bool](Get-KcProp $Firmware 'axis_scaler_set' $false)) {
+                $notes += ('{0} の zip_x_scaler {1} / zip_y_scaler {2} をこの値に置き換える (今の値に X ×{3:F3} / Y ×{4:F3} を掛けた値)' -f $Firmware.listener, (Format-KcFraction $cx), (Format-KcFraction $cy), $k[0], $k[1])
+            } else {
+                $notes += ('{0} の input-processors に追加する (X を {1:F3} 倍、Y を {2:F3} 倍){3}' -f $Firmware.listener, ($nx[0] / [double]$nx[1]), ($ny[0] / [double]$ny[1]), (Get-KcInsertNote $Firmware))
+            }
+        }
+    } elseif ($kind -eq 'keyball_scale') {
+        $cur = @(1000, 1000)
+        $ps = Get-KcProp $Firmware 'xy_scale' $null
+        if ($null -ne $ps) { $cur = @([long]$ps[0], [long]$ps[1]) }
+        $new = @()
+        for ($i = 0; $i -lt 2; $i++) {
+            $new += [long][math]::Min([math]::Max((Get-KcRound ($cur[$i] * $k[$i])), 500), 2000)
+        }
+        $eff = @(($new[0] / [double]$cur[0]), ($new[1] / [double]$cur[1]))
+        $changed = ($status -ne 'PASS') -and (($new[0] -ne $cur[0]) -or ($new[1] -ne $cur[1]))
+        if (-not $changed) {
+            $new = $cur; $eff = @(1.0, 1.0)
+        }
+        $values = @{ xy_scale = @($new[0], $new[1]) }
+        if ($changed) {
+            $lines += ('#define KEYBALL_SCALE_X {0}' -f $new[0])
+            $lines += ('#define KEYBALL_SCALE_Y {0}' -f $new[1])
             $lines += $comment
-            $notes += '傾きがあるため、軸ごとの倍率 (zip_x_scaler / zip_y_scaler) では直せません。KUKEY42 の 2x2 行列の入力プロセッサ (zmk-config-KUKEY42/src/input_processor_xy_matrix.c) を移植して、この行列を使ってください'
+            $notes += ('{0} をこの値に置き換える (今の {1} / {2} に X ×{3:F3} / Y ×{4:F3} を掛けた値。1000 = 等倍)' -f $Firmware.listener, $cur[0], $cur[1], $k[0], $k[1])
         }
     } else {
         if ($status -eq 'WARN') {
             $status = 'INFO'
         }
-        $lines += ('X'' = {0:F3} X + {1:F3} Y、Y'' = {2:F3} X + {3:F3} Y' -f $m[0][0], $m[0][1], $m[1][0], $m[1][1])
-        $lines += $comment
-        $notes += ('{0}。X と Y を別々に補正する設定はありません' -f $Firmware.listener)
+        $eff = @($k[0], $k[1])
+        $notes += ('{0}。X と Y を別々に補正する設定はありません (X ×{1:F3} / Y ×{2:F3} で直る)' -f $Firmware.listener, $k[0], $k[1])
     }
+    if (-not $changed -and ($kind -eq 'zip_scaler' -or $kind -eq 'keyball_scale')) {
+        if ($status -eq 'PASS') {
+            $notes += '今の設定のままでよい (変更不要)'
+        } else {
+            $notes += '設定できる値 (zip_x_scaler / zip_y_scaler は分母 16 以下の分数) では、今の値がいちばん近いため変えられません'
+        }
+    }
+    $m = @([double[]]@($eff[0], 0.0), [double[]]@(0.0, $eff[1]))
+    $corrected = @(foreach ($p in $Samples) { , (Invoke-KcMatrix $m $p) })
+    $after = Get-KcEllipseFit $corrected
     $afterText = ''
     if ($null -ne $after) {
         $afterText = '{0:F2}' -f $after.Ratio
+        if ($after.Ratio -gt $pass) {
+            $notes += ('傾き ({0:+0;-0;0}°) が残るので、楕円の縦横比は {1:F2} までしか直りません (傾きは補正しません)' -f $tilt, $after.Ratio)
+        }
     }
     return [pscustomobject]@{
-        Status = $status; Summary = $summary; Fit = $fit; Matrix = $m; Tilt = $tilt
-        PredictedRatio = $afterText; Lines = $lines; Notes = $notes; Message = ''
+        Status = $status; Summary = $summary; Fit = $fit; Matrix = $m; Tilt = $tilt; AxisRatio = $axis; Scale = $k
+        Values = $values; PredictedRatio = $afterText; Lines = $lines; Notes = $notes; Message = ''; Expected = $expectedText
     }
 }
 
@@ -431,7 +477,7 @@ function New-KcSpeedRecommendation {
         $notes += ('CPI を変える: {0} (今の CPI {1}、{2} 刻み)' -f $Firmware.cpi_source, $Firmware.cpi, $step)
     }
     $kind = [string]$Firmware.correction
-    if ($kind -eq 'zip_scaler' -or $kind -eq 'matrix') {
+    if ($kind -eq 'zip_scaler') {
         $cur = @($Firmware.xy_scaler)
         $ratio = $s * [double]$cur[0] / [double]$cur[1]
         $r = Get-KcRational $ratio ([int]$Thresholds.scaler_max_denominator)

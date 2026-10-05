@@ -607,9 +607,11 @@ def scroll_chains(text: str, scrl: int) -> list[tuple[str, str]]:
     return out
 
 
-def keeps_aml(processors: str, mous: int) -> bool:
-    """チェーンが AML (MOUSE_MOVE) のタイムアウトを延ばすか (zip_temp_layer <MOUS> 10000 を通る)。"""
-    return bool(re.search(rf'&zip_temp_layer\s+{mous}\s+10000\b', processors))
+def keeps_aml(processors: str, mous: int, labels: tuple[str, ...] = ('zip_temp_layer',)) -> bool:
+    """チェーンが AML (MOUSE_MOVE) のタイムアウトを延ばすか (zip_temp_layer <MOUS> 10000 を通る)。
+    labels には、スクロールをそのまま zip_temp_layer に渡す AML の発動条件 (aml_threshold) のノードも入れられる。"""
+    names = '|'.join(re.escape(x) for x in labels)
+    return bool(re.search(rf'&(?:{names})\s+{mous}\s+10000\b', processors))
 
 
 def scroll_aml_consistency(board: dict, base: Path, mous: int, scrl: int) -> dict:
@@ -623,14 +625,18 @@ def scroll_aml_consistency(board: dict, base: Path, mous: int, scrl: int) -> dic
         t = re.sub(r'\bSCRL\b', str(scrl), re.sub(r'\bMOUS\b', str(mous), t))
         where = '/'.join(Path(rel).parts[-2:])
         chains += [(f'{where} の {name}', proc) for name, proc in scroll_chains(t, scrl)]
+    labels: dict[str, tuple[str, ...]] = {}
     if 'tick' in board['scroll']:
-        # KUKEY42: ドライバ (scroll-layers) のホイールは、カーソルと同じ trackball_listener を通る
+        # KUKEY42: ドライバ (scroll-layers) のホイールは、カーソルと同じ trackball_listener を通る。
+        # aml_threshold はホイールをそのまま zip_temp_layer に渡すので、aml_threshold <MOUS> 10000 でも延びる
         rel = 'boards/shields/KUKEY42/KUKEY42_R.overlay'
         proc = listener_block(strip_c_comments(read_text(base / rel)), 'trackball_listener', base / rel)
-        chains.append(('KUKEY42/KUKEY42_R.overlay の trackball_listener (ドライバのスクロール)', proc))
+        name = 'KUKEY42/KUKEY42_R.overlay の trackball_listener (ドライバのスクロール)'
+        chains.append((name, proc))
+        labels[name] = ('zip_temp_layer',) + tuple(sorted(aml_threshold_nodes(base, board['files'])))
     if not chains:
         return {'level': 'warn', 'message': 'スクロールのチェーンが見つかりません (スクロール中に AML を延ばすか確かめられません)'}
-    missing = [name for name, proc in chains if not keeps_aml(proc, mous)]
+    missing = [name for name, proc in chains if not keeps_aml(proc, mous, labels.get(name, ('zip_temp_layer',)))]
     if missing:
         return {'level': 'warn', 'message': (
             f'スクロール中に AML を延ばさないチェーンがあります ({", ".join(missing)})。'
@@ -639,18 +645,51 @@ def scroll_aml_consistency(board: dict, base: Path, mous: int, scrl: int) -> dic
         f'スクロール中も AML を延ばす: zip_temp_layer {mous} 10000 を通る ({", ".join(name for name, _ in chains)})')}
 
 
-def zmk_trackball_firmware(board: dict, base: Path) -> tuple[list[dict], list[dict | None]]:
-    """ボールごとの、今のファームの設定 (正規化の推奨値を作るため) と、AML の発動条件 (整合のチェック用)。"""
+def axis_scaler(processors: str, label: str) -> list[int] | None:
+    """チェーンの &zip_x_scaler n d などの値 (無ければ None)。"""
+    m = re.search(rf'&{label}\s+(\d+)\s+(\d+)', processors)
+    if not m:
+        return None
+    if int(m.group(1)) <= 0 or int(m.group(2)) <= 0:
+        raise GenError(f'{label} の値が正しくありません: {m.group(0)}')
+    return [int(m.group(1)), int(m.group(2))]
+
+
+def scalers_before_accel(processors: str, accel: dict | None) -> bool:
+    """zip_x_scaler / zip_y_scaler / zip_xy_scaler が加速 (trackball_accel) より前にあるか。"""
+    if accel is None:
+        return True
+    am = re.search(rf'&{re.escape(accel["label"])}\b', processors)
+    if not am:
+        return True
+    return all(m.start() < am.start() for m in re.finditer(r'&zip_(?:x|y|xy)_scaler\b', processors))
+
+
+def axis_scaler_text(fw: dict) -> str:
+    x, y = fw['x_scaler'], fw['y_scaler']
+    if not fw['axis_scaler_set']:
+        return 'なし (X / Y とも等倍)'
+    return f'zip_x_scaler {x[0]} {x[1]} / zip_y_scaler {y[0]} {y[1]} (X {x[0] / x[1]:.3f} 倍 / Y {y[0] / y[1]:.3f} 倍)'
+
+
+def zmk_trackball_firmware(board: dict, base: Path) -> tuple[list[dict], list[dict | None], list[bool]]:
+    """ボールごとの、今のファームの設定 (正規化の推奨値を作るため) と、AML の発動条件・倍率の位置 (整合のチェック用)。"""
     entries = zmk_trackball_firmware_base(board, base)
     nodes = xy_accel_nodes(base, board['files'])
     gates = aml_threshold_nodes(base, board['files'])
-    amls = []
+    amls, orders = [], []
     for e in entries:
         processors = e.pop('processors')
         e['accel'] = accel_in(nodes, processors)
         e['xy_scaler_set'] = bool(re.search(r'&zip_xy_scaler\b', processors))
+        # 楕円の補正 (軸ごとの倍率)。無ければ 1/1
+        x, y = axis_scaler(processors, 'zip_x_scaler'), axis_scaler(processors, 'zip_y_scaler')
+        e['x_scaler'] = x or [1, 1]
+        e['y_scaler'] = y or [1, 1]
+        e['axis_scaler_set'] = x is not None or y is not None
         amls.append(aml_threshold_in(gates, processors))
-    return entries, amls
+        orders.append(scalers_before_accel(processors, e['accel']))
+    return entries, amls, orders
 
 
 def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
@@ -668,31 +707,20 @@ def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
             sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
             out.append({'side': side, 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
                         'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
-                        'matrix': None, 'divisor': None, 'correction': 'zip_scaler', 'listener': listener,
+                        'correction': 'zip_scaler', 'listener': listener,
                         'processors': proc})
         return out
     if bid == 'kukey42':
         conf = base / 'boards/shields/KUKEY42/KUKEY42_R.conf'
-        overlay = base / 'boards/shields/KUKEY42/KUKEY42_R.overlay'
+        rel = 'boards/shields/KUKEY42/KUKEY42_R.overlay'
         cpi = int(search(conf, r'(?m)^CONFIG_PMW3610_CPI=(\d+)', 'CONFIG_PMW3610_CPI').group(1))
-        text = strip_c_comments(read_text(overlay))
-        m = re.search(r'trackball_matrix\s*:\s*trackball_matrix\s*\{(.*?)\};', text, re.DOTALL)
-        if not m:
-            raise GenError(f'{overlay} に trackball_matrix が見つかりません')
-        mm = re.search(r'matrix\s*=\s*<([^>]*)>', m.group(1))
-        dm = re.search(r'divisor\s*=\s*<\s*(\d+)\s*>', m.group(1))
-        if not mm or not dm:
-            raise GenError(f'{overlay} の trackball_matrix に matrix / divisor がありません')
-        values = [int(v.strip('()')) for v in mm.group(1).split()]
-        if len(values) != 4:
-            raise GenError(f'{overlay} の matrix は 4 要素である必要があります')
-        procs = ' '.join(m.group(1) for m in re.finditer(r'input-processors\s*=(.*?);', text, re.DOTALL))
+        proc = listener_block(strip_c_comments(read_text(base / rel)), 'trackball_listener', base / rel)
+        sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
         return [{'side': 'right', 'sensor': 'pmw3610', 'cpi': cpi,
                  'cpi_source': 'zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.conf の CONFIG_PMW3610_CPI',
                  'cpi_setting': {'template': 'CONFIG_PMW3610_CPI={cpi}', 'step': 200, 'min': 200, 'max': 3200},
-                 'xy_scaler': [1, 1], 'matrix': values, 'divisor': int(dm.group(1)), 'correction': 'matrix',
-                 'listener': 'zmk-config-KUKEY42/boards/shields/KUKEY42/KUKEY42_R.overlay の trackball_matrix',
-                 'processors': procs}]
+                 'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1], 'correction': 'zip_scaler',
+                 'listener': f'zmk-config-KUKEY42/{rel} の trackball_listener', 'processors': proc}]
     if bid == 'aroundfortyrb':
         overlay = base / 'boards/shields/AroundForty-RB/AroundForty-RB_R.overlay'
         text = strip_c_comments(read_text(overlay))
@@ -707,7 +735,7 @@ def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
         return [{'side': 'right', 'sensor': 'pmw3610', 'cpi': int(cm.group(1)),
                  'cpi_source': 'zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball の cpi',
                  'cpi_setting': {'template': 'cpi = <{cpi}>;', 'step': 200, 'min': 200, 'max': 3200},
-                 'xy_scaler': scaler, 'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
+                 'xy_scaler': scaler, 'correction': 'zip_scaler',
                  'listener': 'zmk-config-AroundFortyRB/boards/shields/AroundForty-RB/AroundForty-RB_R.overlay の trackball_listener',
                  'processors': lm.group(1)}]
     if bid == 'pyuron':
@@ -723,7 +751,7 @@ def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
             sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
             out.append({'side': side, 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
                         'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
-                        'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
+                        'correction': 'zip_scaler',
                         'listener': f'zmk-config-Pyuron/boards/shields/Pyuron/Pyuron.dtsi の trackball_listener_{suffix}',
                         'processors': proc})
         return out
@@ -737,7 +765,7 @@ def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
                  'cpi_source': 'zmk-config-roBa/boards/shields/roBa/roBa_R.conf の CONFIG_PMW3610_CPI',
                  'cpi_setting': {'template': 'CONFIG_PMW3610_CPI={cpi}', 'step': 200, 'min': 200, 'max': 3200},
                  'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
-                 'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
+                 'correction': 'zip_scaler',
                  'listener': f'zmk-config-roBa/{rel} の trackball_listener', 'processors': proc}]
     if bid == 'torabo-tsuki-lp':
         rel = 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay'
@@ -745,13 +773,13 @@ def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
         sm = re.search(r'&zip_xy_scaler\s+(\d+)\s+(\d+)', proc)
         return [{'side': 'right', 'sensor': 'paw3222', 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
                  'xy_scaler': [int(sm.group(1)), int(sm.group(2))] if sm else [1, 1],
-                 'matrix': None, 'divisor': None, 'correction': 'zip_scaler',
+                 'correction': 'zip_scaler',
                  'listener': f'zmk-keyboard-torabo-tsuki-lp/{rel} の pointing_listener', 'processors': proc}]
     raise GenError(f'知らない機種です: {bid}')
 
 
 def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int,
-                    firmware: list[dict], amls: list[dict | None], baseline_accel: dict | None,
+                    firmware: list[dict], amls: list[dict | None], orders: list[bool], baseline_accel: dict | None,
                     baseline_aml: dict | None) -> list[dict]:
     """静的な整合チェック (情報 / 警告)。検査ツールは表示するだけ。"""
     out: list[dict] = []
@@ -826,6 +854,16 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
         same = g is not None and baseline_aml is not None and g['threshold'] == baseline_aml['threshold']
         out.append({'level': 'ok' if same else 'warn',
                     'message': f'AML の発動条件 ({name}): {aml_threshold_text(g)} (LisM 基準: {aml_threshold_text(baseline_aml)})'})
+    # 楕円の補正 (軸ごとの倍率): 値は機体ごとに測ったもの (LisM 基準と比べない)。加速より前にあるか
+    for fw, before in zip(firmware, orders):
+        name = {'right': '右のボール', 'left': '左のボール'}.get(fw['side'], fw['side'])
+        txt = axis_scaler_text(fw)
+        if before:
+            out.append({'level': 'ok', 'message': f'楕円の補正 ({name}): {txt}'})
+        else:
+            out.append({'level': 'warn', 'message': (
+                f'楕円の補正 ({name}): {txt} が加速 ({fw["accel"]["label"]}) より後ろにあります。'
+                f'加速は補正の前の値で速さを測ってしまうので、加速より前に置いてください')})
     if board['id'] == 'lism':
         # 左ボールのスクロールは、右手側の版 (trackball / non_trackball) の peripheral_listener で処理する
         def scroller(rel: str) -> str:
@@ -834,16 +872,23 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
             return re.sub(r'\s+', ' ', m.group(1)).strip() if m else ''
         nodes = xy_accel_nodes(base, board['files'])
         gates = aml_threshold_nodes(base, board['files'])
-        procs, aml_procs = [], []
+        procs, aml_procs, blocks = [], [], []
         for rel in ('snippets/trackball-central/trackball.overlay', 'snippets/non-trackball-central/non_trackball.overlay'):
             t = strip_c_comments(read_text(base / rel))
             block = listener_block(t, 'peripheral_listener', base / rel)
+            blocks.append(block)
             procs.append(accel_in(nodes, block))
             aml_procs.append(aml_threshold_in(gates, block))
         if not same_accel(procs[0], procs[1]):
             out.append({'level': 'warn', 'message': (
                 f'左ボールのカーソルの加速が、右手側の版で違います (trackball-central: {accel_text(procs[0])} / '
                 f'non-trackball-central: {accel_text(procs[1])})')})
+        lefts = [(axis_scaler(b, 'zip_x_scaler') or [1, 1], axis_scaler(b, 'zip_y_scaler') or [1, 1]) for b in blocks]
+        if lefts[0] != lefts[1]:
+            out.append({'level': 'warn', 'message': (
+                f'左ボールの楕円の補正 (zip_x_scaler / zip_y_scaler) が、右手側の版で違います (trackball-central: '
+                f'X {lefts[0][0][0]}/{lefts[0][0][1]}・Y {lefts[0][1][0]}/{lefts[0][1][1]} / non-trackball-central: '
+                f'X {lefts[1][0][0]}/{lefts[1][0][1]}・Y {lefts[1][1][0]}/{lefts[1][1][1]})。同じボールなので同じ値にしてください')})
         if aml_procs[0] != aml_procs[1]:
             out.append({'level': 'warn', 'message': (
                 f'左ボールの AML の発動条件が、右手側の版で違います (trackball-central: {aml_threshold_text(aml_procs[0])} / '
@@ -1003,7 +1048,7 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
         layers.append({'index': i, 'name': name, 'alias': km.alias_by_index.get(i, '')})
 
     files = board['files']
-    firmware, amls = zmk_trackball_firmware(board, base)
+    firmware, amls, orders = zmk_trackball_firmware(board, base)
     # AML の発動に要る動きの量 (実動作テスト用)。ボールごとに違えば小さいほう、入っていないボールがあれば 0
     aml_threshold = min((g['threshold'] if g else 0) for g in amls) if amls else 0
     hold_tap, ht_consistency = zmk_hold_tap(km, zv, keys, baseline_ht)
@@ -1029,7 +1074,7 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
             'behaviors': zmk_behaviors(board, km, zv, keys, mous, scrl),
             'hold_tap': hold_tap,
         },
-        'consistency': (zmk_consistency(board, base, km, mous, scrl, firmware, amls, baseline_accel, baseline_aml)
+        'consistency': (zmk_consistency(board, base, km, mous, scrl, firmware, amls, orders, baseline_accel, baseline_aml)
                         + ht_consistency),
     }
 
@@ -1475,6 +1520,17 @@ class Keyball:
             # 速さは 8ms ごとの移動量 (大きいほう + 小さいほうの半分) から求め、1 回の報告は ±127 で頭打ちになる
             self.accel = {'model': 'keyball', 'label': 'KEYBALL_ACCEL_*', **accel_vals,
                           'interval_ms': need('KEYBALL_REPORTMOUSE_INTERVAL', config_h, lib_h), 'clamp': 127}
+        # 楕円の補正 (keymap.c の keyball_on_apply_motion_to_mouse_move。値は config.h、1000 = 等倍)
+        sx, sy = define_int(config_h, 'KEYBALL_SCALE_X'), define_int(config_h, 'KEYBALL_SCALE_Y')
+        self.xy_scale = None
+        if sx is not None or sy is not None:
+            if sx is None or sy is None:
+                raise GenError('config.h に KEYBALL_SCALE_X と KEYBALL_SCALE_Y の片方しかありません')
+            if 'KEYBALL_SCALE_X_Q8' not in km_text:
+                raise GenError('config.h に KEYBALL_SCALE_X / _Y がありますが、keymap.c に楕円の補正の処理がありません')
+            if not (500 <= sx <= 2000 and 500 <= sy <= 2000):
+                raise GenError(f'KEYBALL_SCALE_X / _Y は 500〜2000 にしてください ({sx} / {sy})')
+            self.xy_scale = [sx, sy]
         # AML の発動に要る動きの量 (keymap.c の auto_mouse_activation。値は config.h)
         self.aml_threshold = define_int(config_h, 'KEYBALL_AML_THRESHOLD')
         if self.aml_threshold is not None and 'auto_mouse_activation' not in km_text:
@@ -1519,11 +1575,17 @@ class Keyball:
         return out
 
     def firmware(self) -> list[dict]:
-        return [{'side': 'right', 'sensor': 'pmw3360', 'cpi': self.status['cpi'] * 100,
-                 'cpi_source': 'keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_CPI_DEFAULT (既定 500)',
-                 'cpi_setting': {'template': '#define KEYBALL_CPI_DEFAULT {cpi}', 'step': 100, 'min': 100, 'max': 12000},
-                 'xy_scaler': [1, 1], 'xy_scaler_set': False, 'matrix': None, 'divisor': None, 'correction': 'cpi_only',
-                 'listener': 'Keyball のファーム (X/Y を別々に補正する機能は無い)', 'accel': self.accel}]
+        fw = {'side': 'right', 'sensor': 'pmw3360', 'cpi': self.status['cpi'] * 100,
+              'cpi_source': 'keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_CPI_DEFAULT (既定 500)',
+              'cpi_setting': {'template': '#define KEYBALL_CPI_DEFAULT {cpi}', 'step': 100, 'min': 100, 'max': 12000},
+              'xy_scaler': [1, 1], 'xy_scaler_set': False, 'accel': self.accel}
+        if self.xy_scale is None:
+            fw.update({'correction': 'cpi_only', 'xy_scale': None,
+                       'listener': 'Keyball のファーム (X/Y を別々に補正する機能は無い)'})
+        else:
+            fw.update({'correction': 'keyball_scale', 'xy_scale': self.xy_scale,
+                       'listener': 'keyball/qmk_firmware/keyboards/keyball/keyball39/keymaps/via/config.h の KEYBALL_SCALE_X / KEYBALL_SCALE_Y'})
+        return [fw]
 
 
 QMK_LABEL_OVERRIDES = {0xE6: 'RAlt', 0x39: 'Caps'}
@@ -1568,6 +1630,11 @@ def gen_keyball(kb: Keyball, sources: Sources, lism_aml: dict, baseline_accel: d
          'message': f'スクロールの倍率 1/{2 ** (st["scroll_div"] - 1)} (KEYBALL_SCROLL_DIV_DEFAULT {st["scroll_div"]}、LisM 1/16)'},
         accel_consistency('カーソルの加速 KEYBALL_ACCEL_*', kb.accel, baseline_accel),
     ]
+    if kb.xy_scale is not None:
+        # 値は機体ごとに測ったもの (LisM 基準と比べない)
+        consistency.append({'level': 'ok', 'message': (
+            f'楕円の補正 KEYBALL_SCALE_X / _Y = {kb.xy_scale[0]} / {kb.xy_scale[1]} '
+            f'(X {kb.xy_scale[0] / 1000:.3f} 倍 / Y {kb.xy_scale[1] / 1000:.3f} 倍)')})
     return {
         'schema': SCHEMA, 'generator': GENERATOR, 'id': 'keyball39', 'name': 'Keyball39', 'kind': 'via',
         'sources': [sources.source_entry('keyball', [
@@ -1744,7 +1811,7 @@ def gen_kq_mini(sources: Sources, kd, zv, kb: Keyball, lism_behaviors: dict) -> 
                         'threshold': kb.aml_threshold or 0},
                 'keys': tb_keys,
                 'firmware': kb.firmware() + [{'side': 'kq-mini', 'sensor': None, 'cpi': None, 'cpi_source': None, 'cpi_setting': None,
-                                              'xy_scaler': [1, 1], 'xy_scaler_set': False, 'matrix': None, 'divisor': None,
+                                              'xy_scaler': [1, 1], 'xy_scaler_set': False, 'xy_scale': None,
                                               'correction': 'none', 'accel': None,
                                               'listener': 'KQ-mini はマウスを等倍で中継する (倍率は変えられない)'}],
             },
