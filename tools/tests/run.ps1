@@ -55,6 +55,12 @@ function Test-Case([string]$Name, [scriptblock]$Body, [switch]$WindowsOnly) {
         $script:Failed++
         $msg = '{0}: {1}' -f $full, $_.Exception.Message
         $script:Failures.Add($msg)
+        if ($env:GITHUB_ACTIONS -eq 'true') {
+            # 詳細ログを開かなくても、チェック結果から失敗したテストを確認できるようにする。
+            $annotation = $msg + "`n" + $_.InvocationInfo.PositionMessage
+            $annotation = $annotation.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Host ('::error::{0}' -f $annotation)
+        }
         Write-Host ('  FAIL  {0}' -f $Name) -ForegroundColor Red
         Write-Host ('        {0}' -f $_.Exception.Message) -ForegroundColor Red
         Write-Host ('        {0}' -f $_.InvocationInfo.PositionMessage.Split("`n")[0]) -ForegroundColor DarkGray
