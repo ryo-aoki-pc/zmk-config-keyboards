@@ -254,6 +254,55 @@ Test-Case 'ダウンロード: 途中でビルドが置き換わったら 1 回�
     }
 }
 
+Test-Case 'ダウンロード: 応答の無い失敗 (接続が切れたなど) は 1 回だけやり直す' {
+    $dir = Join-Path ([System.IO.Path]::GetTempPath()) ('fr-retry-' + [guid]::NewGuid().ToString('N'))
+    [void](New-Item -ItemType Directory -Force -Path $dir)
+    $oldDelay = $script:FirmwareRetryDelayMs
+    $script:FirmwareRetryDelayMs = 0
+    $script:FrResults = New-Object System.Collections.Queue
+    $script:FrDownloads = 0
+    # 'ok' は保存する。'closed' は HTTP の応答が無い失敗、数字はその HTTP の状態コード
+    function Invoke-FirmwareDownload([string]$Uri, [string]$OutFile, [int]$TimeoutSec = 0) {
+        $script:FrDownloads++
+        $next = [string]$script:FrResults.Dequeue()
+        if ($next -eq 'ok') {
+            [System.IO.File]::WriteAllText($OutFile, 'data')
+            return
+        }
+        throw $next
+    }
+    function Get-HttpStatusCode($ErrorRecord) {
+        $text = $ErrorRecord.Exception.Message
+        if ($text -eq 'closed') { return $null }
+        return [int]$text
+    }
+    try {
+        foreach ($r in @('closed', 'ok')) { $script:FrResults.Enqueue($r) }
+        $path = Save-FirmwareFile 'o/r' 'firmware-pr-1' 'x.uf2' $dir
+        Assert-Equal 2 $script:FrDownloads 'やり直して取れた'
+        Assert-Equal 'data' ([System.IO.File]::ReadAllText($path))
+
+        $script:FrDownloads = 0
+        foreach ($r in @('closed', '404')) { $script:FrResults.Enqueue($r) }
+        Assert-Throws { Save-FirmwareFile 'o/r' 'firmware-pr-1' 'x.uf2' $dir } '*firmware-pr-1 リリース*自動で削除*' '切断のあとの 404 は案内'
+        Assert-Equal 2 $script:FrDownloads
+
+        $script:FrDownloads = 0
+        foreach ($r in @('closed', 'closed')) { $script:FrResults.Enqueue($r) }
+        Assert-Throws { Save-FirmwareFile 'o/r' 'firmware-pr-1' 'x.uf2' $dir } '*ダウンロードに失敗しました*' '2 回続けば失敗'
+        Assert-Equal 2 $script:FrDownloads
+
+        $script:FrDownloads = 0
+        $script:FrResults.Enqueue('500')
+        Assert-Throws { Save-FirmwareFile 'o/r' 'firmware-pr-1' 'x.uf2' $dir } '*ダウンロードに失敗しました*' 'HTTP のエラーはやり直さない'
+        Assert-Equal 1 $script:FrDownloads
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $dir 'x.uf2.download'))) '途中のファイルを残さない'
+    } finally {
+        $script:FirmwareRetryDelayMs = $oldDelay
+        Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Test-Case '404 の案内: PR / custom のビルドは「自動で削除される」、最新は「ビルドを実行して」' {
     Assert-True ((Get-FirmwareNotFoundText 'o/r' 'firmware-pr-3' 'a.uf2') -like '*自動で削除*') 'pr'
     Assert-True ((Get-FirmwareNotFoundText 'o/r' 'firmware-latest' 'a.uf2') -like '*custom ブランチのビルドを実行*') 'latest'

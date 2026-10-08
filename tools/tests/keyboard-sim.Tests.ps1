@@ -172,6 +172,16 @@ Test-Case 'CLI: 壊れたJSON・シナリオ0件・抽出後0件は終了1' {
     Assert-Equal 1 $result.Report.failed
 }
 
+Test-Case 'CLI: -Scenario を省略すると標準シナリオを読む (Windows PowerShell 5.1 の -File でも)' {
+    # 5.1 を -File で起動すると param の既定値の中では $PSScriptRoot が空になり、Join-Path で止まっていた。
+    # 機種を絞って 0 件にするので、Python と submodule は使わない
+    $exe = (Get-Process -Id $PID).Path
+    $output = @(& $exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $script:ToolsDir 'scripts/keyboard-sim.ps1') -Board 'nonexistent' 2>&1)
+    $text = $output -join "`n"
+    Assert-Equal 1 $LASTEXITCODE $text
+    Assert-True ($text.Contains('実行対象のシナリオが 0 件です')) $text
+}
+
 Test-Case 'CLI: 入力JSONをレポートで上書きしない' {
     $result = Invoke-KsFixtureCli $script:KsFixtureJson -OverwriteInput
     Assert-Equal 1 $result.Code $result.Output

@@ -17,6 +17,8 @@ $script:FirmwareLatestTag = 'firmware-latest'
 $script:FirmwareInfoKeys = @('repository', 'kind', 'branch', 'pr', 'title', 'head', 'commit', 'subject', 'built', 'run')
 $script:FirmwareApiBase = 'https://api.github.com'
 $script:FirmwareStateTexts = @{ open = 'オープン'; merged = 'マージ済み'; closed = 'クローズ' }
+# ダウンロードが HTTP の応答なしで失敗したとき、やり直すまでの待ち時間 (テストでは 0 にする)
+$script:FirmwareRetryDelayMs = 500
 
 # ---------------------------------------------------------------------------
 # 純粋関数 (Windows 以外でもテストできる)
@@ -584,7 +586,7 @@ function Get-FirmwareBuildList([string]$Repo, [string]$CacheDir, [switch]$NoPull
     if ($null -ne $cache) {
         $when = ''
         if ($null -ne $cache.FetchedAt) {
-            $when = ' (' + $cache.FetchedAt.ToLocalTime().ToString('MM/dd HH:mm', [Globalization.CultureInfo]::InvariantCulture) + ')'
+            $when = ' (' + $cache.FetchedAt.ToLocalTime().ToString('MM/dd HH:mm', [Globalization.CultureInfo]::InvariantCulture) + ') '
         }
         return @{
             Builds    = @(ConvertFrom-FirmwareListPages $cache.Pages $cache.Issues); Source = 'cache'; Level = 3; FetchedAt = $cache.FetchedAt
@@ -621,19 +623,27 @@ function Get-FirmwareNotFoundText([string]$Repo, [string]$Tag, [string]$Asset) {
         "  手元の .uf2 / .hex を書き込む場合は、ファイルをこのスクリプトにドラッグ＆ドロップしてください。")
 }
 
-# 1 つのファイルをダウンロードして、保存したパスを返す
+# 1 つのファイルをダウンロードして、保存したパスを返す。HTTP の応答が無い失敗 (接続が切れたなど) は 1 回だけやり直す
+# (5.1 では、404 の応答のあとのダウンロードが「接続が予期せずに閉じられました」になることがあり、404 の案内を出せない)
 function Save-FirmwareFile([string]$Repo, [string]$Tag, [string]$Asset, [string]$Dir) {
     $dest = Join-Path $Dir $Asset
     $tmp = "$dest.download"
     $url = "https://github.com/$Repo/releases/download/$Tag/$Asset"
-    try {
-        Invoke-FirmwareDownload $url $tmp
-    } catch {
-        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
-        if ((Get-HttpStatusCode $_) -eq 404) {
-            throw (Get-FirmwareNotFoundText $Repo $Tag $Asset)
+    for ($attempt = 1; $true; $attempt++) {
+        try {
+            Invoke-FirmwareDownload $url $tmp
+            break
+        } catch {
+            Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+            $code = Get-HttpStatusCode $_
+            if ($code -eq 404) {
+                throw (Get-FirmwareNotFoundText $Repo $Tag $Asset)
+            }
+            if ($null -ne $code -or $attempt -ge 2) {
+                throw "ダウンロードに失敗しました: $url`n  $($_.Exception.Message)"
+            }
+            Start-Sleep -Milliseconds $script:FirmwareRetryDelayMs
         }
-        throw "ダウンロードに失敗しました: $url`n  $($_.Exception.Message)"
     }
     Move-Item -LiteralPath $tmp -Destination $dest -Force
     return $dest

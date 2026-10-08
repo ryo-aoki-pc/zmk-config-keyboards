@@ -225,7 +225,8 @@ function Write-Advice($Keyball, $Status) {
 }
 
 function Test-KqMini {
-    return (Get-PresentDevice "USB\${KQ_MINI_ID}\%").Count -gt 0
+    # 関数が返した配列は 0 件・1 件だと配列のまま届かない (StrictMode で .Count が例外になる) ので、@() で包む
+    return @(Get-PresentDevice "USB\${KQ_MINI_ID}\%").Count -gt 0
 }
 
 function Write-NotFound {

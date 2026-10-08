@@ -19,12 +19,17 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [string]$Scenario = (Join-Path $PSScriptRoot '../simulator/scenarios'),
+    [string]$Scenario = '',
     [string]$Board = '',
     [string]$Python = 'python'
 )
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+
+# Windows PowerShell 5.1 を -File で起動すると (keyboard-sim.cmd)、param の既定値の中では $PSScriptRoot が空なので、ここで決める
+if (-not $Scenario) {
+    $Scenario = Join-Path $PSScriptRoot '../simulator/scenarios'
+}
 
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     Write-Host '失敗: GUI は Windows 専用です。画面なしの実行には tools/scripts/keyboard-sim.ps1 を使ってください。' -ForegroundColor Red

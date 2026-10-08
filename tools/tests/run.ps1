@@ -9,7 +9,8 @@
     - .cmd が呼ぶ .ps1 があり、tools 直下には利用者が実行する .cmd だけがあること
     - tools/tests/*.Tests.ps1 の各テスト (偽のデバイスを使った読み出し検査、判定の計算など)
 
-    Windows 専用のテスト (C# のコンパイル、フォームの生成) は Windows 以外では飛ばします。
+    Windows 専用のテスト (C# のコンパイル、フォームの生成) は、ツールが動く Windows PowerShell 5.1 だけで実行し、
+    Linux と Windows の pwsh では飛ばします (pwsh の Add-Type は WPF のウィンドウの C# をコンパイルできない)。
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\tests\run.ps1
@@ -31,6 +32,8 @@ $script:ToolsDir = Split-Path -Parent $PSScriptRoot
 $script:KcLib = Join-Path $script:ToolsDir 'lib\keyboard-check'
 $script:ExpectedDir = Join-Path $script:ToolsDir 'expected'
 $script:IsWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+# -WindowsOnly のテストを実行するか。ツール (.cmd) が使う Windows PowerShell 5.1 だけ
+$script:IsWindowsPowerShell = $script:IsWindowsHost -and $PSVersionTable.PSEdition -eq 'Desktop'
 $script:Passed = 0
 $script:Failed = 0
 $script:Skipped = 0
@@ -42,9 +45,9 @@ function Test-Case([string]$Name, [scriptblock]$Body, [switch]$WindowsOnly) {
     if ($Filter -and $full -notlike "*$Filter*") {
         return
     }
-    if ($WindowsOnly -and -not $script:IsWindowsHost) {
+    if ($WindowsOnly -and -not $script:IsWindowsPowerShell) {
         $script:Skipped++
-        Write-Host ('  SKIP  {0} (Windows のみ)' -f $Name) -ForegroundColor DarkGray
+        Write-Host ('  SKIP  {0} (Windows PowerShell 5.1 のみ)' -f $Name) -ForegroundColor DarkGray
         return
     }
     try {
@@ -232,6 +235,28 @@ Test-Case 'Windows PowerShell 5.1 で使えない構文を使っていない' {
         }
     }
     Assert-Equal '' ($bad -join ' / ') 'PS7 専用の構文:'
+}
+
+# Windows PowerShell 5.1 で powershell.exe -File から起動すると (.cmd はみなそう)、スクリプトの param の既定値の中では
+# $PSScriptRoot / $PSCommandPath が空になる (Join-Path が「空の文字列」で失敗する)。PS 7 では起きない
+Test-Case 'スクリプトの param の既定値で $PSScriptRoot / $PSCommandPath を使っていない' {
+    $bad = @()
+    foreach ($f in $psFiles) {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$null)
+        if ($null -eq $ast.ParamBlock) { continue }
+        foreach ($p in $ast.ParamBlock.Parameters) {
+            if ($null -eq $p.DefaultValue) { continue }
+            $uses = @($p.DefaultValue.FindAll({
+                        param($n)
+                        $n -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                        @('PSScriptRoot', 'PSCommandPath') -contains $n.VariablePath.UserPath
+                    }, $true))
+            if ($uses.Count -gt 0) {
+                $bad += ('{0}:{1} {2}' -f $f.Name, $p.Extent.StartLineNumber, $p.Name.Extent.Text)
+            }
+        }
+    }
+    Assert-Equal '' ($bad -join ' / ') '$PSScriptRoot を使う param の既定値 (スクリプトの本体で決める):'
 }
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Scenario = (Join-Path $PSScriptRoot '../simulator/scenarios'),
+    [string]$Scenario = '',
     [string]$Board = '',
     [string]$Python = 'python',
     [string]$ReportJson = '',
@@ -19,6 +19,10 @@ param(
 )
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 を -File で起動すると、param の既定値の中では $PSScriptRoot が空なので、ここで決める
+if (-not $Scenario) {
+    $Scenario = Join-Path $PSScriptRoot '../simulator/scenarios'
+}
 . (Join-Path $PSScriptRoot '../lib/keyboard-check/keyboard-sim.ps1')
 
 function Save-KcSimReport([string]$Path, [string]$Text) {

@@ -49,7 +49,7 @@ class ExportModels(unittest.TestCase):
 
         def changed(path):
             text = original(path)
-            if str(path).endswith('/config/lism.keymap'):
+            if Path(path).as_posix().endswith('/config/lism.keymap'):
                 text = text.replace('&kp Q', '&kp F1', 1)
             return text
 
@@ -63,7 +63,7 @@ class ExportModels(unittest.TestCase):
 
         def changed(path):
             text = original(path)
-            if str(path).endswith('/boards/shields/lism/lism.dtsi'):
+            if Path(path).as_posix().endswith('/boards/shields/lism/lism.dtsi'):
                 text = text.replace('threshold = <10>', 'threshold = <17>')
             return text
 
@@ -89,7 +89,7 @@ class ExportModels(unittest.TestCase):
 
         def changed(path):
             text = original(path)
-            return text.replace('&kp Q', '&unknown_simulator Q', 1) if str(path).endswith('/config/lism.keymap') else text
+            return text.replace('&kp Q', '&unknown_simulator Q', 1) if Path(path).as_posix().endswith('/config/lism.keymap') else text
 
         with patch.object(export.gen, 'read_text', changed):
             with self.assertRaisesRegex(export.ModelError, '知らないビヘイビア'):
