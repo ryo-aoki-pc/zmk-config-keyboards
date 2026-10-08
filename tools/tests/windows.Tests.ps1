@@ -355,7 +355,8 @@ Test-Case 'テスト用のウィンドウ: レイヤー・ビヘイビアの手�
         $w.Height = $w.MinHeight
         [KcUi]::DoEvents()
         Save-UiSnapshot $form 'keyboard-check-6-behavior-min'
-        Assert-True ($root.FindName('KeyboardCard').ActualHeight -ge 100) ('キーボード図の高さ: {0}' -f $root.FindName('KeyboardCard').ActualHeight)
+        # 96 DPI でちょうど 100 前後。拡大率が 175% などの画面では、レイアウトの丸めで 1 物理ピクセル (0.57) 低くなる
+        Assert-True ($root.FindName('KeyboardCard').ActualHeight -ge 99) ('キーボード図の高さ: {0}' -f $root.FindName('KeyboardCard').ActualHeight)
         # カードが低いときは色の凡例を隠し、図に場所を回す
         $card = $root.FindName('KeyboardCard').ActualHeight
         Assert-Equal ($card -ge 140) ($root.FindName('Legend').Visibility -eq [System.Windows.Visibility]::Visible) ('凡例 (カードの高さ {0})' -f $card)

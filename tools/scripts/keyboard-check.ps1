@@ -55,7 +55,8 @@
     結果を保存するファイル。省略すると tools/.cache/keyboard-check/reports/ に保存します。
 
 .PARAMETER Speed
-    トラックボールの正規化で、速さも計測します (省略すると尋ねます)。
+    トラックボールの正規化で、速さも計測します。省略すると、メニューで選んで始めたとき (-Keyboard か -Mode を
+    省略したとき) は尋ねます。両方を指定したときは計測しません。
 
 .PARAMETER Diameter
     ボールの直径 (mm)。速さを実効 CPI (指の移動量あたりの速さ) で比べるのに使います。
@@ -216,6 +217,10 @@ function Get-KcDetection($Board) {
 # ---------------------------------------------------------------------------
 # 機種と内容の選択
 # ---------------------------------------------------------------------------
+
+# メニューで選んだときは、トラックボールの正規化で速さも測るかを尋ねる (-Keyboard と -Mode を両方指定したときは -Speed で決める)。
+# メニューで $Keyboard と $Mode が埋まる前に決めておく
+$askSpeed = -not ($Keyboard -and $Mode)
 
 if (-not $Keyboard) {
     Write-Host ''
@@ -451,7 +456,7 @@ if ($sections.Count -gt 0) {
         $doSpeed = [bool]$Speed
         $dia = $null
         if ($sections -contains 'Calibrate') {
-            if (-not $Speed -and -not ($Keyboard -and $Mode)) {
+            if (-not $Speed -and $askSpeed) {
                 Write-Host ''
                 Write-Host 'トラックボールの速さも計測しますか? (ボールに印を付けて、決まった回数だけ回します。LisM を基準に、ほかの機種の倍率の推奨値を出します)'
                 $doSpeed = (Read-KcChoice '1. しない  2. する' 2 1) -eq 2

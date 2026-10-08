@@ -730,6 +730,8 @@ X と Y の比 (√(X の分散 / Y の分散)) が 1.10 を超えると WARN �
 
 **速さ (キーボード間)**: ボールに印を付け、右へちょうど 2 回転を 2 回、手前へちょうど 2 回転を 2 回転がします。
 ボールの直径を入れると、指の移動量あたりの速さ (実効 CPI) で比べます。
+速さも測るかは、メニューで選んで始めたとき (`-Keyboard` か `-Mode` を省略したとき) に尋ねます。
+両方を指定したときは、`-Speed` を付けると測ります ([コマンドライン](#コマンドライン))。
 
 - 最初に LisM で測ると、基準として `tools/.cache/keyboard-check/trackball.json` に保存される (`-SpeedReference` でも指定できる)
 - ほかの機種で、基準との差が ±10% を超えると WARN になり、推奨値を出す: PMW3610 の機種 (KUKEY42 / AroundFortyRB / roBa) は CPI、
@@ -917,6 +919,13 @@ USB / BLE の通信や BLE 送信のまとめ処理、スムーズスクロー�
 python -m unittest discover -s tools/simulator -v
 python -m unittest discover -s tools/expected -v
 pwsh -NoProfile -File tools/tests/run.ps1
+```
+
+ウィンドウの描画など Windows 専用のテストは、ツールと同じ Windows PowerShell 5.1 で実行したときだけ動きます (pwsh では SKIP になります)。
+Windows ではそれらも含めて、次のコマンドで実行します。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\tests\run.ps1
 ```
 
 `.github/workflows/keyboard-check.yml` は Linux で設定の整合性、単体テスト、同梱シナリオを実行します。

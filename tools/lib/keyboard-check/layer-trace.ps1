@@ -46,7 +46,9 @@ function Read-KcLogPortLines($Reader) {
     if ($null -eq $Reader.Active -and [DateTime]::Now -ge $Reader.NextScan) {
         $Reader.NextScan = [DateTime]::Now.AddSeconds(2)
         $cands = @()
-        if ($Reader.Port) { $cands = @($Reader.Port) } else { $cands = @(Find-KcStudioPort | ForEach-Object { $_.Port }) }
+        # Find-KcStudioPort は配列をそのまま返す (return , $x)。パイプラインにつなぐと配列が 1 つの値として届き、
+        # ポートが 0 件のとき $_.Port が StrictMode の例外になるので、foreach で回す
+        if ($Reader.Port) { $cands = @($Reader.Port) } else { $cands = @(foreach ($p in (Find-KcStudioPort)) { $p.Port }) }
         foreach ($c in $cands) {
             if (-not $Reader.Ports.ContainsKey($c)) {
                 try { $Reader.Ports[$c] = Open-KcLogPort $c; $Reader.Buffers[$c] = '' } catch { }
