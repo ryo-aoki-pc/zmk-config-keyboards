@@ -7,8 +7,8 @@
   "sources": [
     {
       "submodule": "zmk-config-LisM",
-      "commit": "c0d06bbff6ca7a4d296b017cca809cb9bfc358c1",
-      "files": ["config/lism.keymap", "config/lism.json", "boards/shields/lism/lism.dtsi", "build.yaml", "snippets/trackball-central/trackball.overlay", "snippets/trackball-peripheral/trackball.overlay", "snippets/non-trackball-central/non_trackball.overlay"]
+      "commit": "c4afedefc6b095ce6cde21aa28f111152890dc0d",
+      "files": ["config/lism.keymap", "config/lism.json", "boards/shields/lism/lism.dtsi", "build.yaml", "boards/shields/lism/lism_right.conf", "snippets/trackball-central/trackball.overlay", "snippets/trackball-peripheral/trackball.overlay", "snippets/non-trackball-central/non_trackball.overlay"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
@@ -2608,6 +2608,7 @@
       "level": "ok",
       "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (trackball-central/trackball.overlay の scroller, trackball-central/trackball.overlay の scroller, non-trackball-central/non_trackball.overlay の scroller)"
     },
+    {"level": "ok", "message": "右手側 (セントラル) の入力スレッドのスタック: 1024 バイト (README の共通基盤: 1024 バイト)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/16 (README の共通基盤: 1/16)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "カーソルの加速 (左のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},

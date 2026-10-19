@@ -7,8 +7,8 @@
   "sources": [
     {
       "submodule": "zmk-keyboard-torabo-tsuki-lp",
-      "commit": "e1054c61aff0ba2cf88e7fba473d8c5deb2c3d82",
-      "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay", "build.yaml"]
+      "commit": "8a2a79c2c851328ea803f553e04e5fb0ec2bbb01",
+      "files": ["config/keymap.keymap", "config/info.json", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.conf", "boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
@@ -3181,6 +3181,7 @@
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (torabo_tsuki_lp/torabo_tsuki_lp_right.overlay の scroller, torabo_tsuki_lp/torabo_tsuki_lp_left.overlay の scroller)"},
+    {"level": "ok", "message": "右手側 (セントラル) の入力スレッドのスタック: 1024 バイト (README の共通基盤: 1024 バイト)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/1 (README の共通基盤: 1/1、実機で調整した値 + スムーズスクロール)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"},
