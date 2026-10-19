@@ -7,8 +7,8 @@
   "sources": [
     {
       "submodule": "zmk-config-AroundFortyRB",
-      "commit": "50385bae37d9d4a8bace636620da67603a9be795",
-      "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "build.yaml"]
+      "commit": "7b2058902d420d8efd71aecbe2b506bfaf61a447",
+      "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "boards/shields/AroundForty-RB/AroundForty-RB_R.conf", "build.yaml"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
@@ -2629,6 +2629,7 @@
     {"level": "ok", "message": "require-prior-idle-ms = 200 (LisM 基準 200)"},
     {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (AroundForty-RB/AroundForty-RB_R.overlay の scroll-layer)"},
+    {"level": "ok", "message": "右手側 (セントラル) の入力スレッドのスタック: 1024 バイト (README の共通基盤: 1024 バイト)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/32 (README の共通基盤: 1/32、CPI 800 のため)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"},
