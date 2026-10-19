@@ -200,6 +200,12 @@ git commit -m "Update submodules"
 | `tools/scripts/flash-keyball.cmd` | Keyball39 を選んだ状態でウィンドウが開く | `.hex` を Keyball39 に書き込む |
 | `tools/scripts/flash-uf2.cmd` | (使い方を表示する) | `.uf2` を書き込む ([書き込みスクリプト](#書き込みスクリプト-toolsscriptsflash-uf2cmd)) |
 
+ウィンドウで操作するツール (`tools/flash.cmd`・`tools/keyboard-sim.cmd` と、`tools/scripts/` の `flash-zmk.cmd` / `flash-kq-mini.cmd` / `flash-keyball.cmd` のダブルクリック) は、
+コンソール (ターミナル) の画面を開かずに、ウィンドウだけを開きます (起動の一瞬だけ、`.cmd` の画面が出て消えます)。
+ウィンドウを開けなかったときは、理由をメッセージボックスで表示します。
+ファイルをドロップして書き込むときと、検査・診断・記録のツール (`keyboard-check.cmd` / `keyball-check.cmd` / `input-monitor.cmd`) は、
+今までどおりコンソールの画面で動きます。
+
 ツールのウィンドウのログ (等幅の文字) は、[HackGen Console NF](https://github.com/yuru7/HackGen) がインストールされていれば、それで表示します
 (自分のユーザだけにインストールしたものでも使えます)。無ければ BIZ UDゴシック、それも無ければ MS ゴシックです。
 
@@ -217,10 +223,11 @@ git commit -m "Update submodules"
 
 手元のファイル (`.uf2` / `.hex`) を書き込むときは、そのファイルを `tools/flash.cmd` にドラッグ＆ドロップします。
 `.uf2` はファイルの中身から書き込み先 (XIAO / BMP / KQ-mini) を決め、`.hex` は Keyball39 に書き込みます。
+ドロップしたときは、ウィンドウではなくコンソールの画面で書き込みます (終わったらキーを押して閉じる)。
 
 ### 書き込みツール (`tools/flash.cmd`)
 
-1. `tools/flash.cmd` をダブルクリックする。コンソールの画面と、書き込みツールのウィンドウが開く。コンソールは、書き込みが終わるまで閉じない (閉じると書き込みも止まる)
+1. `tools/flash.cmd` をダブルクリックする。書き込みツールのウィンドウが開く (コンソールの画面は開かない)。書き込み中にウィンドウを閉じると、書き込みを止めてから閉じる
 2. 左の一覧で機種を選ぶ (前回選んだ機種が選ばれている)
 3. 中央の一覧でビルドを選ぶ。最新が先頭で、あとはビルドした日時の新しい順に並ぶ
 
@@ -821,7 +828,7 @@ python tools/simulator/export_model.py --keyboard lism
 
 ### シミュレータの画面 (Windows)
 
-上の準備後、`tools/keyboard-sim.cmd` をダブルクリックすると、機種とシナリオを選ぶ画面が開きます。
+上の準備後、`tools/keyboard-sim.cmd` をダブルクリックすると、機種とシナリオを選ぶ画面が開きます (コンソールの画面は開きません)。
 USB / BLE のキーボードを接続する必要はありません。
 
 1. 機種とシナリオを選び、「選択を実行」または「この機種を全件実行」を押す。
@@ -830,7 +837,7 @@ USB / BLE のキーボードを接続する必要はありません。
 3. 時刻スライダーや「再生 / 一時停止」で、キーボード図の押下位置、出力キー、有効レイヤー、マウスの状態を確認する。
    再生は記録を画面上で確認する機能です。KQ-mini 単体は入力の HID キー一覧、Keyball39 → KQ-mini は Keyball39 の配列を表示します。
 
-独自のシナリオは「JSON を開く」から読み込むか、JSON ファイルを `tools/keyboard-sim.cmd` にドラッグ＆ドロップします。
+独自のシナリオは「JSON を開く」から読み込むか、JSON ファイルを `tools/keyboard-sim.cmd` にドラッグ＆ドロップします (ドロップしたときも、画面だけが開きます)。
 「標準に戻す」で、同梱の `tools/simulator/scenarios/` を読み直します。
 期待値は JSON で管理し、GUI から自動生成・書き換えは行いません。
 
