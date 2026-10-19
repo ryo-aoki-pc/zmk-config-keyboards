@@ -435,7 +435,9 @@ ZMK_BOARDS = [
         'keymap': 'config/lism.keymap', 'layout': 'config/lism.json',
         'dtsi': 'boards/shields/lism/lism.dtsi', 'kconfig': 'boards/shields/lism/Kconfig.defconfig',
         'scroll': {'scaler': [1, 16]},
+        'central_conf': 'boards/shields/lism/lism_right.conf',
         'files': ['config/lism.keymap', 'config/lism.json', 'boards/shields/lism/lism.dtsi', 'build.yaml',
+                  'boards/shields/lism/lism_right.conf',
                   'snippets/trackball-central/trackball.overlay',
                   'snippets/trackball-peripheral/trackball.overlay',
                   'snippets/non-trackball-central/non_trackball.overlay'],
@@ -446,6 +448,7 @@ ZMK_BOARDS = [
         'keymap': 'config/KUKEY42.keymap', 'layout': 'config/KUKEY42.json',
         'dtsi': 'boards/shields/KUKEY42/KUKEY42.dtsi', 'kconfig': 'boards/shields/KUKEY42/Kconfig.defconfig',
         'scroll': {'tick': 32},
+        'central_conf': 'boards/shields/KUKEY42/KUKEY42_R.conf',
         'files': ['config/KUKEY42.keymap', 'config/KUKEY42.json', 'boards/shields/KUKEY42/KUKEY42.dtsi',
                   'boards/shields/KUKEY42/KUKEY42_R.overlay', 'boards/shields/KUKEY42/KUKEY42_R.conf', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
@@ -456,9 +459,11 @@ ZMK_BOARDS = [
         'dtsi': 'boards/shields/AroundForty-RB/AroundForty-RB.dtsi',
         'kconfig': 'boards/shields/AroundForty-RB/Kconfig.defconfig',
         'scroll': {'scaler': [1, 32], 'why': 'CPI 800 のため'},
+        'central_conf': 'boards/shields/AroundForty-RB/AroundForty-RB_R.conf',
         'files': ['config/AroundForty-RB.keymap', 'config/AroundForty-RB.json',
                   'boards/shields/AroundForty-RB/AroundForty-RB.dtsi',
-                  'boards/shields/AroundForty-RB/AroundForty-RB_R.overlay', 'build.yaml'],
+                  'boards/shields/AroundForty-RB/AroundForty-RB_R.overlay',
+                  'boards/shields/AroundForty-RB/AroundForty-RB_R.conf', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
     },
     {
@@ -466,8 +471,10 @@ ZMK_BOARDS = [
         'keymap': 'config/Pyuron.keymap', 'layout': 'config/Pyuron.json',
         'dtsi': 'boards/shields/Pyuron/Pyuron.dtsi', 'kconfig': 'boards/shields/Pyuron/Kconfig.defconfig',
         'scroll': {'scaler': [1, 16]},
+        'central_conf': 'boards/shields/Pyuron/Pyuron_R.conf',
         'files': ['config/Pyuron.keymap', 'config/Pyuron.json', 'boards/shields/Pyuron/Pyuron.dtsi',
-                  'boards/shields/Pyuron/Pyuron_R.overlay', 'boards/shields/Pyuron/Pyuron_L.overlay', 'build.yaml'],
+                  'boards/shields/Pyuron/Pyuron_R.overlay', 'boards/shields/Pyuron/Pyuron_L.overlay',
+                  'boards/shields/Pyuron/Pyuron_R.conf', 'build.yaml'],
         'balls': ['left', 'right'], 'ask_balls': False,
     },
     {
@@ -475,6 +482,7 @@ ZMK_BOARDS = [
         'keymap': 'config/roBa.keymap', 'layout': 'config/roBa.json',
         'dtsi': 'boards/shields/roBa/roBa.dtsi', 'kconfig': 'boards/shields/roBa/Kconfig.defconfig',
         'scroll': {'scaler': [1, 32], 'why': 'CPI 800 のため'},
+        'central_conf': 'boards/shields/roBa/roBa_R.conf',
         'files': ['config/roBa.keymap', 'config/roBa.json', 'boards/shields/roBa/roBa.dtsi',
                   'boards/shields/roBa/roBa_R.overlay', 'boards/shields/roBa/roBa_R.conf', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
@@ -485,9 +493,11 @@ ZMK_BOARDS = [
         'dtsi': 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi',
         'kconfig': 'boards/shields/torabo_tsuki_lp/Kconfig.defconfig',
         'scroll': {'scaler': [1, 1], 'why': '実機で調整した値 + スムーズスクロール'},
+        'central_conf': 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.conf',
         'files': ['config/keymap.keymap', 'config/info.json', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi',
                   'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi',
                   'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay',
+                  'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.conf',
                   'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
     },
@@ -778,6 +788,25 @@ def zmk_trackball_firmware_base(board: dict, base: Path) -> list[dict]:
     raise GenError(f'知らない機種です: {bid}')
 
 
+# セントラルの入力スレッドのスタック (README の「共通基盤」の表の値)。ZMK v0.3.0 のセントラルの既定は 512 バイトで、
+# ボールの動きを入力プロセッサに通すと足りずに、ボールだけが動かなくなる (AroundFortyRB で起きた)
+INPUT_THREAD_STACK = 1024
+ZMK_CENTRAL_INPUT_THREAD_STACK_DEFAULT = 512
+
+
+def input_thread_stack_consistency(board: dict, base: Path) -> dict:
+    conf = board['central_conf']
+    m = re.search(r'(?m)^CONFIG_INPUT_THREAD_STACK_SIZE=(\d+)', read_text(base / conf))
+    size = int(m.group(1)) if m else None
+    txt = f'{size} バイト' if size else f'既定の {ZMK_CENTRAL_INPUT_THREAD_STACK_DEFAULT} バイト'
+    msg = f'右手側 (セントラル) の入力スレッドのスタック: {txt} (README の共通基盤: {INPUT_THREAD_STACK} バイト)'
+    if size == INPUT_THREAD_STACK:
+        return {'level': 'ok', 'message': msg}
+    return {'level': 'warn', 'message': (
+        f'{msg}。{conf} に CONFIG_INPUT_THREAD_STACK_SIZE={INPUT_THREAD_STACK} を入れてください '
+        f'(足りないと、ボールだけが動かなくなる)')}
+
+
 def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int,
                     firmware: list[dict], amls: list[dict | None], orders: list[bool], baseline_accel: dict | None,
                     baseline_aml: dict | None) -> list[dict]:
@@ -825,6 +854,7 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
     else:
         out.append({'level': 'warn', 'message': f'{names} の設定がそろっていません: {sorted(temp_layers)}'})
     out.append(scroll_aml_consistency(board, base, mous, scrl))
+    out.append(input_thread_stack_consistency(board, base))
     # スクロールの速さ: README の「共通基盤」の表の値 (LisM は 1/16。CPI などが違う機種は例外として書いてある)
     want = board['scroll']
     why = f'、{want["why"]}' if 'why' in want else ''

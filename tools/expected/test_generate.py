@@ -173,6 +173,22 @@ class TestScrollAml(unittest.TestCase):
             self.assertEqual(r['level'], 'warn')
             self.assertIn('見つかりません', r['message'])
 
+    def test_input_thread_stack(self):
+        import tempfile
+        board = {'central_conf': 'r.conf'}
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, 'r.conf')
+            p.write_text('CONFIG_SPI=y\n', encoding='utf-8')
+            r = g.input_thread_stack_consistency(board, Path(d))
+            self.assertEqual(r['level'], 'warn')
+            self.assertIn('既定の 512 バイト', r['message'])
+            p.write_text('CONFIG_INPUT_THREAD_STACK_SIZE=512\n', encoding='utf-8')
+            self.assertEqual(g.input_thread_stack_consistency(board, Path(d))['level'], 'warn')
+            p.write_text('# CONFIG_INPUT_THREAD_STACK_SIZE=1024\n', encoding='utf-8')
+            self.assertEqual(g.input_thread_stack_consistency(board, Path(d))['level'], 'warn')
+            p.write_text('CONFIG_INPUT_THREAD_STACK_SIZE=1024\n', encoding='utf-8')
+            self.assertEqual(g.input_thread_stack_consistency(board, Path(d))['level'], 'ok')
+
 
 class TestHoldTapParser(unittest.TestCase):
     class FakeKeymap:
@@ -414,6 +430,12 @@ class TestGenerate(unittest.TestCase):
         # LisM 基準: スクロール中も AML を延ばす (すべての ZMK の機種で ok)
         for b in g.ZMK_BOARDS:
             msgs = [c for c in self.data[f'{b["id"]}.json']['consistency'] if 'スクロール中' in c['message']]
+            self.assertEqual([c['level'] for c in msgs], ['ok'], b['id'])
+
+    def test_input_thread_stack_all(self):
+        # 共通基盤: 6 台ともセントラルの入力スレッドのスタックは 1024 バイト (512 ではボールだけが動かなくなる)
+        for b in g.ZMK_BOARDS:
+            msgs = [c for c in self.data[f'{b["id"]}.json']['consistency'] if '入力スレッドのスタック' in c['message']]
             self.assertEqual([c['level'] for c in msgs], ['ok'], b['id'])
 
     def test_products(self):
