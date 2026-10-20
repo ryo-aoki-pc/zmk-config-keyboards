@@ -47,7 +47,7 @@
 | カーソルの加速 | 転がす速さに応じて移動量に倍率を掛ける ([zmk-input-processor-xy-accel](https://github.com/ryo-aoki-pc/zmk-input-processor-xy-accel) の `trackball_accel`)。速さ 0 で 0.5 倍 → 1000 カウント/秒で等倍 → 4000 カウント/秒以上で 1.3 倍 (`min-factor 500` / `speed-threshold 1000` / `max-factor 1300` / `speed-max 4000`)。カーソル移動だけに掛け、スクロールには掛けない。Keyball39 も同じ値 (`keymaps/via/config.h` の `KEYBALL_ACCEL_*`)。調整は [カーソルの加速の調整](#カーソルの加速の調整) |
 | スクロール | 右へ転がすと右へ、手前へ転がすと下へスクロールする (全機種・左右のボールで同じ向き)。速さは `zip_scroll_scaler 1 16` (1/16)。例外: AroundFortyRB / roBa は CPI 800 なので `zip_scroll_scaler 1 32` (CPI 400 のときの 1/16 と同じ速さ)、KUKEY42 はドライバの `CONFIG_PMW3610_SCROLL_TICK=32`、torabo-tsuki-lp は実機で調整した `zip_scroll_scaler 1 1` + スムーズスクロール (`CONFIG_ZMK_POINTING_SMOOTH_SCROLLING`) |
 | スリープ | 5 分で idle、30 分で deep sleep (`CONFIG_ZMK_SLEEP`)。kscan に `wakeup-source` を付けて、キーを押せば復帰する (無いとリセットボタンでしか復帰しない)。USB 給電中は deep sleep しない |
-| BLE | ZMK の既定値のまま (送信出力・PHY・接続間隔・スタックなどを機種ごとに変えない)。例外: torabo-tsuki-lp は BMP の上流に合わせて送信出力 +8dBm (`CONFIG_BT_CTLR_TX_PWR_PLUS_8`) |
+| BLE | ZMK の既定値のまま (送信出力・PHY・接続間隔・スタックなどを機種ごとに変えない)。例外: torabo-tsuki-lp は BMP の上流に合わせて送信出力 +8dBm (`CONFIG_BT_CTLR_TX_PWR_PLUS_8`)。KUKEY42 は ZMK v0.3.0 の分割 BLE の不具合の回避 (`src/split_ble_fix.c`。[左手側が反応しなくなる場合](#左手側が反応しなくなる--右手側だけのときカーソルが粗い場合)) を入れて確かめている。確かめたら 6 台に入れる |
 | 入力スレッドのスタック | 右手側 (セントラル) の `.conf` で `CONFIG_INPUT_THREAD_STACK_SIZE=1024` (ZMK v0.3.0 の既定は 512)。ボールの動きは入力スレッドで入力プロセッサ (加速・AML の発動条件・`zip_temp_layer`) を通るので、512 では足りずにボールだけが動かなくなる (AroundFortyRB で起きた。キーは別のスレッドなので動く。ログ版で測った最大使用量は 536 バイト)。ログ版は `build.yaml` の `cmake-args` で 2048 |
 | LED | XIAO の 5 台は RGB LED ウィジェット ([zmk-rgbled-widget](https://github.com/caksoylar/zmk-rgbled-widget) の `rgbled_adapter`、`CONFIG_RGBLED_WIDGET_BATTERY_LEVEL_HIGH=30` / `CRITICAL=10`) でバッテリー残量と接続状態を表示する。充電中の表示 (`CONFIG_CHARGE_INDICATOR`) は LisM だけ (LisM の `src/charge_indicator.c`。[4mplelab/zmk-feature-charge-indicator](https://github.com/4mplelab/zmk-feature-charge-indicator) を取り込んで、[USB を挿すと止まる不具合](#lism-を-usb-でつなぐと操作できなくなる場合) を直したもの)。torabo-tsuki-lp は BMP のステータス LED (`CONFIG_ZMK_STATUS_LED`) |
 | ブートローダ | 左手側は `Q`、右手側は `P` を押したまま USB ケーブルを挿すと、その側がブートローダになる (Keyball の Bootmagic と同じ操作)。各リポジトリの `src/usb_bootmagic.c` (`zmk,usb-bootmagic`) で、キーは左右の overlay の `row` / `column` で指定する。キーマップには、リセット (`&sys_reset`)・ブートローダ (`&bootloader`) のキーを置かない (押し間違えると、キーボードが再起動したりブートローダで止まったりするため。KQ-mini にも `QK_BOOT` / `QK_RBT` は無い)。[XIAO をブートローダにする方法](#xiao-をブートローダにする方法) を参照 |
@@ -1029,6 +1029,38 @@ ZMK は、トラックボールのセンサーが報告するたびに、マウ�
 - 使っていないキーボードの電源を切る
 - KUKEY42 / roBa / AroundFortyRB は、右手側の overlay の `<&trackball_rate_limit 15>` を `30` (32ms ごと) に上げる。
   カーソルの動きは粗くなるが、送る量が半分になる
+
+## 左手側が反応しなくなる / 右手側だけのときカーソルが粗い場合
+
+ZMK の分割キーボードで、次のようになる場合です (KUKEY42 で起きていた)。
+
+- しばらく放置すると、左手側 (ペリフェラル) のキーが効かなくなり、左手側の電源を入れ直すと直る
+- 右手側 (セントラル) だけがつながっているとき (左手側の電源が切れている・スリープしている・つながらない)、
+  トラックボールの動きが粗い
+
+原因は ZMK v0.3.0 の分割 BLE の不具合です。
+
+- 左手側は自分のキーだけを操作として数えるので、トラックボールを使っていても、左手側のキーを 30 分押さないと
+  deep sleep し、BLE が切れる。左手側のキーを押すと起きて、つながり直す
+- 左手側が切れている間、右手側は 60ms ごとに 30ms (50%) スキャンし続ける。PC との送信の機会が減り、
+  カーソルのレポートがまとめて届くので、動きが粗くなる
+- つながり直すときの GATT の探索・購読が失敗し、つながっているのに左手側のキーが届かなくなることがある
+  (購読の上書き [zmkfirmware/zmk#3156](https://github.com/zmkfirmware/zmk/issues/3156) と、PC へのマウスの通知と
+  取り合うバッファの不足。ボールを動かしながら左手側がつながると起きやすい)
+- PC との切断のたびに、右手側が電池のイベントを配列の範囲外に書き込む
+  ([zmkfirmware/zmk#3522](https://github.com/zmkfirmware/zmk/issues/3522))
+- 左手側は、切断の直後に広告の開始に失敗すると再試行しない (右手側が再起動したときなど)
+
+KUKEY42 は、これらを `src/split_ble_fix.c` で回避しています (ZMK は変えていない。内容は
+[KUKEY42 の README](https://github.com/ryo-aoki-pc/zmk-config-KUKEY42#分割-ble-の不具合の回避-srcsplit_ble_fixc))。
+ほかの ZMK の 5 台にも同じ不具合があるので、KUKEY42 で確かめたら入れます。
+
+1. `tools/flash.cmd` で KUKEY42 を選び、**左右とも**書き込む (広告の再試行は左手側、ほかは右手側に入る)
+2. 粗さは、左手側の電源を切ってボールを動かし、[入力イベントを記録して調べる](#入力イベントを記録して調べる-toolsinput-monitorcmd) で
+   レポートの間隔と「停滞 → まとめて到着」の回数を見る
+3. 回避が働いたかは、右手側にログ版を書き込んで [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) を開き、
+   左手側の電源の入れ直しなどをしてから「ログを保存」し、生のログの `split BLE fix:` の行を見る。
+   `reconnecting the peripheral` は、キーの購読を確かめられなかったので、右手側が自動で接続をやり直したことを表す
 
 ## LisM を USB でつなぐと操作できなくなる場合
 
