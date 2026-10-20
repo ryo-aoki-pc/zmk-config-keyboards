@@ -164,6 +164,79 @@ Test-Case '.cmd が呼ぶ .ps1 がある' {
     Assert-Equal '' ($bad -join ', ') '.ps1 が見つからない .cmd:'
 }
 
+# ウィンドウを開く .cmd は、headless の conhost で PowerShell を起動し、待たずに終わる (コンソールを出さない)。
+# それ以外 (ファイルのドロップ・コンソールのツール) は、今までどおり pause して終了コードを返す
+Test-Case 'ウィンドウを開く .cmd はコンソールを出さずに起動する' {
+    $windowCmds = @('flash.cmd', 'keyboard-sim.cmd', 'flash-zmk.cmd', 'flash-keyball.cmd', 'flash-kq-mini.cmd')
+    $bad = @()
+    foreach ($f in $cmdFiles) {
+        if ($f.Extension -ne '.cmd') {
+            continue
+        }
+        $lines = @([System.IO.File]::ReadAllLines($f.FullName) | ForEach-Object { $_.Trim() })
+        $headless = 0
+        $console = 0
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            $line = $lines[$i]
+            if ($line -notmatch 'powershell\.exe ') {
+                continue
+            }
+            if ($line -like 'start "" conhost.exe --headless powershell.exe *') {
+                $headless++
+                foreach ($opt in @(' -NoProfile ', ' -NonInteractive ', ' -STA ', ' -NoConsole')) {
+                    if ($line.IndexOf($opt) -lt 0) {
+                        $bad += ('{0}: {1} が無い' -f $f.Name, $opt.Trim())
+                    }
+                }
+                $m = [regex]::Match($line, '%~dp0([^"\s]+\.ps1)')
+                if ($m.Success) {
+                    $target = Join-Path $f.DirectoryName ($m.Groups[1].Value.Replace('\', [string][System.IO.Path]::DirectorySeparatorChar))
+                    # 見えないコンソールでも失敗を見せる: -NoConsole と、メッセージボックスを出す trap
+                    $text = if (Test-Path -LiteralPath $target) { [System.IO.File]::ReadAllText($target) } else { '' }
+                    foreach ($need in @('[switch]$NoConsole', 'function Show-NoConsoleError', 'trap {')) {
+                        if ($text.IndexOf($need) -lt 0) {
+                            $bad += ('{0}: {1} に {2} が無い' -f $f.Name, $m.Groups[1].Value, $need)
+                        }
+                    }
+                    # 起動の前に .ps1 があるかを確かめる (無ければ、見えないまま終わってしまう)
+                    $guard = 'if not exist "%~dp0' + $m.Groups[1].Value + '" ('
+                    $before = @($lines[0..($i - 1)] | Where-Object { $_ -eq $guard })
+                    if ($before.Count -eq 0) {
+                        $bad += ('{0}: headless の起動の前に {1} が無い' -f $f.Name, $guard)
+                    }
+                }
+                # 起動したら待たずに終わる (pause しない)
+                $j = $i + 1
+                while ($j -lt $lines.Count -and ($lines[$j] -eq ')' -or $lines[$j] -eq ') else (' -or $lines[$j] -like 'start "" conhost.exe --headless *')) {
+                    $j++
+                }
+                if ($j -ge $lines.Count -or $lines[$j] -ne 'exit /b 0') {
+                    $bad += ('{0}: headless の起動の後が exit /b 0 でない' -f $f.Name)
+                }
+            } else {
+                $console++
+                if ($line.IndexOf('-NoConsole') -ge 0) {
+                    $bad += ('{0}: コンソールで動かすのに -NoConsole がある' -f $f.Name)
+                }
+            }
+        }
+        if ($windowCmds -contains $f.Name -and $headless -eq 0) {
+            $bad += ('{0}: headless の起動が無い' -f $f.Name)
+        }
+        if (-not ($windowCmds -contains $f.Name) -and $headless -gt 0) {
+            $bad += ('{0}: ウィンドウ用でないのに headless で起動している' -f $f.Name)
+        }
+        # flash 系はファイルのドロップをコンソールで書き込む (引数があるときの分岐が要る)
+        if ($f.Name -like 'flash*.cmd' -and $console -eq 0) {
+            $bad += ('{0}: ファイルのドロップで書き込む分岐が無い' -f $f.Name)
+        }
+        if ($console -gt 0 -and (-not ($lines -contains 'set "RC=%ERRORLEVEL%"') -or -not ($lines -contains 'pause') -or -not ($lines -contains 'exit /b %RC%'))) {
+            $bad += ('{0}: コンソールで動かす分岐が pause して終了コードを返していない' -f $f.Name)
+        }
+    }
+    Assert-Equal '' ($bad -join ', ') '.cmd の起動のしかた:'
+}
+
 Test-Case 'tools 直下は利用者が実行する .cmd だけ (.ps1 と他の .cmd は scripts)' {
     $top = @(Get-ChildItem -Path $script:ToolsDir -File | Where-Object { $_.Extension -eq '.cmd' -or $_.Extension -eq '.ps1' } |
             ForEach-Object { $_.Name } | Sort-Object)

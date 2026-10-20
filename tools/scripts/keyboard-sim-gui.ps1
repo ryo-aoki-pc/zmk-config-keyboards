@@ -11,6 +11,10 @@
     最初に選択する機種 ID。
 .PARAMETER Python
     モデルを読み込む Python 3.10 以上のコマンド名またはパス。
+.PARAMETER NoConsole
+    コンソールが見えない状態で起動したことを伝えます (tools\keyboard-sim.cmd が付けます)。
+    画面を開けなかったときなどの失敗を、メッセージボックスでも出します。
+    コンソールを隠すスイッチではありません (隠すのは .cmd が使う conhost.exe --headless です)。
 .EXAMPLE
     powershell -NoProfile -STA -ExecutionPolicy Bypass -File tools/scripts/keyboard-sim-gui.ps1
 .EXAMPLE
@@ -21,10 +25,36 @@ param(
     [Parameter(Position = 0)]
     [string]$Scenario = '',
     [string]$Board = '',
-    [string]$Python = 'python'
+    [string]$Python = 'python',
+    [switch]$NoConsole
 )
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+
+# -NoConsole: ウィンドウ用の .cmd が、headless の conhost (見えないコンソール) で起動したとき。
+# コンソールの文字は誰にも見えないので、起動できなかった理由などの失敗はメッセージボックスでも出す
+function Show-NoConsoleError([string]$Message) {
+    if (-not $NoConsole) {
+        return
+    }
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        [void][System.Windows.Forms.MessageBox]::Show($Message, 'キーボードシミュレータ',
+            [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error,
+            [System.Windows.Forms.MessageBoxDefaultButton]::Button1, [System.Windows.Forms.MessageBoxOptions]::DefaultDesktopOnly)
+    } catch {
+        # メッセージボックスも出せなければ、何もできない
+    }
+}
+
+# どこで止まっても (読み込み・ウィンドウを開く・ループの中)、-NoConsole なら理由を見せてから終える
+trap {
+    if ($NoConsole) {
+        Show-NoConsoleError ('失敗: {0}' -f $_.Exception.Message)
+        exit 1
+    }
+    break
+}
 
 # Windows PowerShell 5.1 を -File で起動すると (keyboard-sim.cmd)、param の既定値の中では $PSScriptRoot が空なので、ここで決める
 if (-not $Scenario) {
@@ -87,7 +117,9 @@ try {
         -OpenReport { param($Path) Invoke-Item -LiteralPath $Path }
     Initialize-KcSimUi $ctx
     if ($Board) { Invoke-KcSimUiAction $ctx ('board:' + $Board) }
-    Write-Host 'シミュレータの画面を開きました。この画面を閉じると実行中の検証も終了します。'
+    if (-not $NoConsole) {
+        Write-Host 'シミュレータの画面を開きました。この画面を閉じると実行中の検証も終了します。'
+    }
     while (-not $ctx.State.Exit -and -not $form.IsClosed) {
         try {
             foreach ($action in $form.TakeActions()) {
@@ -105,6 +137,7 @@ try {
     }
 } catch {
     Write-Host ('失敗: シミュレータの画面を開けません: ' + $_.Exception.Message) -ForegroundColor Red
+    Show-NoConsoleError ('失敗: シミュレータの画面を開けません: ' + $_.Exception.Message)
     $exitCode = 1
 } finally {
     if ($null -ne $ctx) { Stop-KcSimUi $ctx }

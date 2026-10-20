@@ -27,6 +27,11 @@
 .PARAMETER List
     ウィンドウを出さずに、-Keyboard の機種のビルドの一覧を表示します。
 
+.PARAMETER NoConsole
+    コンソールが見えない状態で起動したことを伝えます (tools\flash.cmd などが、ファイルを渡さずに
+    起動するときに付けます)。ウィンドウを開けなかったときなどの失敗を、メッセージボックスでも出します。
+    コンソールを隠すスイッチではありません (隠すのは .cmd が使う conhost.exe --headless です)。
+
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\scripts\flash.ps1
 
@@ -47,11 +52,38 @@ param(
     [ValidateRange(10, 3600)]
     [int]$WaitSeconds = 600,
 
-    [switch]$List
+    [switch]$List,
+
+    [switch]$NoConsole
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+
+# -NoConsole: ウィンドウ用の .cmd が、headless の conhost (見えないコンソール) で起動したとき。
+# コンソールの文字は誰にも見えないので、起動できなかった理由などの失敗はメッセージボックスでも出す
+function Show-NoConsoleError([string]$Message) {
+    if (-not $NoConsole) {
+        return
+    }
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        [void][System.Windows.Forms.MessageBox]::Show($Message, 'ファームウェアの書き込み',
+            [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error,
+            [System.Windows.Forms.MessageBoxDefaultButton]::Button1, [System.Windows.Forms.MessageBoxOptions]::DefaultDesktopOnly)
+    } catch {
+        # メッセージボックスも出せなければ、何もできない
+    }
+}
+
+# どこで止まっても (読み込み・ウィンドウを開く・ループの中)、-NoConsole なら理由を見せてから終える
+trap {
+    if ($NoConsole) {
+        Show-NoConsoleError ('失敗: {0}' -f $_.Exception.Message)
+        exit 1
+    }
+    break
+}
 
 # このスクリプトは tools\scripts にある。lib・expected・.cache は tools の下
 $TOOLS_DIR = Split-Path -Parent $PSScriptRoot
@@ -66,6 +98,7 @@ $SETTINGS_FILE = Join-Path $CACHE_DIR 'flash-settings.json'
 function Stop-WithError([string]$Message) {
     Write-Host ''
     Write-Host "失敗: $Message" -ForegroundColor Red
+    Show-NoConsoleError "失敗: $Message"
     exit 1
 }
 
@@ -154,8 +187,10 @@ $hostExe = (Get-Process -Id $PID).Path
 $settings = Read-FlashSettings
 $form = [KcFlashForm]::Launch('ファームウェアの書き込み')
 $consoleMode = [KcConsoleMode]::DisableQuickEdit()
-Write-Host 'ファームウェアの書き込みツールのウィンドウを開きました。'
-Write-Host '書き込みが終わるまで、この画面は閉じないでください (閉じると書き込みも止まります)。'
+if (-not $NoConsole) {
+    Write-Host 'ファームウェアの書き込みツールのウィンドウを開きました。'
+    Write-Host '書き込みが終わるまで、この画面は閉じないでください (閉じると書き込みも止まります)。'
+}
 
 $ctx = New-FlashUiContext -Form $form -ToolsDir $TOOLS_DIR -WaitSeconds $WaitSeconds -Settings $settings `
     -GetBuilds { param($Repo) Get-FirmwareBuildList -Repo $Repo -CacheDir $FIRMWARE_DIR } `

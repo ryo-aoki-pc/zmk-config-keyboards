@@ -2,6 +2,8 @@
 
 このファイルは、このリポジトリで作業するコーディングエージェント (Claude Code・Codex・Antigravity・Grok Build など) への手引き。Claude Code は `CLAUDE.md` からこのファイルを読み込むので、手引きはこのファイルだけを直す。
 
+ほかの AI と共同で作業する取り決め (計画の段階からレビューを頼む) は、末尾の「ほかの AI との共同作業」にある。
+
 ## このリポジトリについて
 
 各キーボードのファームウェアのリポジトリ (ZMK と QMK/Vial) を git submodule として集約し、Windows 用の書き込み・診断スクリプトを `tools/` に置いたリポジトリ。このリポジトリではファームウェアをビルドしない (各 submodule の GitHub Actions がビルドする)。設定の検査ツールと実機なしのシミュレータには、自動テストがある (下の「設定の検査ツール」)。`README.md` は利用者向けの日本語の説明書で、書き込みツールの使い方と、各キーボードで共通のキーマップ設定を説明している。
@@ -65,7 +67,12 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 ## tools/ の構成
 
 - `tools/` の直下には、利用者が実行する `.cmd` (`flash.cmd` / `keyboard-check.cmd` / `keyboard-sim.cmd` / `input-monitor.cmd` / `keyball-check.cmd`) だけを置く。入口の `.ps1` と、機種を絞った書き込み用の `.cmd` (`flash-zmk.cmd` / `flash-keyball.cmd` / `flash-kq-mini.cmd` / `flash-uf2.cmd`) は `tools/scripts/` に置く (`tests/run.ps1` が確かめる)。`scripts/` のスクリプトは、`Split-Path -Parent $PSScriptRoot` (`$TOOLS_DIR` / `$toolsDir`) から `lib/`・`expected/`・`.cache/` を指し、同じフォルダのスクリプトは `$PSScriptRoot` から呼ぶ (`$PSScriptRoot` から `.cache` を作ると `tools/scripts/.cache` にずれ、`.gitignore` から外れる)。
-- 各 `*.cmd` は、ダブルクリックやファイルのドラッグ＆ドロップで起動するための薄いラッパーで、ASCII 文字だけで書く。`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\<name>.ps1"` (`scripts/` の `.cmd` は `"%~dp0<name>.ps1"`) を実行し、`pause` してから、スクリプトの終了コードで終了する。ウィンドウを開くものは `-STA` を付ける。`flash.cmd` と `scripts/` の `flash-zmk.cmd` / `flash-keyball.cmd` / `flash-kq-mini.cmd` は、引数が無ければ書き込みツールのウィンドウ (`flash.ps1`) を開き、ファイルがドロップされたらそのファイルを書き込む (`flash.cmd` は `.hex` を `flash-keyball.ps1`、それ以外を `flash-uf2.ps1 -Target nRF52840, BMP, RP2040` で書き込むので、利用者向けの案内は `tools/flash.cmd` にする)。
+- 各 `*.cmd` は、ダブルクリックやファイルのドラッグ＆ドロップで起動するための薄いラッパーで、ASCII 文字だけで書く。`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\<name>.ps1"` (`scripts/` の `.cmd` は `"%~dp0<name>.ps1"`) を実行し、`pause` してから、スクリプトの終了コードで終了する。ウィンドウを開くものは `-STA` を付ける。
+  - ウィンドウだけで完結するもの (`flash.cmd` と `scripts/` の `flash-zmk.cmd` / `flash-keyball.cmd` / `flash-kq-mini.cmd` の引数なし、`keyboard-sim.cmd`) は、コンソールを出さない: `start "" conhost.exe --headless powershell.exe -NoProfile -NonInteractive -STA ... -File "..." -NoConsole` で起動し、`pause` せずに `exit /b 0` で終わる (待たないので、スクリプトの終了コードは返らない。結果はウィンドウに出る)。headless の conhost は見えないコンソールで、既定のターミナル (Windows Terminal) にも引き渡さない (`--headless` は公式に文書化されていないオプション)。`.cmd` の窓は一瞬だけ出る。起動の前に、`.ps1` が無ければコンソールで知らせて `pause` する
+  - `-NoConsole` はコンソールを隠すスイッチではなく、見えないコンソールで動いていることをスクリプト (`flash.ps1` / `keyboard-sim-gui.ps1`) に伝える。スクリプトは `param` の直後に `Show-NoConsoleError` と `trap` を置き、どこで止まっても (dot-source・ウィンドウを開く・ループ)、理由をメッセージボックス (`DefaultDesktopOnly` で前面に出る) で出してから終了コード 1 で終える。環境変数にしないのは、書き込みの子プロセスに引き継がれるため
+  - コンソールが見えないと、見えないまま残ったプロセスを止められない。ウィンドウの UI スレッドが例外で終わっても `KcFlashForm` / `KcSimulatorForm` は閉じた扱いになり (`Launch` の `finally`)、PowerShell のループが終わる
+  - ファイルのドロップ (書き込みはコンソールに進捗を出す) と、`keyboard-check.cmd` (メニューと `Read-Host`)・`keyball-check.cmd`・`input-monitor.cmd` (停止後の分析をコンソールに出す) は、コンソールで動かす。`tests/run.ps1` が、ウィンドウ用とコンソール用の分岐の形を確かめる
+  - `flash.cmd` と `scripts/` の `flash-zmk.cmd` / `flash-keyball.cmd` / `flash-kq-mini.cmd` は、引数が無ければ書き込みツールのウィンドウ (`flash.ps1`) を開き、ファイルがドロップされたらそのファイルを書き込む (`flash.cmd` は `.hex` を `flash-keyball.ps1`、それ以外を `flash-uf2.ps1 -Target nRF52840, BMP, RP2040` で書き込むので、利用者向けの案内は `tools/flash.cmd` にする)。
 - `flash.ps1` (`flash.cmd`) は書き込みツール (GUI)。全機種 (ZMK 6 台・Keyball39・KQ-mini) の機種・ビルド (最新 / PR / 過去の custom)・書き込む内容を選び、手順ごとに書き込む。
   - ウィンドウは `KcFlashForm` (`InputTestForm.cs`、`FlashWindow.xaml`) で、`KcFlashForm.Launch` が専用の STA スレッドで回す。PowerShell のスレッドは、ボタンや選択の操作 (`TakeActions()` のキュー。`keyboard:<機種>` / `build:<タグ>` / `option:<欄>:<値>` / `start` など) を 80 ms ごとに取り、一覧の取得・ダウンロード・子プロセスの中継を行う (止まる処理をしてもウィンドウは固まらない)。
   - 画面の流れ (選ぶ → ダウンロード → 手順ごとの書き込み → 完了 / 失敗 / 中止、BMP の「続ける」、再試行) は `lib/flash-ui.ps1` にあり、ウィンドウ・一覧の取得・ダウンロード・子プロセスを `$Ctx` 経由で使う (WPF の型に触れないので、`tests/flash-ui.Tests.ps1` が偽物で確かめる)。`lib/flash-ui.ps1` の `$FlashUi*` の定数は `KcFlashForm` の定数と揃える (`tests/windows.Tests.ps1` が確かめる)。
@@ -141,10 +148,19 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 
 スクリプトの動作、オプション、メニューの項目、既定値を変えたときは、同じ PR で README の該当する節も更新する。README の各節は、`#xiao-をブートローダにする方法` や `#最新ファームウェアの取得元-firmware-latest-リリース` のような見出しのアンカーで互いにリンクしているので、見出しを変えるとリンクが切れる。
 
-## エージェントの共同作業
+## ほかの AI との共同作業
 
-複数のエージェント (Claude Code・Codex・Antigravity・Grok Build など) で調査やレビューを分担するとき:
+変更は、**計画の段階から**ほかの AI と共同で進める。
 
-- 調査やレビューだけを頼むときは、読み取りだけ (ファイルの編集・コミット・push・PR の作成をしない) と明示する。同じファイルを 2 つのエージェントが同時に書き換えない。
-- submodule をチェックアウトしていなくても、`gh api "repos/ryo-aoki-pc/<repo>/contents/<path>?ref=custom" -H "Accept: application/vnd.github.raw"` で読める。ZMK は `repos/zmkfirmware/zmk/contents/<path>?ref=v0.3.0`、その Zephyr は `repos/zmkfirmware/zephyr/contents/<path>?ref=v3.5.0%2Bzmk-fixes`。
-- 他のエージェントの指摘は、コードで確かめてから取り込む。
+1. 計画を立てたら、実装する前に、別の AI (使えるもの。Claude / Codex / Antigravity (`agy`) / Grok Build など) に計画を見せて意見をもらう。方法の妥当性、もっと良い方法、抜けている失敗の経路やテスト、README・AGENTS.md の更新漏れなどを、批判的に見てもらう
+2. もらった意見を計画に反映してから実装する
+3. 実装したら、差分もレビューしてもらい、指摘を反映する
+4. 採った指摘と採らなかった指摘を、理由とともに PR の本文に書く
+
+レビューや調査を頼まれた側は読み取り専用で答え、ファイルを変更しない (編集・コミット・push・PR の作成をしない)。頼む側は、そのことを依頼文に明記する。意見は日本語で、具体的なファイルと行を挙げて書く。同じファイルを 2 つの AI が同時に書き換えない。ほかの AI の指摘は、コードで確かめてから取り込む。
+
+呼び出し方の要点 (Windows の手元の環境):
+- Codex: `codex exec -s read-only -C <リポジトリ> --skip-git-repo-check -` で、プロンプトは標準入力から渡す (引数で渡すと、標準入力を待って止まる)。リポジトリのファイルを自分で読める
+- Antigravity: `agy --print "<プロンプト>"`。ツールが使えないので、空のフォルダから実行し、必要な事実とコードをプロンプトに貼って、ツールなしで答えてもらう
+- 時間がかかるので、裏で並行して走らせ、その間に自分の作業 (README の確認など) を進める
+- submodule をチェックアウトしていなくても、`gh api "repos/ryo-aoki-pc/<repo>/contents/<path>?ref=custom" -H "Accept: application/vnd.github.raw"` で読める。ZMK は `repos/zmkfirmware/zmk/contents/<path>?ref=v0.3.0`、その Zephyr は `repos/zmkfirmware/zephyr/contents/<path>?ref=v3.5.0%2Bzmk-fixes`
