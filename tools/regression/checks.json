@@ -1,0 +1,218 @@
+{
+  "schema": 1,
+  "about": "実機の回帰テスト (tools/keyboard-check.cmd のメニュー 8 / -Mode Regression) の項目。手で書く (生成しない)。書き方は README の「項目を足す」",
+  "checks": [
+    {
+      "id": "keymap-readout",
+      "title": "キーマップと設定が期待値どおり (読み出し)",
+      "symptom": "ZMK Studio で保存したキーマップが残り、ファームを書き直しても新しい FUNC レイヤー (F11 / F12 など) にならなかった。KQ-mini のタップホールドの設定が、ビルドのたびに既定に戻っていた。Keyball の CPI・スクロールの倍率が EEPROM に古い値のまま残っていた",
+      "prs": ["zmk-config-keyboards#41", "vial-qmk-kq-mini#10", "zmk-config-AroundFortyRB#30", "keyball#12", "keyball#16", "keyball#21"],
+      "boards": ["all"],
+      "handler": "readout",
+      "firmware": "studio",
+      "fail_hint": "読み出し検査 (メニュー 2) と同じ案内に従ってください"
+    },
+    {
+      "id": "ball-alive",
+      "title": "ボールを転がし続けても、カーソルが止まらない",
+      "symptom": "キーは効くのに、ボールを転がしてもカーソルがまったく動かなかった (セントラルの入力スレッドのスタックが 512 バイトのままで、溢れていた)",
+      "prs": ["zmk-config-keyboards#52", "zmk-config-AroundFortyRB#46", "zmk-config-LisM#31", "zmk-config-KUKEY42#39", "zmk-config-Pyuron#32", "zmk-config-roBa#14", "zmk-keyboard-torabo-tsuki-lp#17"],
+      "boards": ["all"],
+      "handler": "ball-alive",
+      "params": { "duration_ms": 20000, "start_ms": 5000, "end_ms": 3000 },
+      "fail_hint": "右手側の .conf の CONFIG_INPUT_THREAD_STACK_SIZE (1024) を確かめ、最新のファームを書き込んでください。ログ版で「ログ版で使い続けても止まらない」も行うと、スタックの使用量が分かります"
+    },
+    {
+      "id": "logging-soak",
+      "title": "ログ版で使い続けても止まらず、スタックに余裕がある",
+      "symptom": "ログ版のファームが、起動から数秒でキーもボールも効かなくなった (デバッグログでスタックの使用量が増え、入力スレッドのスタックが溢れていた)",
+      "prs": ["zmk-config-keyboards#39", "zmk-config-KUKEY42#33", "zmk-config-roBa#11", "zmk-config-AroundFortyRB#43", "zmk-config-Pyuron#29", "zmk-config-LisM#28", "zmk-keyboard-torabo-tsuki-lp#14", "zmk-config-keyboards#52"],
+      "boards": ["zmk"],
+      "handler": "logging-soak",
+      "firmware": "logging",
+      "minutes": 2,
+      "params": { "dumps": 2, "start_ms": 30000, "max_ms": 100000, "respond_ms": 15000, "warn_pct": 75, "fail_pct": 90, "normal_warn_pct": 75 },
+      "fail_hint": "6 リポジトリの build.yaml のログ版の cmake-args (スタックの大きさ) を確かめてください。使用率の高いスレッドのスタックを増やします"
+    },
+    {
+      "id": "typing-no-aml",
+      "title": "ボールの近くのキーを速く打っても、AML にならない",
+      "symptom": "キーを打つ振動でボールがわずかに動き、AML (マウスレイヤー) になって、次の D / K がスクロールのキーになったり、文字が消えたりした",
+      "prs": ["zmk-config-keyboards#30", "keyball#16", "zmk-config-LisM#23", "zmk-config-AroundFortyRB#39", "zmk-config-KUKEY42#29", "zmk-config-Pyuron#25", "zmk-config-roBa#7", "zmk-keyboard-torabo-tsuki-lp#10"],
+      "boards": ["all"],
+      "handler": "typing-no-aml",
+      "params": { "repeat": 3 },
+      "fail_hint": "aml_threshold の設定 (しきい値 10、キーの後 200 ms) を確かめ、最新のファームを書き込んでください"
+    },
+    {
+      "id": "aml-threshold",
+      "title": "ボールのわずかな動きでは AML にならない",
+      "symptom": "キーを打つ振動など、わずかなボールの動きで AML になった",
+      "prs": ["zmk-config-keyboards#30", "keyball#16"],
+      "boards": ["all"],
+      "handler": "input-test",
+      "minutes": 1,
+      "params": { "test": "threshold" }
+    },
+    {
+      "id": "aml-release-mods",
+      "title": "AML 中に Ctrl / Shift の位置のキーをタップすると、AML が切れて文字が入る",
+      "symptom": "マウスを使った直後に A / Z / - / / をタップすると、文字ではなく修飾キーだけが送られた",
+      "prs": ["zmk-config-keyboards#28", "zmk-config-LisM#22", "keyball#15"],
+      "boards": ["all"],
+      "handler": "input-test",
+      "params": { "test": "release" }
+    },
+    {
+      "id": "aml-shift-click",
+      "title": "AML で Shift + クリックができる",
+      "symptom": "Keyball39 + KQ-mini で Shift + 右クリックができなかった (AML のレイヤーの修飾キーの位置が KC_NO / &none だった)",
+      "prs": ["zmk-config-keyboards#18", "keyball#11", "zmk-config-LisM#18"],
+      "boards": ["all"],
+      "handler": "input-test",
+      "params": { "test": "shift-click" }
+    },
+    {
+      "id": "scroll-direction",
+      "title": "スクロールの向きが、マウスのホイールと同じ",
+      "symptom": "左右のボールでスクロールの向きが違った。右手側の版によって左のボールの縦の向きが逆になった。横のスクロールが逆だった",
+      "prs": ["zmk-config-LisM#8", "zmk-config-LisM#25", "zmk-config-roBa#9", "zmk-config-Pyuron#16", "keyball#5"],
+      "boards": ["all"],
+      "handler": "input-test",
+      "params": { "test": "scroll" }
+    },
+    {
+      "id": "aml-extend-scroll",
+      "title": "AML のタイムアウトより長くスクロールしても、AML が切れない",
+      "symptom": "D を押したまま 10 秒より長くスクロールして D を離すと、AML が切れて BASE に戻っていた",
+      "prs": ["zmk-config-keyboards#34", "zmk-config-LisM#25", "zmk-config-AroundFortyRB#41", "zmk-config-roBa#9", "zmk-keyboard-torabo-tsuki-lp#12"],
+      "boards": ["all"],
+      "handler": "aml-extend",
+      "minutes": 1,
+      "params": { "extra_ms": 2000, "check_within_ms": 5000 },
+      "fail_hint": "スクロールの入力プロセッサの先頭に zip_temp_layer (MOUSE_MOVE、10 秒) があるか確かめてください"
+    },
+    {
+      "id": "vim-visual-exit",
+      "title": "&to で入るレイヤー (VIM_VISUAL など) から BASE に戻れる",
+      "symptom": "VIM_VISUAL の y / d / p のマクロで、&macro_release のモードが残り、&to 0 が効かずに BASE に戻れなかった",
+      "prs": ["zmk-config-AroundFortyRB#4", "zmk-keyboard-torabo-tsuki-lp#4"],
+      "boards": ["zmk", "KqMini"],
+      "handler": "behaviors",
+      "minutes": 2,
+      "params": { "kinds": ["to_layer"] }
+    },
+    {
+      "id": "lism-usb-plug",
+      "title": "電池で動いているときに USB を挿し抜きしても、操作できなくならない",
+      "symptom": "電池で動いている LisM に USB を挿すと、キーもボールも効かなくなり、電源を入れ直すまで戻らなかった (充電表示の割り込みの中で眠っていた)。USB を挿したまま起動すると起きないので、気付きにくかった",
+      "prs": ["zmk-config-LisM#26", "zmk-config-keyboards#38"],
+      "boards": ["LisM"],
+      "handler": "replug",
+      "minutes": 4,
+      "params": {
+        "start_note": "左右とも USB を抜き、電池で起動した状態から始めます (USB を挿したまま起動すると、この不具合は起きません)。",
+        "repeat": 3,
+        "settle_ms": 3000,
+        "targets": [
+          { "label": "右手側", "plug": "右手側に USB を挿してください", "unplug": "右手側の USB を抜いてください", "keys": ["Q", "P"], "ball": true, "usb": true, "respond_ms": 15000 },
+          { "label": "左手側", "plug": "左手側に USB を挿してください", "unplug": "左手側の USB を抜いてください", "keys": ["Q", "P"], "ball": true, "usb": false, "respond_ms": 15000 }
+        ],
+        "ask": "USB を挿している間、充電中なら充電の LED が点き、抜くと消えましたか? (満充電のときは点かなくて構いません)"
+      },
+      "fail_hint": "LisM の src/charge_indicator.c (GPIO の割り込みの中で眠る API を呼んでいないか) を確かめ、最新のファームを書き込んでください"
+    },
+    {
+      "id": "kq-keyball-replug",
+      "title": "Keyball の抜き挿しや KQ-mini の入れ直しの後も、キーとボールが効く",
+      "symptom": "Keyball を KQ-mini に挿し直したり、全体を電源から入れ直したりすると、KQ-mini を挿し直すまで Keyball が使えなかった。起動の遅い側のボールが検出されないままになることもあった",
+      "prs": ["vial-qmk-kq-mini#3", "keyball#2", "keyball#9", "zmk-config-keyboards#14"],
+      "boards": ["KqMini"],
+      "handler": "replug",
+      "minutes": 4,
+      "params": {
+        "start_note": "KQ-mini を PC に、Keyball を KQ-mini につないだ状態から始めます。",
+        "repeat": 2,
+        "settle_ms": 3000,
+        "targets": [
+          { "label": "Keyball の抜き挿し", "start": "plugged", "unplug": "Keyball の USB を KQ-mini から抜いてください", "plug": "Keyball の USB を KQ-mini に挿してください", "keys": ["Q", "P"], "ball": true, "usb": false, "check_after_unplug": false, "respond_ms": 30000 },
+          { "label": "KQ-mini の入れ直し (コールドブート)", "start": "plugged", "unplug": "KQ-mini を PC から抜いてください (Keyball はつないだまま)", "plug": "KQ-mini を PC に挿してください", "keys": ["Q", "P"], "ball": true, "usb": true, "check_after_unplug": false, "respond_ms": 40000 }
+        ]
+      },
+      "fail_hint": "KQ-mini と Keyball のファームを最新にしてください。Keyball を PC に直結して keyball-check.cmd で Ball availability を確かめると、ボールの検出が分かります"
+    },
+    {
+      "id": "bootmagic",
+      "title": "Q (左) / P (右) を押したまま USB を挿すと、その側がブートローダになる",
+      "symptom": "左手側を書き込みのためにブートローダにするには、右手側の電源と接続が要り、設定リセットの後などは切り替えられなかった",
+      "prs": ["zmk-config-keyboards#27"],
+      "boards": ["zmk"],
+      "handler": "bootmagic",
+      "minutes": 5,
+      "default": false,
+      "params": {
+        "sides": [
+          { "label": "左手側", "key": "Q" },
+          { "label": "右手側", "key": "P" }
+        ],
+        "appear_ms": 20000,
+        "leave_ms": 90000,
+        "negative_ms": 6000,
+        "respond_ms": 20000
+      },
+      "fail_hint": "src/usb_bootmagic.c と、左右の overlay の zmk,usb-bootmagic の row / column を確かめてください"
+    },
+    {
+      "id": "idle-wake",
+      "title": "スリープ (30 分) からキーを押して戻れる",
+      "symptom": "電池で 30 分触らずにいると、キーを押しても戻らず、リセットボタンでしか復帰しなかった (kscan に wakeup-source が無かった)",
+      "prs": ["zmk-config-keyboards#20", "zmk-config-AroundFortyRB#34", "zmk-config-KUKEY42#23", "zmk-config-roBa#3", "zmk-keyboard-torabo-tsuki-lp#6"],
+      "boards": ["zmk"],
+      "handler": "idle-wake",
+      "minutes": 33,
+      "default": false,
+      "params": { "margin_ms": 60000, "default_idle_ms": 1800000, "respond_ms": 90000, "keys": ["Q", "P"] },
+      "fail_hint": "kscan の wakeup-source (検査ツールの「設定ファイル (参考)」に出る) と、左右の .conf の CONFIG_ZMK_SLEEP を確かめてください"
+    },
+    {
+      "id": "kq-drag-hold",
+      "title": "KQ-mini で、ドラッグ中にキーを押してもドラッグが切れない",
+      "symptom": "AML でボタンを押したまま (ドラッグ中) にキーを押すと、KQ-mini がマウスボタンを離してしまっていた",
+      "prs": ["vial-qmk-kq-mini#14"],
+      "boards": ["KqMini"],
+      "handler": "drag-hold",
+      "fail_hint": "KQ-mini のファームを最新にしてください (keyboard_report_hook がマウスボタンを残すか)"
+    },
+    {
+      "id": "ble-report-interval",
+      "title": "複数台を BLE でつないでも、カーソルがカクつかない",
+      "symptom": "複数のキーボードを BLE で同時につなぐと、カーソルがカクついたり遅れたりした (8 ms ごとの報告で、PC の受け取りの待ち行列が詰まっていた)",
+      "prs": ["zmk-config-keyboards#23", "zmk-config-KUKEY42#25", "zmk-config-roBa#4"],
+      "boards": ["zmk"],
+      "handler": "manual",
+      "minutes": 3,
+      "params": {
+        "steps": [
+          "ほかの BLE のキーボード・マウスもつないで使える状態にし、この機種は BLE でつなぎます",
+          "このウィンドウの後で、tools/input-monitor.cmd を開いて「記録」を押し、ボールを 10 秒ほど一定の速さで転がします",
+          "「停止」を押し、報告の「停滞 → まとめて到着」を見ます (README の「入力イベントを記録して調べる」)"
+        ],
+        "question": "報告の「停滞 → まとめて到着」は、0〜数回でしたか? (このテスト用のウィンドウでは、報告の間隔を正確に測れないため、input-monitor で確かめます)"
+      },
+      "fail_hint": "README の「ZMK キーボードを複数台 BLE で同時接続するとカーソルがカクつく場合」を見てください"
+    },
+    {
+      "id": "ble-battery",
+      "title": "Windows に電池残量が出る",
+      "symptom": "torabo-tsuki-lp の電池残量が PC に出なかった (電池残量の報告が無効だった)",
+      "prs": ["zmk-keyboard-torabo-tsuki-lp#6"],
+      "boards": ["zmk"],
+      "handler": "manual",
+      "params": {
+        "steps": ["この機種を BLE でつなぎます", "Windows の「設定 → Bluetooth とデバイス」を開きます"],
+        "question": "この機種の名前の横に、電池残量 (%) が出ていますか?"
+      },
+      "fail_hint": "右手側の .conf の CONFIG_BT_BAS と CONFIG_ZMK_BATTERY_REPORTING を確かめてください"
+    }
+  ]
+}

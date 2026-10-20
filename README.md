@@ -499,6 +499,7 @@ powershell -ExecutionPolicy Bypass -File tools\scripts\flash-uf2.ps1 <ファイ�
 
 ZMK のキーボードでは、自由に押したキーのレイヤーの遷移と解決を見ることもできます ([レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム))。
 `&mt` / `&lt` のキーと、一緒に押すキーの組み合わせを押したときの判定のタイミングも、ログ版のファームで、時刻を横軸にしたグラフにリアルタイムに出せます ([タップホールドのタイミングを見る](#タップホールドのタイミングを見る))。
+過去の PR で直した不具合 (USB を挿すと止まる、ボールだけ動かない、スリープから戻らない など) が戻っていないかは、[過去の修正の確認 (回帰テスト)](#過去の修正の確認-回帰テスト) で項目ごとに確かめます。
 
 ### 使い方
 
@@ -513,6 +514,7 @@ ZMK のキーボードでは、自由に押したキーのレイヤーの遷移�
    | 5 | レイヤー・タップダンス・モッドモーフ・コンボだけ |
    | 6 | [レイヤーの動きを見る](#レイヤーの動きを見る-ログ版ファーム) (ZMK のログ版ファーム。合否は出さない) |
    | 7 | [タップホールドのタイミングを見る](#タップホールドのタイミングを見る) (ZMK のログ版ファーム。選んだキーの組み合わせの判定をリアルタイムに表示。合否は出さない) |
+   | 8 | [過去の修正の確認 (回帰テスト)](#過去の修正の確認-回帰テスト) (過去の PR で直した不具合が戻っていないかを、項目ごとに確かめる) |
 
 2. 読み出し検査のあと、テスト用のウィンドウが開く。ウィンドウの指示に従って、キーを押したりボールを転がしたりする
 3. 最後に PASS / FAIL / WARN / SKIP の一覧が出る。結果は `tools/.cache/keyboard-check/reports/` にも保存される
@@ -740,6 +742,126 @@ X と Y の比 (√(X の分散 / Y の分散)) が 1.10 を超えると WARN �
   CPI を変えられる機種は CPI を先に出す (倍率を 1 より大きくすると、1 カウントでカーソルが 2 以上動き、細かさが落ちるため)
 - Keyball39 は 1 回の報告が ±127 で頭打ちになるので、速く回しすぎたときはやり直しを促す
 
+### 過去の修正の確認 (回帰テスト)
+
+過去の PR で直した不具合が、ファームやツールを変えたあとに戻っていないかを、実機で確かめます (メニューの 8 / `-Mode Regression`)。
+項目は [`tools/regression/checks.json`](tools/regression/checks.json) に、直した PR と一緒に並べてあります。
+ツールが手順を出し、次のもので判定します。判定できないもの (LED など) だけ「はい / いいえ」で答えます。
+
+- PC に届いたキーとボールの入力 (Raw Input)
+- USB の認識・切断 (Raw Input のデバイスの一覧)
+- UF2 のドライブ
+- ログ版の COM ポートのログ (読むだけで、何も送らない)
+
+1. `tools/keyboard-check.cmd` で機種を選び、検査の内容で 8 を選ぶ
+2. ZMK の機種では、右手側に書き込んであるファームを答える (通常版 / Studio 版 / ログ版)。
+   読み出しの項目は Studio 版のとき、ログ版の項目はログ版のときだけ、既定で行う
+3. 項目の一覧から選ぶ。Enter で印 (`*`) の項目、`all` ですべて、番号 (`2,4-6`) で選んだもの。
+   時間のかかるもの (スリープ) とブートローダに入れるもの (bootmagic) は、既定では行わない。前回の結果も出る
+4. 読み出し (コンソール) → テスト用のウィンドウの項目 → 「はい / いいえ」で答える項目 (コンソール) の順に行う
+5. 最後に、項目ごとに「回帰: 題名」の見出しで PASS / FAIL / WARN / SKIP が出る。項目の結果は、中の行のいちばん悪いもの
+   (一部をスキップした項目は PASS にしない)。レポートは `tools/.cache/keyboard-check/reports/<日時>-<機種>-regression.txt`、
+   項目ごとの前回の結果は `tools/.cache/keyboard-check/regression/history.json` に残る
+
+| id | 確かめること | 機種 | 準備 | 主な PR |
+| --- | --- | --- | --- | --- |
+| `keymap-readout` | キーマップと設定が期待値どおり ([読み出し検査](#読み出し検査)と同じ。Studio で保存した古い FUNC レイヤー、KQ-mini のタップホールドの設定、Keyball の CPI・AML のしきい値など) | すべて | ZMK は Studio 版 | #41、vial-qmk-kq-mini#10、keyball#12 / #16 / #21 |
+| `ball-alive` | ボールを 20 秒転がし続け、途中と最後にキーも押す。キーは届くのにボールだけ止まる (入力スレッドのスタックが足りない) 症状が無い | すべて | | #52 (6 リポジトリ) |
+| `logging-soak` | ログ版で thread analyzer が 2 回出るまで使っても止まらず、再起動しない。スレッドごとのスタックの使用率が 75 % 未満 (90 % 以上は FAIL)。入力スレッドの使用量を、通常版の 1024 バイトと比べた目安も出す | ZMK | 右手側をログ版にして USB でつなぐ | #39 (6 リポジトリ)、#52 |
+| `typing-no-aml` | ボールの近くのキー (D F J K) を速く打っても、クリック・ホイールが出ず、文字が欠けない (振動の簡易な確認) | すべて | | #30、keyball#16 |
+| `aml-threshold` / `aml-release-mods` / `aml-shift-click` / `scroll-direction` | [実動作テスト](#実動作テスト)の AML のしきい値・Ctrl / Shift での解除・Shift + クリック・スクロールの向き | すべて | | #30、#28、#18、zmk-config-LisM#8 / #25 など |
+| `aml-extend-scroll` | AML のタイムアウトより長く `D` を押したままスクロールし、`D` を離してからもう一度 `D` → `F` でクリックになる (AML が残っている) | すべて | | #34 |
+| `vim-visual-exit` | `&to` で入るレイヤー (VIM_VISUAL など) から BASE に戻れる ([レイヤー・ビヘイビアのテスト](#レイヤービヘイビアのテスト)の `&to` だけ) | ZMK、KQ-mini | | zmk-config-AroundFortyRB#4 など |
+| `lism-usb-plug` | 電池で動いているときに、左右それぞれ USB を挿した後・抜いた後に、キーとボールが効く (3 回)。最後に充電の LED を尋ねる | LisM | 電池で起動しておく | zmk-config-LisM#26、#38 |
+| `kq-keyball-replug` | Keyball を KQ-mini から抜き挿しした後と、KQ-mini を PC から抜き挿しした後に、両手のキーとボールが効く | KQ-mini | | vial-qmk-kq-mini#3、keyball#2 / #9 |
+| `bootmagic` | 左右それぞれ、動作中に `Q` / `P` を押したまま USB を挿すと UF2 のドライブが現れ、PC でキーが押されたままにならない。電源 OFF から挿して起動しても同じ (XIAO の電源スイッチがあるとき)。何も押さずに挿すとふだんどおり起動する | ZMK | 最後にリセットボタン (BMP は電源スイッチ) で戻す | #27 |
+| `idle-wake` | 両手を USB から抜いて、スリープの時間 (30 分) + 1 分触らずに置き、右 → 左の順にキーで起こしたあと、`Q`・`P`・ボールが効く | ZMK | 電池で動かす。約 32 分 | #20、zmk-config-roBa#3 など |
+| `kq-drag-hold` | `D` + `F` → `F` を押したまま `D` を離す → 転がす → `A` を長押し (Ctrl) → `A` を離す → `F` を離す。ドラッグが途中で切れない | KQ-mini | | vial-qmk-kq-mini#14 |
+| `ble-report-interval` | ほかの BLE キーボードも動かしながら、[input-monitor](#入力イベントを記録して調べる-toolsinput-monitorcmd) でボールを 10 秒記録し、「停滞 → まとめて到着」がほぼ無いかを答える | ZMK | | #23、zmk-config-roBa#4 |
+| `ble-battery` | Windows の「Bluetooth とデバイス」に電池残量が出るかを答える | ZMK | | zmk-keyboard-torabo-tsuki-lp#6 |
+
+- 抜き挿しやスリープの後は、キーボードを VID / PID で見分け直してから入力を待ちます (ハンドルが変わるため)。
+  ほかの ZMK キーボードも同じ VID / PID なので、決めたキー (`Q` / `P`) とボールの動きで判定します。PC 本体のキーボードやマウスには触らないでください
+- `idle-wake` は、待つ間 PC がスリープ・画面オフにならないようにします。キーボードを触るとカウントダウンをやり直します。
+  すでに 30 分以上触らずに置いてあれば、カウントダウンを飛ばせます。スリープに入ったこと自体は確かめていない、と結果に出ます
+- `ball-alive` でボールの動きが途中で止まったときは、「転がし続けていましたか」と尋ねます (はいなら FAIL、いいえならやり直し)
+- やり直して合格した手順は、1 回目の結果も詳細に残します (時々しか起きない不具合を見落とさないため)
+- 「設定ファイル (参考)」の行 (入力スレッドのスタック、kscan の `wakeup-source` など) も最後に出ます。実機を使わない、設定ファイルの回帰の確認です
+- `-Mode Regression` で始めると、キーボードを探す (ZMK の COM ポートに Studio の RPC を送る) のは読み出しの項目のときだけです (右手側がログ版なら、読み出しの項目も行わない)。
+  引数なしでメニューから始めたときは、ほかの検査と同じく、機種の一覧に「検出」を出すために最初に探します
+
+確かめない (入れない) もの:
+
+| 修正 | 理由 |
+| --- | --- |
+| カーソルの向き | #31 で直線テストをやめた |
+| BLE の報告の間隔の自動判定 | テスト用のウィンドウは入力を 15 ms 単位でまとめて処理し、µs の時刻も無いので測れない。input-monitor で確かめる (`ble-report-interval`) |
+| AML 中のクリックで AML を延ばす (zmk-config-LisM#14) | 今のキーマップの手順 (`D` を押したままクリック) では、AML が延びたのか `D` のレイヤーが残っているのかを区別できない |
+| KQ-mini の dfu の 16 バイト (#16)、UF2 のコピーのエラー (#11)、firmware-latest の下書き (#24) | 書き込みツールが毎回通る |
+| 左手側の `&bootloader` に右手側が要る (#19) | #41 でキーを外した |
+| Keyball の LED の左右の統一 (keyball#9) | 既定がグラデーションで、色が同じかでは判定できない。設定値は読み出し検査で確かめる |
+
+#### 項目を足す
+
+不具合を直したら (submodule のファームでも `tools` でも)、同じ PR で次のどれかを行います。submodule の修正は、このリポジトリで参照を更新する PR で行います。
+
+1. `tools/regression/checks.json` に、実機で確かめる項目を足す (または、既存の項目の `prs` と手順を更新する)
+2. その修正を確かめる既存の自動テスト・[シミュレータのシナリオ](#シナリオを書く)を示す (`tools` の解析の修正など、実機が要らないもの)
+3. 実機でも自動テストでも確かめられない理由を書く
+
+PR の本文の「実機の回帰テスト」の節に、`- 追加・更新: ` + バッククォートで囲んだ id、`- 既存のテスト: <パス>`、`- 不要: <理由>` のどれかを書きます
+([PR のテンプレート](.github/pull_request_template.md))。CI (`.github/workflows/regression-pr.yml`) が、節が空でないこと・書いた id が `checks.json` にあることを確かめます。
+
+項目の書き方 (必須は `id` `title` `symptom` `prs` `boards` `handler`):
+
+```json
+{
+  "id": "lism-usb-plug",
+  "title": "電池で動いているときに USB を挿し抜きしても、操作できなくならない",
+  "symptom": "電池で動いている LisM に USB を挿すと、キーもボールも効かなくなった",
+  "prs": ["zmk-config-LisM#26", "zmk-config-keyboards#38"],
+  "boards": ["LisM"],
+  "handler": "replug",
+  "params": { "repeat": 3, "targets": [ ... ] }
+}
+```
+
+| 項目 | 意味 |
+| --- | --- |
+| `id` | 英小文字・数字とハイフン。重ねない。`-Check` と PR の本文で使う |
+| `title` / `symptom` | 確かめること / 過去に起きたこと (ウィンドウとレポートに出す) |
+| `prs` | 直した PR。`<repo>#<番号>` (repo は submodule の名前か `zmk-config-keyboards`) |
+| `boards` | 機種のキー (`LisM` / `KqMini` など)、`zmk` (ZMK の 6 台)、`all` |
+| `handler` | 下の表のどれか。`params` はその handler の設定 |
+| `firmware` | `any` (既定) / `studio` / `logging`。ZMK の右手側に要るファーム |
+| `minutes` / `default` / `fail_hint` | 目安の時間 (既定 1) / Enter で行うか (既定 true) / FAIL のときの案内 |
+
+| handler | 種類 | すること (必須の params) |
+| --- | --- | --- |
+| `manual` | 手動 | 手順 (`steps`) を見せて、問い (`question`) に「はい / いいえ」で答えてもらう (コンソール)。コードを書かずに足せる |
+| `readout` | 自動 | 読み出し検査を行う |
+| `input-test` | 半自動 | 実動作テストの手順 (`test`: `shift-click` / `release` / `threshold` / `scroll`) |
+| `behaviors` | 半自動 | レイヤー・ビヘイビアのテストの、決めた種類 (`kinds`: `to_layer` など) だけ |
+| `ball-alive` | 半自動 | ボールを転がし続けてもらう (`duration_ms`) |
+| `typing-no-aml` | 半自動 | ボールの近くのキーを速く打ってもらう (`repeat`) |
+| `aml-extend` | 半自動 | AML のタイムアウトより長くスクロールしてから、AML が残っているか (`extra_ms`、`check_within_ms`) |
+| `replug` | 半自動 | 抜き挿しの後に、決めたキーとボールが届くか (`targets` の各項目に `label` `plug` `unplug` `keys`、`repeat`)。つないだ状態から始めるものは `start: plugged` (抜く → 挿す の順) |
+| `bootmagic` | 半自動 | キーを押したまま USB を挿してブートローダになるか (`sides` の各項目に `label` `key`) |
+| `logging-soak` | 半自動 | ログ版のログと thread analyzer (`dumps`、`max_ms`) |
+| `idle-wake` | 半自動 | スリープの後に戻るか (`keys`) |
+| `drag-hold` | 半自動 | KQ-mini でドラッグ中にキーを押しても切れないか |
+
+今の handler で書けないときは、まず `manual` で足します。新しい handler は `tools/lib/keyboard-check/regression-test.ps1` (手順) と
+`regression.ps1` (判定・handler の表) に足し、`tools/tests/regression.Tests.ps1` にテストを足します。足したら、次で確かめます。
+
+```powershell
+pwsh -NoProfile -File tools/tests/run.ps1 -Filter regression
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard LisM -Mode Regression -Check list
+```
+
 ### 判定と対処
 
 | 結果 | 原因と対処 |
@@ -771,10 +893,11 @@ X と Y の比 (√(X の分散 / Y の分散)) が 1.10 を超えると WARN �
 `-Keyboard` と `-Mode` を両方指定すると、メニューを出さずに検査します。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive|Trace|HoldTap] [-Section All|Keys|Behaviors|Trackball|Calibrate] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
+powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 [-Keyboard KqMini|Keyball39|LisM|AroundFortyRB|KUKEY42|Pyuron|roBa|torabo-tsuki-lp] [-Mode All|Readout|Interactive|Trace|HoldTap|Regression] [-Section All|Keys|Behaviors|Trackball|Calibrate] [-Check <id,...>|all|list] [-Firmware normal|studio|logging] [-Ball right|left|both] [-Port COM5] [-Speed] [-Diameter <mm>] [-SpeedReference <実効CPI>] [-CalibStrength <0-100>] [-Report <ファイル>]
 ```
 
 終了コードは、0 = FAIL なし、1 = FAIL あり、2 = 検査できた項目がない、です (`-Mode Trace` / `-Mode HoldTap` は合否を出さないので 0)。
+`-Mode Regression -Check list` は、項目の一覧を出すだけで終わります (終了コード 0。Windows 以外の `pwsh` でも動く)。
 
 ## 実機なしで自動テストする
 

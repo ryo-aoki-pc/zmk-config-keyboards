@@ -48,7 +48,14 @@ function Read-KcLogPortLines($Reader) {
         $cands = @()
         # Find-KcStudioPort は配列をそのまま返す (return , $x)。パイプラインにつなぐと配列が 1 つの値として届き、
         # ポートが 0 件のとき $_.Port が StrictMode の例外になるので、foreach で回す
-        if ($Reader.Port) { $cands = @($Reader.Port) } else { $cands = @(foreach ($p in (Find-KcStudioPort)) { $p.Port }) }
+        # Candidates: 前もって探したポート (回帰テストは、テスト用のウィンドウを回す間に CIM を呼ばないように、先に探す)
+        if ($Reader.Port) {
+            $cands = @($Reader.Port)
+        } elseif ($Reader.ContainsKey('Candidates')) {
+            $cands = @($Reader.Candidates)
+        } else {
+            $cands = @(foreach ($p in (Find-KcStudioPort)) { $p.Port })
+        }
         foreach ($c in $cands) {
             if (-not $Reader.Ports.ContainsKey($c)) {
                 try { $Reader.Ports[$c] = Open-KcLogPort $c; $Reader.Buffers[$c] = '' } catch { }

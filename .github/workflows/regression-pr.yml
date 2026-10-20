@@ -1,0 +1,51 @@
+# PR 本文の「実機の回帰テスト」の節の CI
+#
+# 不具合を直した PR では、tools/regression/checks.json に実機で確かめる項目を足すか、確かめる既存のテストを示すか、
+# 足さない理由を書く (CLAUDE.md の「実機の回帰テスト」)。PR 本文のその節が空でないこと・テンプレートのままでないこと、
+# 書いた id が checks.json にあることを確かめる。実機での PASS は求めない。
+# PR 本文を直すと (edited) 実行し直す。重い keyboard-check.yml とは分けて、本文の編集でそちらが走らないようにする。
+
+name: Regression check entry
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-body:
+    name: PR body (実機の回帰テスト)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # PR 本文はスクリプトに埋め込まず、環境変数で渡す
+      - name: Check the PR body
+        shell: pwsh
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          Set-StrictMode -Version 2.0
+          $ErrorActionPreference = 'Stop'
+          . ./tools/lib/keyboard-check/expected.ps1
+          . ./tools/lib/keyboard-check/regression.ps1
+          $checks = Get-KcRegressionChecks (Read-KcRegressionDocument ./tools/regression/checks.json)
+          $ids = @($checks | ForEach-Object { $_.Id })
+          $errors = Test-KcRegressionPrBody ([string]$env:PR_BODY) $ids
+          if ($errors.Count -gt 0) {
+            foreach ($e in $errors) {
+              Write-Host ('::error::{0}' -f $e)
+            }
+            Write-Host 'PR 本文の「## 実機の回帰テスト」に、「- 追加・更新: `checks.json の id`」「- 既存のテスト: パス」「- 不要: 理由」のどれかを書いてください (.github/pull_request_template.md)'
+            exit 1
+          }
+          Write-Host 'PR 本文の「実機の回帰テスト」の節は書かれています'

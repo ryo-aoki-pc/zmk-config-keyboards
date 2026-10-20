@@ -188,6 +188,15 @@ function Wait-KcForeground($Ctx, [string]$Why = 'キーの入力をこのウィ�
     return 'resumed'
 }
 
+# デバイスの名前 (Raw Input のパス)。回帰テストのテストは $Ctx.Probe.DeviceName を偽物にする
+function Get-KcDeviceName($Ctx, [long]$Handle) {
+    $probe = Get-KcProp $Ctx 'Probe' $null
+    if ($null -ne $probe -and $probe.ContainsKey('DeviceName')) {
+        return [string](& $probe.DeviceName $Handle)
+    }
+    return [KcInputTestForm]::GetDeviceName($Handle)
+}
+
 function Select-KcKeyboardDevice($Ctx) {
     # キーの入力をこのウィンドウで受け取る (Alt / Win を押してもメニューが開かない) ため、前面にする
     if ((Wait-KcForeground $Ctx 'キーの入力をこのウィンドウで受け取るためです (コンソールにキーが入力されないようにします)。') -eq 'abort') {
@@ -204,7 +213,7 @@ function Select-KcKeyboardDevice($Ctx) {
     }
     $Ctx.Keyboard = [long](@($r.Events | Where-Object { $_.Kind -eq 'key' })[0].Device)
     $Ctx.Devices = @($Ctx.Keyboard)
-    $name = [KcInputTestForm]::GetDeviceName($Ctx.Keyboard)
+    $name = Get-KcDeviceName $Ctx $Ctx.Keyboard
     $Ctx.KeyboardName = $name
     $Ctx.Form.SetStatus('キーボード: ' + $name, 1)
     Wait-KcPause $Ctx 800
@@ -232,7 +241,7 @@ function Select-KcMouseDevice($Ctx) {
     }
     $Ctx.Mouse = [long](@($r.Events | Where-Object { $_.Kind -eq 'mouse' -and ($_.Dx -ne 0 -or $_.Dy -ne 0) })[0].Device)
     $Ctx.Devices = @($Ctx.Keyboard, $Ctx.Mouse)
-    $name = [KcInputTestForm]::GetDeviceName($Ctx.Mouse)
+    $name = Get-KcDeviceName $Ctx $Ctx.Mouse
     $Ctx.MouseName = $name
     $Ctx.Form.SetStatus('トラックボール: ' + $name, 1)
     Wait-KcPause $Ctx 1500
@@ -337,21 +346,37 @@ function Invoke-KcTapTest($Ctx) {
 # トラックボール
 # ---------------------------------------------------------------------------
 
-# 1 つの手順を最大 2 回 (間違えたときに 1 回だけやり直す)。$Body は結果 (Status / Actual / Message) を返す
+# 1 つの手順を最大 2 回 (間違えたときに 1 回だけやり直す)。$Body は結果 (Status / Actual / Message) を返す。
+# やり直したときは、2 回目の結果の FirstAttempt に 1 回目の結果を入れる (回帰テストが、1 回目の不合格を詳細に残す)
 function Invoke-KcRetryStep($Ctx, [scriptblock]$Body) {
+    $first = $null
     for ($n = 1; $n -le 2; $n++) {
         $res = & $Body
         if ($res -is [string]) {
             return $res
         }
+        if ($null -ne $first) {
+            $res | Add-Member -NotePropertyName FirstAttempt -NotePropertyValue $first -Force
+        }
         if ($res.Status -eq 'PASS' -or $n -eq 2) {
             return $res
         }
+        $first = $res
         $msg = [string](Get-KcProp $res 'Message' '')
         if (-not $msg) { $msg = [string]$res.Actual }
         Show-KcStepResult $Ctx $res.Status ($msg + ' もう一度お願いします')
         Wait-KcPause $Ctx 1800
     }
+}
+
+# やり直して合格した手順の、1 回目の結果 (詳細に残す。時々しか起きない不具合を見落とさないため)
+function Get-KcFirstAttemptDetails($Res) {
+    $first = Get-KcProp $Res 'FirstAttempt' $null
+    if ($null -eq $first -or $first.Status -eq 'NONE' -or $first.Status -eq 'PASS') {
+        return , @()
+    }
+    $msg = [string](Get-KcProp $first 'Message' '')
+    return , @(('1 回目は {0}: {1} {2}' -f $first.Status, $first.Actual, $msg).Trim())
 }
 
 # AML の発動に要るボールの動きの量 (期待値の aml.threshold。無ければ 0 = しきい値なし)
@@ -381,7 +406,7 @@ function Invoke-KcAmlClickTest($Ctx, [string]$Ball, $Keys) {
         return $t
     }
     if ($res -is [string]) { return $res }
-    Add-KcInputResult $Ctx $Ctx.Category ('AML のクリック ({0}のボール)' -f $bn) $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    Add-KcInputResult $Ctx $Ctx.Category ('AML のクリック ({0}のボール)' -f $bn) $res.Status $res.Actual ([string](Get-KcProp $res 'Message' '')) (Get-KcFirstAttemptDetails $res)
     return 'done'
 }
 
@@ -411,7 +436,7 @@ function Invoke-KcShiftClickTest($Ctx, [string]$Ball, $Keys) {
         return $t
     }
     if ($res -is [string]) { return $res }
-    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' '')) (Get-KcFirstAttemptDetails $res)
     return 'done'
 }
 
@@ -435,7 +460,7 @@ function Invoke-KcAmlReleaseTest($Ctx, [string]$Ball, $Key) {
         return $t
     }
     if ($res -is [string]) { return $res }
-    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' '')) (Get-KcFirstAttemptDetails $res)
     return 'done'
 }
 
@@ -475,7 +500,7 @@ function Invoke-KcScrollTest($Ctx, [string]$Ball, $Keys) {
         }
         if ($res -is [string]) { return $res }
         Add-KcInputResult $Ctx $Ctx.Category ('スクロールの向き: {0} ({1}のボール)' -f $d.Item, $bn) $res.Status $res.Actual `
-            ([string](Get-KcProp $res 'Message' ''))
+            ([string](Get-KcProp $res 'Message' '')) (Get-KcFirstAttemptDetails $res)
     }
     return 'done'
 }
@@ -531,7 +556,7 @@ function Invoke-KcTimeoutTest($Ctx, $Keys) {
     }
     if ($res -is [string]) { return $res }
     $Ctx.AmlTimeoutPassed = ($res.Status -eq 'PASS')
-    Add-KcInputResult $Ctx $Ctx.Category ('AML のタイムアウト ({0} 秒)' -f ([int]$aml.timeout_ms / 1000)) $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    Add-KcInputResult $Ctx $Ctx.Category ('AML のタイムアウト ({0} 秒)' -f ([int]$aml.timeout_ms / 1000)) $res.Status $res.Actual ([string](Get-KcProp $res 'Message' '')) (Get-KcFirstAttemptDetails $res)
     return 'done'
 }
 
@@ -563,7 +588,7 @@ function Invoke-KcAmlThresholdTest($Ctx, $Keys) {
         return $t
     }
     if ($res -is [string]) { return $res }
-    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' ''))
+    Add-KcInputResult $Ctx $Ctx.Category $item $res.Status $res.Actual ([string](Get-KcProp $res 'Message' '')) (Get-KcFirstAttemptDetails $res)
     return 'done'
 }
 
@@ -749,14 +774,9 @@ function Invoke-KcSpeedCalib($Ctx, [string]$Ball) {
 
 # $Options: @{ Sections = @('Keys','Behaviors','Trackball','Calibrate'); Balls = @('right'); Speed = $bool; Diameter = mm または $null;
 #             Strength = 0〜1; SpeedReference = 基準の実効 CPI または $null; CachePath; ReadoutMismatch = @{ "レイヤー:位置" = $true } }
-function Invoke-KcInputTest {
-    param(
-        [Parameter(Mandatory = $true)] $Expected,
-        [Parameter(Mandatory = $true)] $Common,
-        [Parameter(Mandatory = $true)] $Results,
-        [Parameter(Mandatory = $true)] [hashtable]$Options
-    )
-    $ctx = @{
+# 実動作テストの手順が共有する状態 (回帰テスト regression-test.ps1 も使う)。Form はあとで入れる
+function New-KcInputContext($Expected, $Common, $Results, [hashtable]$Options) {
+    return @{
         Expected = $Expected; Common = $Common; Results = $Results; Options = $Options
         ScanTable = (New-KcScanTable $Common); Keyboard = [long]0; Mouse = [long]0; Devices = @(); KeyboardName = ''; MouseName = ''
         Category = ('{0}: 実動作' -f $Expected.name); CalibCategory = ('{0}: トラックボールの正規化' -f $Expected.name)
@@ -764,7 +784,19 @@ function Invoke-KcInputTest {
         AmlTimeoutPassed = $false
         # レイヤー・ビヘイビアのテスト (behavior-test.ps1)。Mismatch: 読み出し検査で違っていた "レイヤー:位置"
         Mismatch = (Get-KcProp $Options 'ReadoutMismatch' @{})
+        # behavior-test.ps1 で行う種類 (空ならすべて) と、結果の区分 (空なら「<機種>: レイヤー・ビヘイビア」)
+        BehaviorKinds = @(Get-KcProp $Options 'BehaviorKinds' @()); BehaviorCategory = [string](Get-KcProp $Options 'BehaviorCategory' '')
     }
+}
+
+function Invoke-KcInputTest {
+    param(
+        [Parameter(Mandatory = $true)] $Expected,
+        [Parameter(Mandatory = $true)] $Common,
+        [Parameter(Mandatory = $true)] $Results,
+        [Parameter(Mandatory = $true)] [hashtable]$Options
+    )
+    $ctx = New-KcInputContext $Expected $Common $Results $Options
     if ($null -ne $Options.SpeedReference) {
         $ctx.SpeedReference = [pscustomobject]@{ Cpi = [double]$Options.SpeedReference; PerRev = $null; Source = '-SpeedReference' }
     } else {
