@@ -1,0 +1,15 @@
+{
+  "language": "japanese",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' '{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"このリポジトリの決まり (AGENTS.md): 利用者に見せる文はすべて日本語で書く。最後の返答だけでなく、ツールを呼ぶ合間の途中の報告、表、次の手順の欄 (要約・質問・ボタンの文字) も日本語にし、英語と混ぜない。英語で調べた内容も日本語に直して書く。\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}
