@@ -18,6 +18,9 @@
 . (Join-Path $script:ToolsDir 'lib\flash-plan.ps1')
 . (Join-Path $script:ToolsDir 'lib\flash-ui.ps1')
 . (Join-Path $script:TestsDir 'flash-fixtures.ps1')
+. (Join-Path $script:ToolsDir 'lib\input-monitor\devices.ps1')
+. (Join-Path $script:KcLib 'regression.ps1')
+. (Join-Path $script:KcLib 'regression-test.ps1')
 
 Test-Case 'RawHid.cs をコンパイルできる' {
     Import-KcCSharp 'RawHid.cs' 'KcRawHid'
@@ -372,6 +375,40 @@ Test-Case 'テスト用のウィンドウ: レイヤー・ビヘイビアの手�
         $form.SetLayerOverview('', [string[]]@(), [int[]]@())
         [KcUi]::DoEvents()
         Assert-True ($root.FindName('LayerStrip').Visibility -ne [System.Windows.Visibility]::Visible) 'レイヤーの帯を隠す'
+    } finally {
+        $form.Dispose()
+    }
+}
+
+Test-Case 'テスト用のウィンドウ: 回帰テストの「はい / いいえ」とカウントダウンを描画できる' -WindowsOnly {
+    Import-KcInputForm
+    $expected = Get-KcExpected 'lism' $script:ExpectedDir
+    $form = New-Object KcInputTestForm
+    try {
+        Initialize-KcInputForm $form $expected
+        $w = $form.Window
+        Show-UiOffscreen $w
+        $root = $w.Content
+        $ctx = @{ Form = $form }
+        $seen = @{ Next = ''; Retry = ''; Shot = $false }
+        # ボタンを待つ間に、ボタンの文字を見て描画を残し、そこで終える
+        $o = Wait-KcRgButton $ctx '電池で動いているときに USB を挿し抜きしても、操作できなくならない' `
+            'USB を挿している間、充電中なら充電の LED が点き、抜くと消えましたか? (満充電のときは点かなくて構いません)' '' 'はい' 'いいえ' {
+            param($ev, $now)
+            $seen.Next = [string]$root.FindName('NextButton').Content
+            $seen.Retry = [string]$root.FindName('RetryButton').Content
+            Save-UiSnapshot $form 'keyboard-check-7-regression-yesno'
+            $seen.Shot = $true
+            $true
+        } 5000 100
+        Assert-Equal 'done' $o
+        Assert-True $seen.Shot '描画した'
+        Assert-Equal 'はい|いいえ' ('{0}|{1}' -f $seen.Next, $seen.Retry)
+        Assert-Equal '次へ' ([string]$root.FindName('NextButton').Content) 'ボタンの文字を戻す'
+        $c = Wait-KcRgCountdown $ctx 600 'スリープから戻る' 'キーボードとボールに触らずに待ってください' 'スリープの時間 (30 分) + 1 分。' $null
+        Assert-Equal 'done' $c
+        Assert-True ([string]$form.Window.Title -ne $null) 'ウィンドウ'
+        Save-UiSnapshot $form 'keyboard-check-8-regression-countdown'
     } finally {
         $form.Dispose()
     }

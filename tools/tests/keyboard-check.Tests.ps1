@@ -44,6 +44,31 @@ Test-Case 'HoldTap: Windows 以外では、ウィンドウを開かずに終了�
     Assert-True ($r.Output -like '*Windows でのみ*') $r.Output
 }
 
+Test-Case '回帰テスト: -Check list は一覧を出して終了コード 0 (キーボードを探さない)' {
+    $r = Invoke-KcEntry @('-Keyboard', 'LisM', '-Mode', 'Regression', '-Check', 'list')
+    Assert-Equal 0 $r.Code ('終了コード。出力: ' + $r.Output)
+    Assert-True ($r.Output -like '*過去の修正の確認*id: ball-alive*id: lism-usb-plug*') $r.Output
+    Assert-True ($r.Output -notlike '*id: kq-drag-hold*') 'ほかの機種の項目は出さない'
+    Assert-True ($r.Output -notlike '*接続中のキーボードを探しています*') 'デバイスに触らない'
+    $r = Invoke-KcEntry @('-Keyboard', 'KqMini', '-Mode', 'Regression', '-Check', 'list')
+    Assert-Equal 0 $r.Code ('終了コード。出力: ' + $r.Output)
+    Assert-True ($r.Output -like '*id: kq-drag-hold*') $r.Output
+}
+
+Test-Case '回帰テスト: この機種に無い id は、キーボードを探す前に失敗 (終了コード 1)' {
+    $r = Invoke-KcEntry @('-Keyboard', 'LisM', '-Mode', 'Regression', '-Check', 'ball-alive,kq-drag-hold')
+    Assert-Equal 1 $r.Code ('終了コード。出力: ' + $r.Output)
+    Assert-True ($r.Output -like '*この機種の項目に無い id です: kq-drag-hold*') $r.Output
+    Assert-True ($r.Output -notlike '*接続中のキーボードを探しています*') 'デバイスに触らない'
+}
+
+Test-Case '回帰テスト: Windows 以外では、手順を行わずに SKIP (終了コード 2)' {
+    if ($script:IsWindowsHost) { return }
+    $r = Invoke-KcEntry @('-Keyboard', 'LisM', '-Mode', 'Regression', '-Check', 'ball-alive')
+    Assert-Equal 2 $r.Code ('終了コード。出力: ' + $r.Output)
+    Assert-True ($r.Report -like '*Windows でのみ動きます*') $r.Report
+}
+
 Test-Case '機種の一覧: ZMK Studio のデバイス名が期待値と合う' {
     $ast = [System.Management.Automation.Language.Parser]::ParseFile($script:KcEntry, [ref]$null, [ref]$null)
     $tables = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)

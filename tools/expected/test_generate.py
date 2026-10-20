@@ -188,6 +188,43 @@ class TestScrollAml(unittest.TestCase):
             self.assertEqual(g.input_thread_stack_consistency(board, Path(d))['level'], 'warn')
             p.write_text('CONFIG_INPUT_THREAD_STACK_SIZE=1024\n', encoding='utf-8')
             self.assertEqual(g.input_thread_stack_consistency(board, Path(d))['level'], 'ok')
+            self.assertEqual(g.input_thread_stack_size(board, Path(d)), 1024)
+            p.write_text('CONFIG_SPI=y\n', encoding='utf-8')
+            self.assertEqual(g.input_thread_stack_size(board, Path(d)), 512)
+
+    def test_sleep_timeout(self):
+        import tempfile
+        board = {'central_conf': 'r.conf', 'peripheral_conf': 'l.conf'}
+        with tempfile.TemporaryDirectory() as d:
+            r = Path(d, 'r.conf')
+            left = Path(d, 'l.conf')
+            r.write_text('CONFIG_ZMK_SLEEP=y\nCONFIG_ZMK_IDLE_SLEEP_TIMEOUT=1800000\n', encoding='utf-8')
+            left.write_text('CONFIG_ZMK_SLEEP=y\nCONFIG_ZMK_IDLE_SLEEP_TIMEOUT=900000\n', encoding='utf-8')
+            self.assertEqual(g.zmk_sleep_timeout(board, Path(d)), 1800000)
+            # Kconfig の select や既定値は分からないので、書かれていなければ None (分からない)
+            left.write_text('CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=900000\n', encoding='utf-8')
+            self.assertIsNone(g.zmk_sleep_timeout(board, Path(d)))
+            left.write_text('CONFIG_ZMK_SLEEP=y\n', encoding='utf-8')
+            self.assertIsNone(g.zmk_sleep_timeout(board, Path(d)))
+            left.write_text('# CONFIG_ZMK_SLEEP=y\nCONFIG_ZMK_IDLE_SLEEP_TIMEOUT=900000\n', encoding='utf-8')
+            self.assertIsNone(g.zmk_sleep_timeout(board, Path(d)))
+
+    def test_kscan_wakeup(self):
+        import tempfile
+        board = {'dtsi': 'k.dtsi'}
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, 'k.dtsi')
+            p.write_text('/ { kscan0: kscan0 { compatible = "zmk,kscan-gpio-matrix";\n  wakeup-source;\n'
+                         '  row-gpios = <&gpio0 1 0>; }; };\n', encoding='utf-8')
+            self.assertEqual(g.kscan_wakeup_consistency(board, Path(d))['level'], 'ok')
+            # コメントの中や、別のノードの wakeup-source は数えない
+            p.write_text('/ { kscan0: kscan0 { compatible = "zmk,kscan-gpio-matrix";\n  // wakeup-source;\n'
+                         '  row-gpios = <&gpio0 1 0>; };\n  other { wakeup-source; }; };\n', encoding='utf-8')
+            r = g.kscan_wakeup_consistency(board, Path(d))
+            self.assertEqual(r['level'], 'warn')
+            self.assertIn('wakeup-source', r['message'])
+            p.write_text('/ { leds { compatible = "gpio-leds"; }; };\n', encoding='utf-8')
+            self.assertIn('見つかりません', g.kscan_wakeup_consistency(board, Path(d))['message'])
 
 
 class TestHoldTapParser(unittest.TestCase):
@@ -436,6 +473,16 @@ class TestGenerate(unittest.TestCase):
         # 共通基盤: 6 台ともセントラルの入力スレッドのスタックは 1024 バイト (512 ではボールだけが動かなくなる)
         for b in g.ZMK_BOARDS:
             msgs = [c for c in self.data[f'{b["id"]}.json']['consistency'] if '入力スレッドのスタック' in c['message']]
+            self.assertEqual([c['level'] for c in msgs], ['ok'], b['id'])
+
+    def test_regression_device_fields(self):
+        # 回帰テスト (tools/regression) の idle-wake / logging-soak が使う。6 台とも、スリープは 30 分、
+        # 入力スレッドのスタックは 1024 バイト、kscan に wakeup-source がある
+        for b in g.ZMK_BOARDS:
+            data = self.data[f'{b["id"]}.json']
+            self.assertEqual(data['device']['sleep_timeout_ms'], 1800000, b['id'])
+            self.assertEqual(data['device']['stacks'], {'input': 1024}, b['id'])
+            msgs = [c for c in data['consistency'] if 'wakeup-source' in c['message']]
             self.assertEqual([c['level'] for c in msgs], ['ok'], b['id'])
 
     def test_products(self):

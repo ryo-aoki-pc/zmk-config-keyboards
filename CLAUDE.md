@@ -121,7 +121,13 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
     - PowerShell は 250 ms ごとに時計を合わせ直すだけ
     - `hold-tap.ps1` の `$script:KcHt*` の定数は、`KcTimelineView` の定数と揃える (`tests/windows.Tests.ps1` が確かめる)
   - ログ版ファームの COM ポートを探して読む処理は、`layer-trace.ps1` の `New-KcLogPortReader` / `Read-KcLogPortLines` を `-Mode Trace` と共有する
-- テスト: `python tools/expected/generate.py --check`、`python -m unittest discover -s tools/expected`、`tools/tests/run.ps1` (Pester は使わない。Linux の `pwsh` でも Windows 専用のテスト以外は動く。Windows 専用のテスト (`-WindowsOnly`) は Windows PowerShell 5.1 でだけ実行し、Windows の `pwsh` でもスキップする (pwsh の `Add-Type` は WPF のウィンドウの C# をコンパイルできず、ストア版の pwsh では Job Object から孫のプロセスが抜ける)。`input-monitor`、タップホールド (`hold-tap` / `hold-tap-ui`)、書き込みツール (`firmware-release` / `flash-plan` / `flash-ui` / `child-process`。GitHub API の応答の偽物は `tests/flash-fixtures.ps1`) のテストもここで走る)。CI は `.github/workflows/keyboard-check.yml` (Linux と Windows PowerShell 5.1)。
+- 過去の修正の確認 (`-Mode Regression`、メニュー 8。実機の回帰テスト): 過去の PR で直した不具合が戻っていないかを、`tools/regression/checks.json` (手で書くチェックリスト。生成しない) の項目ごとに確かめる。
+  - 項目は `id` / `title` / `symptom` (過去に起きたこと) / `prs` (`<repo>#<番号>`) / `boards` / `handler` / `params`。形は `regression.ps1` の `Test-KcRegressionDocument` と `tests/regression.Tests.ps1` が縛る (知らない項目・repo・handler、足りない params、使われていない handler はエラー)
+  - handler の表 (`$script:KcRegressionHandlers`)・選択・判定・前回の結果 (`tools/.cache/keyboard-check/regression/history.json`)・PR 本文の検査は `regression.ps1` (純粋関数)、手順は `regression-test.ps1`。readout と manual はコンソール、ほかはテスト用のウィンドウ (`KcInputTestForm`) で行い、今の実動作テストの関数 (`Invoke-KcShiftClickTest` など、`New-KcInputContext`) と `Invoke-KcBehaviorTest` (`BehaviorKinds` で種類を絞る) を使う
+  - Windows に触る処理 (Raw Input のデバイスの一覧、UF2 のドライブ、ログ版の COM ポート、`KcUi.KeepAwake`、コンソールの入出力) は `$Ctx.Probe` から呼ぶ。テストは偽のウィンドウと偽の Probe で手順を流す。WMI / CIM は UI のループの中で呼ばない (その間ウィンドウが止まる)。抜き挿し・スリープの後は、期待値の `device.usb_vid` / `usb_pid` でデバイスを特定し直す (`-AnyDevice` のままにしない)
+  - 起動時に Studio の RPC を送らない (ログ版の COM ポートには何も送らない)。ZMK の右手側のファームは尋ねる (`-Firmware`)。`-Check list` と知らない id は、デバイスに触る前に終える
+  - `generate.py` は回帰テストのために、ZMK の `device.sleep_timeout_ms` (左右の .conf) と `device.stacks.input` (通常版の入力スレッドのスタック) を出し、kscan の `wakeup-source` を consistency で確かめる
+- テスト: `python tools/expected/generate.py --check`、`python -m unittest discover -s tools/expected`、`tools/tests/run.ps1` (Pester は使わない。Linux の `pwsh` でも Windows 専用のテスト以外は動く。Windows 専用のテスト (`-WindowsOnly`) は Windows PowerShell 5.1 でだけ実行し、Windows の `pwsh` でもスキップする (pwsh の `Add-Type` は WPF のウィンドウの C# をコンパイルできず、ストア版の pwsh では Job Object から孫のプロセスが抜ける)。`input-monitor`、タップホールド (`hold-tap` / `hold-tap-ui`)、書き込みツール (`firmware-release` / `flash-plan` / `flash-ui` / `child-process`。GitHub API の応答の偽物は `tests/flash-fixtures.ps1`)、回帰テスト (`regression`) のテストもここで走る)。CI は `.github/workflows/keyboard-check.yml` (Linux と Windows PowerShell 5.1) と、PR 本文の「実機の回帰テスト」の節を確かめる `.github/workflows/regression-pr.yml`。
 - `.cs` は ASCII だけで書き、Windows PowerShell 5.1 の `Add-Type` がコンパイルできる C# 5 の構文にする (警告もエラーになる)。
 - テスト用・記録用・書き込み・シミュレータのウィンドウは WPF (ダークテーマ)。見た目は `lib/keyboard-check/` の `Theme.xaml` (色・ボタンなどのスタイル) と `InputTestWindow.xaml` / `InputMonitorWindow.xaml` / `LayerTraceWindow.xaml` / `FlashWindow.xaml` / `HoldTapWindow.xaml` / `SimulatorWindow.xaml` (中身) にあり、`InputTestForm.cs` が `XamlReader` で読み込む (`x:Class` は使わず、名前の付いた要素を `KcUi.Find` で探す)。ウィンドウの XAML からテーマのキーは `DynamicResource` で参照する。ログなどの等幅の文字は `KcMonoFont` (`HackGen Console NF, BIZ UDGothic, MS Gothic`)。現在のユーザだけにインストールしたフォント (Windows 10 1809 以降の既定) は WPF のシステムフォントの一覧に無いことがあるので、`KcUi.CreateWindow` (`ApplyMonoFont`) が、名前で見つからない HackGen Console NF を HKCU のフォントの登録から探し、ファイルの URI で先頭に足す。そのため、テーマの中のスタイルからも `KcMonoFont` は `DynamicResource` で参照する。XAML も ASCII だけで書き、表示する文字列は PowerShell から渡す。`Import-KcInputForm` (`input-test.ps1`) が `[KcUi]::XamlDir` を設定し、ウィンドウを作る前に `[KcUi]::EnsureDpiAware()` を呼ぶ。テスト用のウィンドウは PowerShell のスレッドで `[KcUi]::DoEvents()` で回す。キーボードの図は `KcKeyboardView`、チップ・キーキャップ・矢印は `KcDraw`、Win キーのフックは `KcWinKeyMask` にあり、`KcInputTestForm` と `KcLayerTraceForm` と `KcHoldTapForm` が共有する。`KcSimulatorForm` もキー図には `KcKeyboardView` を使う。書き込みツールとタップホールドのウィンドウの一覧や選択肢は、フォーカスを取らないラジオボタン (`KcNavItem` / `KcBuildItem` / `KcSegment` / `KcChoice`) とスライダー (`KcSlider`) で作り、つないだキーボードから入力したキーで選択が変わらないようにしている。`tests/ui.Tests.ps1` が XAML と C# の名前・キーの食い違いを (Linux でも。ウィンドウは `KcUi.CreateWindow("<XAML>")` から自動で見つける) 調べ、`tests/windows.Tests.ps1` が画面外に描画する。`$env:KC_SCREENSHOT_DIR` を設定すると、描いた PNG が残る (CI は artifact `window-screenshots` に上げる)。
 
@@ -136,6 +142,19 @@ submodule 側でアセット名 (ZMK では `build.yaml` の `artifact-name`) �
 - Linux の `pwsh` (7.4) では、`New-Object` で作った `List` を `@()` で包むと「Argument types do not match」で失敗することがある。`foreach` で回すか `.ToArray()` を使う (5.1 では起きないので、Linux のテストでだけ落ちる)。
 - スクリプトの `param` の既定値で `$PSScriptRoot` / `$PSCommandPath` を使わない。5.1 を `powershell.exe -File` で起動すると (`.cmd` はみなそう)、既定値の中では空になる。既定値は空にして、本体で決める (`tests/run.ps1` が確かめる。PS 7 では起きないので、Linux の CI では気づかない)。
 - `StrictMode` では、関数が返した 0 件・1 件の配列は配列のまま届かず、`.Count` が例外になる。`@(Get-Foo).Count` のように包むか、関数が `return , $x` で返す。`return , $x` で返す関数 (`Find-Kc*` など) をパイプラインにつなぐと配列が 1 つの値として届き、0 件のとき `$_.Port` などが例外になるので、変数に受けるか `foreach` で回す。
+
+## 実機の回帰テスト (過去の修正の確認)
+
+不具合を直したら (submodule のファームでも `tools` でも)、同じ PR で次のどれかを行う。submodule の修正は、このリポジトリで参照を更新する PR で行う。
+
+1. `tools/regression/checks.json` に、実機で確かめる項目を足す (`prs` に直した PR を書く)。既存の項目で確かめられるなら、その項目の `prs` と手順を更新する
+2. その修正を確かめる既存の自動テスト・シミュレータのシナリオ (`tools/simulator/scenarios/`) を示す (`tools` の解析の修正など、実機が要らないもの)
+3. 実機でも自動テストでも確かめられない理由を書く (CI・文書だけの変更など)
+
+- 既存の handler で書けなければ、`manual` (手順と「はい / いいえ」) で足してよい。新しい handler を足すときは、`regression.ps1` の handler の表と判定、`regression-test.ps1` の手順、`tests/regression.Tests.ps1` のテスト (PASS と 1 点違う FAIL、成り立たない測定) を足す
+- 実機なしで再現できるものは、シミュレータのシナリオにも足す
+- PR 本文の「## 実機の回帰テスト」の節に、`- 追加・更新: ` + バッククォートで囲んだ id、`- 既存のテスト: <パス>`、`- 不要: <理由>` のどれかを書く (`.github/pull_request_template.md`)。CI (`regression-pr.yml`) が、節が空でないこと・id が checks.json にあることを確かめて、無ければ失敗にする
+- 項目を足したら、README の「過去の修正の確認 (回帰テスト)」の表も更新する
 
 ## README の保守
 

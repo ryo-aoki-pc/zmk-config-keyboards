@@ -8,11 +8,19 @@
     {
       "submodule": "zmk-config-Pyuron",
       "commit": "55ecca3c1f64eb072f7b15da79ab0442e08eb5a8",
-      "files": ["config/Pyuron.keymap", "config/Pyuron.json", "boards/shields/Pyuron/Pyuron.dtsi", "boards/shields/Pyuron/Pyuron_R.overlay", "boards/shields/Pyuron/Pyuron_L.overlay", "boards/shields/Pyuron/Pyuron_R.conf", "build.yaml"]
+      "files": ["config/Pyuron.keymap", "config/Pyuron.json", "boards/shields/Pyuron/Pyuron.dtsi", "boards/shields/Pyuron/Pyuron_R.overlay", "boards/shields/Pyuron/Pyuron_L.overlay", "boards/shields/Pyuron/Pyuron_R.conf", "build.yaml", "boards/shields/Pyuron/Pyuron_L.conf"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "Pyuron", "studio_artifacts": ["Pyuron_right_central_studio"], "logging_artifacts": ["Pyuron_right_central_logging"]},
+  "device": {
+    "usb_vid": "1D50",
+    "usb_pid": "615E",
+    "product": "Pyuron",
+    "studio_artifacts": ["Pyuron_right_central_studio"],
+    "logging_artifacts": ["Pyuron_right_central_logging"],
+    "sleep_timeout_ms": 1800000,
+    "stacks": {"input": 1024}
+  },
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},
@@ -2538,6 +2546,7 @@
     {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (Pyuron/Pyuron.dtsi の scroller_L, Pyuron/Pyuron.dtsi の scroller_R)"},
     {"level": "ok", "message": "右手側 (セントラル) の入力スレッドのスタック: 1024 バイト (README の共通基盤: 1024 バイト)"},
+    {"level": "ok", "message": "kscan に wakeup-source がある (スリープ中にキーを押して起きられる)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/16 (README の共通基盤: 1/16)"},
     {"level": "ok", "message": "カーソルの加速 (左のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},

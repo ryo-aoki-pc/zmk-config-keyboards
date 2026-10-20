@@ -468,3 +468,67 @@ function Get-KcTraceCascade($State, $Event) {
     }
     return , $rows.ToArray()
 }
+
+# ---------------------------------------------------------------------------
+# thread analyzer (ログ版の cmake-args の CONFIG_THREAD_ANALYZER_AUTO。30 秒ごとに、スレッドごとのスタックの最大使用量を出す)
+# ---------------------------------------------------------------------------
+# Zephyr v3.5 (subsys/debug/thread_analyzer.c) の書式。LOG_INF で出るので、前に時刻と <inf> thread_analyzer: が付く:
+#   [00:00:30.012,345] <inf> thread_analyzer: Thread analyze:
+#   [00:00:30.012,400] <inf> thread_analyzer:  input               : STACK: unused 1472 usage 576 / 2048 (28 %); CPU: 0 %
+#   [00:00:30.012,500] <inf> thread_analyzer:  ISR0             : STACK: unused 1688 usage 360 / 2048 (17 %)
+#   [00:00:30.012,600] <inf> thread_analyzer:  BT RX               : unable to get stack space (-22)
+# 名前は %-20s (20 文字に満たなければ空白で埋める。長ければそのまま) で、空白を含むこともある
+
+$script:KcThreadAnalyzerPrefix = '^\[(\d+):(\d+):(\d+)\.(\d+),(\d+)\]\s*<(\w+)>\s*thread_analyzer:\s?(.*)$'
+
+# 1 行 → @{ Kind = header / thread / error / other; Time (ms。無ければ -1); Name; Unused; Usage; Size; Pct; Cpu }。
+# thread analyzer の行でなければ $null
+function ConvertFrom-KcThreadAnalyzerLine([string]$Line) {
+    $text = Remove-KcAnsi $Line
+    if (-not $text) {
+        return $null
+    }
+    $time = -1.0
+    $body = $null
+    $m = [regex]::Match($text, $script:KcThreadAnalyzerPrefix)
+    if ($m.Success) {
+        $g = $m.Groups
+        $time = ((([double]$g[1].Value * 60 + [double]$g[2].Value) * 60 + [double]$g[3].Value) * 1000) + [double]$g[4].Value + [double]$g[5].Value / 1000.0
+        $body = $g[7].Value
+    } elseif ($text -match '^Thread analyze:' -or $text -match ':\s*STACK: unused \d+') {
+        # CONFIG_THREAD_ANALYZER_USE_PRINTK のときは前に何も付かない
+        $body = $text
+    } else {
+        return $null
+    }
+    $body = $body.Trim()
+    $r = [ordered]@{ Kind = 'other'; Time = $time; Name = ''; Unused = 0; Usage = 0; Size = 0; Pct = 0; Cpu = -1; Text = $body }
+    $mm = $null
+    if ($body -match '^Thread analyze:') {
+        $r.Kind = 'header'
+    } elseif (($mm = [regex]::Match($body, '^(.+?)\s*:\s*STACK: unused (\d+) usage (\d+) / (\d+) \((\d+) %\)(?:; CPU: (\d+) %)?')).Success) {
+        $r.Kind = 'thread'
+        $r.Name = $mm.Groups[1].Value.Trim()
+        $r.Unused = [long]$mm.Groups[2].Value
+        $r.Usage = [long]$mm.Groups[3].Value
+        $r.Size = [long]$mm.Groups[4].Value
+        $r.Pct = [int]$mm.Groups[5].Value
+        if ($mm.Groups[6].Success) { $r.Cpu = [int]$mm.Groups[6].Value }
+    } elseif (($mm = [regex]::Match($body, '^(.+?)\s*:\s*unable to get stack space')).Success) {
+        $r.Kind = 'error'
+        $r.Name = $mm.Groups[1].Value.Trim()
+    }
+    return [pscustomobject]$r
+}
+
+# ファームが止まった・落ちたことを示すログの行か (Zephyr の fatal error。<err> os: ... の行)
+function Test-KcZmkLogFatal([string]$Line) {
+    $text = Remove-KcAnsi $Line
+    if (-not $text) {
+        return $false
+    }
+    if ($text -match 'ZEPHYR FATAL ERROR|\*{3,}\s*(MPU|BUS|USAGE|HARD) FAULT|Stack overflow|Halting system|Kernel panic|Kernel oops') {
+        return $true
+    }
+    return $false
+}

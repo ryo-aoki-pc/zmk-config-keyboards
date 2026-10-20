@@ -429,7 +429,16 @@ function Wait-KcBehaviorGroup($Ctx, [string]$Kind, [int]$Scenarios, [int]$Steps)
 function Invoke-KcBehaviorTest($Ctx) {
     $beh = Get-KcProp $Ctx.Expected.interactive 'behaviors' $null
     $cat = '{0}: レイヤー・ビヘイビア' -f $Ctx.Expected.name
-    if ($null -eq $beh -or @($beh.scenarios).Count -eq 0) {
+    if ([string](Get-KcProp $Ctx 'BehaviorCategory' '')) {
+        $cat = [string]$Ctx.BehaviorCategory
+    }
+    # 回帰テストは、決めた種類 (to_layer など) だけを行う
+    $kinds = @(Get-KcProp $Ctx 'BehaviorKinds' @())
+    $scenarios = @()
+    if ($null -ne $beh) {
+        $scenarios = @($beh.scenarios | Where-Object { $kinds.Count -eq 0 -or $kinds -contains [string]$_.kind })
+    }
+    if ($null -eq $beh -or $scenarios.Count -eq 0) {
         $why = 'この機種の期待値にテストがありません'
         if ($null -ne $beh -and @($beh.not_tested).Count -gt 0) {
             $why = [string]@($beh.not_tested)[0].reason
@@ -441,9 +450,9 @@ function Invoke-KcBehaviorTest($Ctx) {
     $Ctx.KeyPositions = @($Ctx.Expected.physical.keys | Where-Object { [bool](Get-KcProp $_ 'present' $true) } | ForEach-Object { [int]$_.pos })
     $Ctx.Tally = [ordered]@{}
     $Ctx.LayerTally = @{}
-    $Ctx.TestedLayers = @($beh.scenarios | ForEach-Object { @($_.steps) } | ForEach-Object { [int]$_.layer } | Sort-Object -Unique)
+    $Ctx.TestedLayers = @($scenarios | ForEach-Object { @($_.steps) } | ForEach-Object { [int]$_.layer } | Sort-Object -Unique)
     $Ctx.StepDone = 0
-    $Ctx.StepTotal = @($beh.scenarios | ForEach-Object { @($_.steps).Count } | Measure-Object -Sum).Sum
+    $Ctx.StepTotal = @($scenarios | ForEach-Object { @($_.steps).Count } | Measure-Object -Sum).Sum
     $Ctx.BehaviorStuck = $false
     $Ctx.BehaviorGone = $false
     $Ctx.Form.SetExtraLegendTexts('押したまま (レイヤー)', '押したまま (修飾)', '押さない')
@@ -451,7 +460,7 @@ function Invoke-KcBehaviorTest($Ctx) {
     $outcome = 'done'
     try {
         foreach ($kind in @($script:KcBehaviorKindNames.Keys)) {
-            $list = @($beh.scenarios | Where-Object { $_.kind -eq $kind })
+            $list = @($scenarios | Where-Object { $_.kind -eq $kind })
             if ($list.Count -eq 0) {
                 continue
             }
@@ -507,10 +516,12 @@ function Add-KcBehaviorResults($Ctx, [string]$Category) {
         $hint = 'Vial で変えたタップダンス・キーオーバーライド・マクロが残っているかもしれません。Vial の「File → Load saved layout」で KEYMAP.vil を読み込んでください。' +
         'キーオーバーライドは、修飾キーより先にタップしたキーを離したか確かめてください'
     }
+    # 回帰テストで種類を絞ったときは、ほかの種類の案内 (コンボ・テストしないもの) を出さない
+    $filtered = @(Get-KcProp $Ctx 'BehaviorKinds' @()).Count -gt 0
     foreach ($kind in @($script:KcBehaviorKindNames.Keys)) {
         $item = [string]$script:KcBehaviorKindNames[$kind]
         if (-not $Ctx.Tally.Contains($kind)) {
-            if ($kind -eq 'combo' -and [int]$beh.combos -eq 0) {
+            if ($kind -eq 'combo' -and [int]$beh.combos -eq 0 -and -not $filtered) {
                 Add-KcInputResult $Ctx $Category $item 'INFO' 'コンボは定義されていません'
             }
             continue
@@ -527,7 +538,7 @@ function Add-KcBehaviorResults($Ctx, [string]$Category) {
         }
     }
     $nt = @($beh.not_tested | ForEach-Object { '{0}: {1}' -f $_.what, $_.reason })
-    if ($nt.Count -gt 0) {
+    if ($nt.Count -gt 0 -and -not $filtered) {
         [void](Add-KcResult -Results $Ctx.Results -Category $Category -Item 'テストしないもの' -Status INFO -Details $nt -Reference)
     }
 }

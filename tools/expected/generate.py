@@ -436,6 +436,7 @@ ZMK_BOARDS = [
         'dtsi': 'boards/shields/lism/lism.dtsi', 'kconfig': 'boards/shields/lism/Kconfig.defconfig',
         'scroll': {'scaler': [1, 16]},
         'central_conf': 'boards/shields/lism/lism_right.conf',
+        'peripheral_conf': 'boards/shields/lism/lism_left.conf',
         'files': ['config/lism.keymap', 'config/lism.json', 'boards/shields/lism/lism.dtsi', 'build.yaml',
                   'boards/shields/lism/lism_right.conf',
                   'snippets/trackball-central/trackball.overlay',
@@ -449,6 +450,7 @@ ZMK_BOARDS = [
         'dtsi': 'boards/shields/KUKEY42/KUKEY42.dtsi', 'kconfig': 'boards/shields/KUKEY42/Kconfig.defconfig',
         'scroll': {'tick': 32},
         'central_conf': 'boards/shields/KUKEY42/KUKEY42_R.conf',
+        'peripheral_conf': 'boards/shields/KUKEY42/KUKEY42_L.conf',
         'files': ['config/KUKEY42.keymap', 'config/KUKEY42.json', 'boards/shields/KUKEY42/KUKEY42.dtsi',
                   'boards/shields/KUKEY42/KUKEY42_R.overlay', 'boards/shields/KUKEY42/KUKEY42_R.conf', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
@@ -460,6 +462,7 @@ ZMK_BOARDS = [
         'kconfig': 'boards/shields/AroundForty-RB/Kconfig.defconfig',
         'scroll': {'scaler': [1, 32], 'why': 'CPI 800 のため'},
         'central_conf': 'boards/shields/AroundForty-RB/AroundForty-RB_R.conf',
+        'peripheral_conf': 'boards/shields/AroundForty-RB/AroundForty-RB_L.conf',
         'files': ['config/AroundForty-RB.keymap', 'config/AroundForty-RB.json',
                   'boards/shields/AroundForty-RB/AroundForty-RB.dtsi',
                   'boards/shields/AroundForty-RB/AroundForty-RB_R.overlay',
@@ -472,6 +475,7 @@ ZMK_BOARDS = [
         'dtsi': 'boards/shields/Pyuron/Pyuron.dtsi', 'kconfig': 'boards/shields/Pyuron/Kconfig.defconfig',
         'scroll': {'scaler': [1, 16]},
         'central_conf': 'boards/shields/Pyuron/Pyuron_R.conf',
+        'peripheral_conf': 'boards/shields/Pyuron/Pyuron_L.conf',
         'files': ['config/Pyuron.keymap', 'config/Pyuron.json', 'boards/shields/Pyuron/Pyuron.dtsi',
                   'boards/shields/Pyuron/Pyuron_R.overlay', 'boards/shields/Pyuron/Pyuron_L.overlay',
                   'boards/shields/Pyuron/Pyuron_R.conf', 'build.yaml'],
@@ -483,6 +487,7 @@ ZMK_BOARDS = [
         'dtsi': 'boards/shields/roBa/roBa.dtsi', 'kconfig': 'boards/shields/roBa/Kconfig.defconfig',
         'scroll': {'scaler': [1, 32], 'why': 'CPI 800 のため'},
         'central_conf': 'boards/shields/roBa/roBa_R.conf',
+        'peripheral_conf': 'boards/shields/roBa/roBa_L.conf',
         'files': ['config/roBa.keymap', 'config/roBa.json', 'boards/shields/roBa/roBa.dtsi',
                   'boards/shields/roBa/roBa_R.overlay', 'boards/shields/roBa/roBa_R.conf', 'build.yaml'],
         'balls': ['right'], 'ask_balls': False,
@@ -494,6 +499,7 @@ ZMK_BOARDS = [
         'kconfig': 'boards/shields/torabo_tsuki_lp/Kconfig.defconfig',
         'scroll': {'scaler': [1, 1], 'why': '実機で調整した値 + スムーズスクロール'},
         'central_conf': 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.conf',
+        'peripheral_conf': 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.conf',
         'files': ['config/keymap.keymap', 'config/info.json', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi',
                   'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi',
                   'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay',
@@ -807,6 +813,60 @@ def input_thread_stack_consistency(board: dict, base: Path) -> dict:
         f'(足りないと、ボールだけが動かなくなる)')}
 
 
+def input_thread_stack_size(board: dict, base: Path) -> int:
+    """通常版のセントラルの入力スレッドのスタック (バイト)。.conf に無ければ ZMK v0.3.0 の既定"""
+    m = re.search(r'(?m)^CONFIG_INPUT_THREAD_STACK_SIZE=(\d+)', read_text(base / board['central_conf']))
+    return int(m.group(1)) if m else ZMK_CENTRAL_INPUT_THREAD_STACK_DEFAULT
+
+
+def zmk_sleep_timeout(board: dict, base: Path) -> int | None:
+    """スリープ (deep sleep) に入るまでの時間 (ms)。左右の .conf の大きいほう (回帰テストの idle-wake が待つ時間)。
+    CONFIG_ZMK_SLEEP は Kconfig から select されることもあるので、左右とも .conf に CONFIG_ZMK_SLEEP=y と
+    CONFIG_ZMK_IDLE_SLEEP_TIMEOUT が書かれていなければ、分からない (None) とする"""
+    timeouts = []
+    for key in ('central_conf', 'peripheral_conf'):
+        text = read_text(base / board[key])
+        if not re.search(r'(?m)^CONFIG_ZMK_SLEEP=y\s*$', text):
+            return None
+        m = re.search(r'(?m)^CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=(\d+)', text)
+        if not m:
+            return None
+        timeouts.append(int(m.group(1)))
+    return max(timeouts)
+
+
+def node_block_at(text: str, index: int) -> str:
+    """index を含む devicetree のノードの中身 ({ から対応する } まで)"""
+    start = text.rfind('{', 0, index)
+    if start < 0:
+        return ''
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return text[start:]
+
+
+def kscan_wakeup_consistency(board: dict, base: Path) -> dict:
+    """kscan に wakeup-source があるか。無いと ZMK v0.3.0 はスリープの前に kscan を止め、
+    キーを押しても起きない (リセットボタンでしか戻らない。AroundFortyRB / KUKEY42 で起きた)"""
+    dtsi = board['dtsi']
+    text = strip_c_comments(read_text(base / dtsi))
+    nodes = [node_block_at(text, m.start()) for m in re.finditer(r'compatible\s*=\s*"zmk,kscan-[^"]*"', text)]
+    if not nodes:
+        return {'level': 'warn', 'message': f'{dtsi} に kscan のノードが見つかりません (wakeup-source を確かめられません)'}
+    missing = [n for n in nodes if not re.search(r'(?m)^\s*wakeup-source\s*;', n)]
+    if not missing:
+        return {'level': 'ok', 'message': 'kscan に wakeup-source がある (スリープ中にキーを押して起きられる)'}
+    return {'level': 'warn', 'message': (
+        f'{dtsi} の kscan に wakeup-source; がありません。入れてください '
+        f'(無いと、スリープからリセットボタンでしか戻らない)')}
+
+
 def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int,
                     firmware: list[dict], amls: list[dict | None], orders: list[bool], baseline_accel: dict | None,
                     baseline_aml: dict | None) -> list[dict]:
@@ -855,6 +915,7 @@ def zmk_consistency(board: dict, base: Path, km: ZmkKeymap, mous: int, scrl: int
         out.append({'level': 'warn', 'message': f'{names} の設定がそろっていません: {sorted(temp_layers)}'})
     out.append(scroll_aml_consistency(board, base, mous, scrl))
     out.append(input_thread_stack_consistency(board, base))
+    out.append(kscan_wakeup_consistency(board, base))
     # スクロールの速さ: README の「共通基盤」の表の値 (LisM は 1/16。CPI などが違う機種は例外として書いてある)
     want = board['scroll']
     why = f'、{want["why"]}' if 'why' in want else ''
@@ -1077,7 +1138,8 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
     for i, name in enumerate(km.layer_names):
         layers.append({'index': i, 'name': name, 'alias': km.alias_by_index.get(i, '')})
 
-    files = board['files']
+    # 回帰テストのためにスリープの設定も読むので、左手側 (ペリフェラル) の .conf も元のファイルに入れる
+    files = board['files'] + [f for f in (board['central_conf'], board['peripheral_conf']) if f not in board['files']]
     firmware, amls, orders = zmk_trackball_firmware(board, base)
     # AML の発動に要る動きの量 (実動作テスト用)。ボールごとに違えば小さいほう、入っていないボールがあれば 0
     aml_threshold = min((g['threshold'] if g else 0) for g in amls) if amls else 0
@@ -1087,7 +1149,10 @@ def gen_zmk(board: dict, sources: Sources, kd, zv, baseline_accel: dict | None,
         'sources': [sources.source_entry(board['sub'], files),
                     sources.source_entry('docgen', ['keymap_docgen.py', 'zmk_to_vial.py'])],
         'device': {'usb_vid': '1D50', 'usb_pid': '615E', 'product': zmk_product(board, base),
-                   'studio_artifacts': studio, 'logging_artifacts': logging},
+                   'studio_artifacts': studio, 'logging_artifacts': logging,
+                   # 回帰テスト (tools/regression) が使う: スリープまでの時間と、通常版の入力スレッドのスタック
+                   'sleep_timeout_ms': zmk_sleep_timeout(board, base),
+                   'stacks': {'input': input_thread_stack_size(board, base)}},
         'layers': layers,
         'physical': {'layout_name': layout_name, 'keys': keys},
         'readout': {'zmk': {'layer_count': n_layers, 'key_count': key_count, 'bindings': bindings}},

@@ -159,6 +159,21 @@ public static class KcUi
     [DllImport("user32.dll", SetLastError = true)]
     static extern uint GetRawInputData(IntPtr rawInput, uint command, byte[] data, ref uint size, uint headerSize);
 
+    [DllImport("kernel32.dll")]
+    static extern uint SetThreadExecutionState(uint flags);
+
+    const uint ES_CONTINUOUS = 0x80000000;
+    const uint ES_SYSTEM_REQUIRED = 0x00000001;
+    const uint ES_DISPLAY_REQUIRED = 0x00000002;
+
+    // Keeps the PC and the display awake while a long test waits without any input (the regression
+    // test that leaves the keyboard alone until it sleeps). Call it again with false to restore.
+    // The setting belongs to the calling thread, so call both from the same thread.
+    public static void KeepAwake(bool on)
+    {
+        SetThreadExecutionState(on ? (ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED) : ES_CONTINUOUS);
+    }
+
     public const int WM_INPUT = 0x00FF;
     public const int WM_SYSKEYDOWN = 0x0104;
     public const int WM_SYSKEYUP = 0x0105;

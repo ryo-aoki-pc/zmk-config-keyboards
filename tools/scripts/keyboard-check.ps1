@@ -32,6 +32,12 @@
         瞬間から、押したキー・PC に届く入力・tapping-term と判定の時刻を、時刻を横軸にしたグラフにリアルタイムに出す。
         離す時刻ごとの結果と flavor ごとの比較の帯も出し、flavor と tapping-term を変えると計算し直す
 
+    過去の修正の確認 (-Mode Regression。回帰テスト)
+      - 過去の PR で直した不具合 (tools/regression/checks.json) が戻っていないかを、項目ごとに確かめる。
+        ツールが手順を出し、入力・USB の認識・UF2 のドライブ・ログ版のログで判定する (判定できないものだけ尋ねる)。
+        例: USB を挿し抜きしても止まらない、ボールが止まらない、ログ版でスタックに余裕がある、Q / P + USB でブートローダ、
+        スリープから戻る、AML の解除・しきい値・延長、KQ-mini のドラッグ
+
 .PARAMETER Keyboard
     機種 (KqMini / Keyball39 / LisM / AroundFortyRB / KUKEY42 / Pyuron / roBa / torabo-tsuki-lp)。省略するとメニューで選びます。
     KqMini は、Keyboard Quantizer Mini に Keyball39 をつないだ状態です。
@@ -39,7 +45,16 @@
 .PARAMETER Mode
     All (読み出し検査と実動作テスト) / Readout (読み出し検査だけ) / Interactive (実動作テストだけ) /
     Trace (レイヤーの動きを見る。ZMK のログ版ファームのログから、押したキーのレイヤーの遷移と解決を表示する。合否は出さない) /
-    HoldTap (タップホールドのタイミングを見る。ZMK のログ版ファームで、選んだキーの組み合わせ (&mt / &lt のキーと、一緒に押すキー) を押したときの判定を、時刻のグラフにリアルタイムに出す。合否は出さない)。
+    HoldTap (タップホールドのタイミングを見る。ZMK のログ版ファームで、選んだキーの組み合わせ (&mt / &lt のキーと、一緒に押すキー) を押したときの判定を、時刻のグラフにリアルタイムに出す。合否は出さない) /
+    Regression (過去の修正の確認。tools/regression/checks.json の項目を確かめる)。
+
+.PARAMETER Check
+    -Mode Regression で行う項目の id (checks.json の id。カンマ区切りか複数指定)。all ですべて、list で一覧を出すだけ。
+    省略すると一覧から番号で選びます。
+
+.PARAMETER Firmware
+    -Mode Regression で、ZMK の右手側に書き込んであるファーム (normal 通常版 / studio Studio 版 / logging ログ版)。
+    省略すると尋ねます (-Check を指定したときは normal)。
 
 .PARAMETER Section
     実動作テストの範囲。All / Keys (キーのタップ) / Behaviors (レイヤー・タップダンス・モッドモーフ・コンボ) /
@@ -81,14 +96,25 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard LisM -Mode HoldTap
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard LisM -Mode Regression
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools\scripts\keyboard-check.ps1 -Keyboard LisM -Mode Regression -Check lism-usb-plug,ball-alive
 #>
 [CmdletBinding()]
 param(
     [ValidateSet('KqMini', 'Keyball39', 'LisM', 'AroundFortyRB', 'KUKEY42', 'Pyuron', 'roBa', 'torabo-tsuki-lp')]
     [string]$Keyboard,
 
-    [ValidateSet('All', 'Readout', 'Interactive', 'Trace', 'HoldTap')]
+    [ValidateSet('All', 'Readout', 'Interactive', 'Trace', 'HoldTap', 'Regression')]
     [string]$Mode,
+
+    [string[]]$Check,
+
+    [ValidateSet('normal', 'studio', 'logging')]
+    [string]$Firmware,
 
     [ValidateSet('All', 'Keys', 'Behaviors', 'Trackball', 'Calibrate')]
     [string]$Section = 'All',
@@ -134,6 +160,10 @@ $lib = Join-Path $toolsDir 'lib\keyboard-check'
 . (Join-Path $lib 'hold-tap-sim.ps1')
 . (Join-Path $lib 'hold-tap.ps1')
 . (Join-Path $lib 'hold-tap-ui.ps1')
+. (Join-Path $toolsDir 'lib\input-monitor\devices.ps1')
+. (Join-Path $toolsDir 'lib\flash-plan.ps1')
+. (Join-Path $lib 'regression.ps1')
+. (Join-Path $lib 'regression-test.ps1')
 
 if (-not $ExpectedDir) {
     $ExpectedDir = Join-Path $toolsDir 'expected'
@@ -173,30 +203,39 @@ function Read-KcChoice([string]$Prompt, [int]$Count, [int]$Default) {
 # 接続中のデバイス
 # ---------------------------------------------------------------------------
 
-$found = @{ KqMini = @(); Keyball = @(); StudioPorts = @(); StudioNames = @{}; ZmkUsb = @() }
-if ($isWindowsHost -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
+# 接続中のキーボードを探す (ZMK の COM ポートには、Studio のデバイス名を尋ねる RPC を送る)
+function Find-KcConnected {
+    $f = @{ KqMini = @(); Keyball = @(); StudioPorts = @(); StudioNames = @{}; ZmkUsb = @() }
     Write-Host '接続中のキーボードを探しています...'
     # Find-* は配列をそのまま返す (return , $x) ので、@() で包まずに受け取る
-    $found.KqMini = Find-KcRawHidInterface -Vid 'FEED' -ProductId '999C'
-    $found.Keyball = Find-KcRawHidInterface -Vid '5957' -ProductHighByte 2
-    $found.ZmkUsb = Find-KcZmkUsbDevice
+    $f.KqMini = Find-KcRawHidInterface -Vid 'FEED' -ProductId '999C'
+    $f.Keyball = Find-KcRawHidInterface -Vid '5957' -ProductHighByte 2
+    $f.ZmkUsb = Find-KcZmkUsbDevice
     $ports = Find-KcStudioPort
     if ($Port) {
         $ports = @([pscustomobject]@{ Port = $Port; Name = $Port; DeviceId = '' })
     }
-    $found.StudioPorts = $ports
+    $f.StudioPorts = $ports
     foreach ($p in $ports) {
         $t = $null
         try {
             $t = Open-KcStudioPort $p.Port
             $info = Read-KcStudioDeviceInfo (New-KcStudioSession $t) 1500
-            $found.StudioNames[$p.Port] = $info.Name
+            $f.StudioNames[$p.Port] = $info.Name
         } catch {
-            $found.StudioNames[$p.Port] = ''
+            $f.StudioNames[$p.Port] = ''
         } finally {
             Close-KcStudioPort $t
         }
     }
+    return $f
+}
+
+$found = @{ KqMini = @(); Keyball = @(); StudioPorts = @(); StudioNames = @{}; ZmkUsb = @() }
+# 回帰テスト (-Mode Regression) は、ログ版の COM ポートに RPC を送らないように、ここでは探さない
+# (読み出しの項目を行うときだけ探す)
+if ($isWindowsHost -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap' -and $Mode -ne 'Regression') {
+    $found = Find-KcConnected
 }
 
 function Get-KcDetection($Board) {
@@ -259,7 +298,8 @@ if (-not $Mode) {
     Write-Host '  5. レイヤー・タップダンス・モッドモーフ・コンボだけ'
     Write-Host '  6. レイヤーの動きを見る (ZMK のログ版ファームで、自由に押したキーのレイヤーの遷移と解決を表示)'
     Write-Host '  7. タップホールドのタイミングを見る (ZMK のログ版ファームで、選んだキーの組み合わせの判定をリアルタイムに表示)'
-    switch (Read-KcChoice '番号' 7 1) {
+    Write-Host '  8. 過去の修正の確認 (回帰テスト。過去の PR で直した不具合が戻っていないかを、項目ごとに確かめる)'
+    switch (Read-KcChoice '番号' 8 1) {
         1 { $Mode = 'All' }
         2 { $Mode = 'Readout' }
         3 { $Mode = 'Interactive' }
@@ -267,9 +307,10 @@ if (-not $Mode) {
         5 { $Mode = 'Interactive'; $Section = 'Behaviors' }
         6 { $Mode = 'Trace' }
         7 { $Mode = 'HoldTap' }
+        8 { $Mode = 'Regression' }
     }
 }
-if ($Mode -ne 'Readout' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
+if ($Mode -ne 'Readout' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap' -and $Mode -ne 'Regression') {
     if ($Section -eq 'All') {
         $sections = @('Keys', 'Behaviors', 'Trackball', 'Calibrate')
     } else {
@@ -327,6 +368,78 @@ if ($Mode -eq 'HoldTap') {
     exit 0
 }
 
+# 過去の修正の確認 (回帰テスト): 項目の読み込み・検証と選択。-Check list と知らない id は、デバイスに触る前に終える
+$regressionPicked = @()
+$regressionHistoryPath = Join-Path $cacheDir 'regression\history.json'
+if ($Mode -eq 'Regression') {
+    $regDoc = $null
+    $regRepos = $null
+    $gitmodules = Join-Path (Split-Path -Parent $toolsDir) '.gitmodules'
+    if (Test-Path -LiteralPath $gitmodules) {
+        $regRepos = Get-KcRegressionRepos ([System.IO.File]::ReadAllText($gitmodules, [System.Text.Encoding]::UTF8))
+    }
+    try {
+        $regDoc = Read-KcRegressionDocument (Join-Path $toolsDir 'regression\checks.json')
+    } catch {
+        Write-Host ('失敗: tools/regression/checks.json を読めません: {0}' -f $_.Exception.Message) -ForegroundColor Red
+        exit 1
+    }
+    $regErrors = Test-KcRegressionDocument $regDoc $regRepos
+    if ($regErrors.Count -gt 0) {
+        Write-Host '失敗: tools/regression/checks.json に誤りがあります' -ForegroundColor Red
+        foreach ($er in $regErrors) { Write-Host ('  - ' + $er) -ForegroundColor Red }
+        exit 1
+    }
+    $isZmkBoard = Test-KcRegressionZmkBoard $board.Key
+    $listOnly = @($Check | Where-Object { $_ -eq 'list' }).Count -gt 0
+    if ($isZmkBoard -and -not $Firmware) {
+        if ($listOnly -or @($Check).Count -gt 0) {
+            $Firmware = 'normal'
+        } else {
+            Write-Host ''
+            Write-Host ('{0} の右手側 (セントラル) に書き込んであるファーム:' -f $expected.name)
+            Write-Host '  1. 通常版'
+            Write-Host '  2. Studio 版 (キーマップの読み出しができる)'
+            Write-Host '  3. ログ版 (*_logging。ログ版で使い続ける項目ができる)'
+            $Firmware = @('normal', 'studio', 'logging')[(Read-KcChoice '番号' 3 1) - 1]
+        }
+    }
+    $fwAnswer = if ($isZmkBoard) { $Firmware } else { '' }
+    $regEntries = Select-KcRegressionChecks (Get-KcRegressionChecks $regDoc) $board.Key $fwAnswer
+    $regHistory = Read-KcRegressionHistory $regressionHistoryPath
+    if ($listOnly) {
+        Write-Host ''
+        Write-Host ('{0} の過去の修正の確認 (回帰テスト) の項目 (* は Enter で行うもの):' -f $expected.name)
+        foreach ($l in (Format-KcRegressionList $regEntries $regHistory $board.Key)) { Write-Host $l }
+        exit 0
+    }
+    if (@($Check).Count -gt 0) {
+        $resolved = Resolve-KcRegressionIds $regEntries $Check
+        if ($resolved.Unknown.Count -gt 0) {
+            Write-Host ('失敗: この機種の項目に無い id です: {0} (-Check list で一覧を出せます)' -f ($resolved.Unknown -join ', ')) -ForegroundColor Red
+            exit 1
+        }
+        $regressionPicked = @($resolved.Selected)
+    } else {
+        Write-Host ''
+        Write-Host ('{0} の過去の修正の確認 (回帰テスト) の項目:' -f $expected.name)
+        foreach ($l in (Format-KcRegressionList $regEntries $regHistory $board.Key)) { Write-Host $l }
+        $defaults = [int[]]@($regEntries | Where-Object { $_.Default } | ForEach-Object { $_.Index })
+        while ($true) {
+            $answer = Read-Host '行う項目 (Enter: 印 * の項目 / all: すべて / 番号 (例: 2,4-6))'
+            $nums = ConvertFrom-KcRegressionSelection $answer $regEntries.Count $defaults
+            if ($null -ne $nums -and @($nums).Count -gt 0) {
+                break
+            }
+            Write-Host ('1〜{0} の番号を、カンマかハイフンでつないで入れてください。' -f $regEntries.Count) -ForegroundColor Yellow
+        }
+        $regressionPicked = @($regEntries | Where-Object { @($nums) -contains $_.Index })
+    }
+    foreach ($e in @($regressionPicked | Where-Object { -not $_.Ready })) {
+        Write-Host ('  「{0}」は {1} の項目です (行いますが、準備ができていなければスキップになります)' -f $e.Check.Title, $e.Need) -ForegroundColor Yellow
+    }
+}
+
 $results = New-KcResultList
 $sourceText = (@($expected.sources) | ForEach-Object { '{0} @ {1}' -f $_.submodule, $_.commit.Substring(0, 7) }) -join ', '
 Write-Host ''
@@ -352,8 +465,10 @@ function Invoke-KcQmkReadoutSafe([string]$Category, $Iface, [scriptblock]$Body) 
     }
 }
 
-if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
-    Write-Host '読み出し検査をしています...'
+# 読み出し検査。$Found: Find-KcConnected の結果。Studio 版の機種が選んだ機種と違えば、$State.Expected をその機種にする
+# (回帰テストの読み出しの項目も使う)
+function Invoke-KcReadoutAll($Found, $Results, $State) {
+    $expected = $State.Expected
     switch ($board.Key) {
         'KqMini' {
             if ($found.KqMini.Count -eq 0) {
@@ -411,9 +526,9 @@ if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
                 $t = $null
                 try {
                     $t = Open-KcStudioPort $ports[0].Port
-                    $chosen = Invoke-KcZmkReadout -Session (New-KcStudioSession $t) -ExpectedByName $zmkExpected -Common $common -Results $results -Preferred $expected
+                    $chosen = Invoke-KcZmkReadout -Session (New-KcStudioSession $t) -ExpectedByName $zmkExpected -Common $common -Results $results -Preferred $State.Expected
                     if ($null -ne $chosen -and $chosen.id -ne $expected.id) {
-                        $expected = $chosen
+                        $State.Expected = $chosen
                     }
                 } catch {
                     [void](Add-KcResult -Results $results -Category ('{0} (Studio)' -f $expected.name) -Item 'キーマップの読み出し' -Status SKIP `
@@ -424,6 +539,13 @@ if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap') {
             }
         }
     }
+}
+
+if ($Mode -ne 'Interactive' -and $Mode -ne 'Trace' -and $Mode -ne 'HoldTap' -and $Mode -ne 'Regression') {
+    Write-Host '読み出し検査をしています...'
+    $readoutState = @{ Expected = $expected }
+    $null = Invoke-KcReadoutAll $found $results $readoutState
+    $expected = $readoutState.Expected
 }
 
 # ---------------------------------------------------------------------------
@@ -504,6 +626,56 @@ if ($sections.Count -gt 0) {
 }
 
 # ---------------------------------------------------------------------------
+# 過去の修正の確認 (回帰テスト)
+# ---------------------------------------------------------------------------
+
+if ($Mode -eq 'Regression' -and @($regressionPicked).Count -gt 0) {
+    if (-not $isWindowsHost) {
+        [void](Add-KcResult -Results $results -Category ('{0}: 回帰テスト' -f $expected.name) -Item '回帰テスト' -Status SKIP -Actual 'Windows でのみ動きます')
+    } else {
+        $tb = $expected.interactive.trackball
+        $balls = @($tb.balls)
+        if ([bool]$tb.ask_balls) {
+            if ($Ball) {
+                $balls = @('right', 'left')
+                if ($Ball -ne 'both') { $balls = @($Ball) }
+            } else {
+                Write-Host ''
+                Write-Host ('{0} のトラックボールの位置:' -f $expected.name)
+                Write-Host '  1. 右手側'
+                Write-Host '  2. 左手側'
+                Write-Host '  3. 両方'
+                switch (Read-KcChoice '番号' 3 1) {
+                    1 { $balls = @('right') }
+                    2 { $balls = @('left') }
+                    3 { $balls = @('right', 'left') }
+                }
+            }
+        }
+        # 読み出しの項目: そのときに接続中のキーボードを探して読む (結果は回帰テストの項目の区分に入れる)
+        $readoutHook = {
+            param($res)
+            Write-Host '読み出し検査をしています...'
+            $f = Find-KcConnected
+            $null = Invoke-KcReadoutAll $f $res @{ Expected = $expected }
+        }
+        $regOptions = @{
+            Board = $board.Key; Firmware = $Firmware; Port = $Port; Balls = $balls; CacheDir = $cacheDir
+            HistoryPath = $regressionHistoryPath; Readout = $readoutHook
+        }
+        Write-Host ''
+        Write-Host '読み出しと「はい / いいえ」で答える項目はコンソールで、ほかはテスト用のウィンドウで行います。'
+        Write-Host '(ウィンドウを閉じるか「中止」を押すと、そこまでの結果を表示します)'
+        try {
+            [void](Invoke-KcRegressionTest -Expected $expected -Common $common -Results $results -Entries $regressionPicked -Options $regOptions)
+        } catch {
+            [void](Add-KcResult -Results $results -Category ('{0}: 回帰テスト' -f $expected.name) -Item '回帰テスト' -Status SKIP `
+                    -Actual ('失敗: ' + $_.Exception.Message))
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # 結果
 # ---------------------------------------------------------------------------
 
@@ -516,15 +688,23 @@ foreach ($c in @($expected.consistency)) {
     [void](Add-KcResult -Results $results -Category ('{0}: 設定ファイル (参考)' -f $expected.name) -Item $c.message -Status $st -Reference)
 }
 
-Write-KcSummary $results ('{0} の検査結果' -f $expected.name)
+$summaryTitle = '{0} の検査結果' -f $expected.name
+$reportSuffix = ''
+$reportHeader = @()
+if ($Mode -eq 'Regression') {
+    $summaryTitle = '{0} の過去の修正の確認 (回帰テスト) の結果' -f $expected.name
+    $reportSuffix = '-regression'
+    $reportHeader = @(('回帰テスト: {0} (右手側のファーム: {1})' -f ((@($regressionPicked) | ForEach-Object { $_.Check.Id }) -join ', '), $(if ($Firmware) { $Firmware } else { '-' })))
+}
+Write-KcSummary $results $summaryTitle
 if (-not $Report) {
-    $Report = Join-Path $cacheDir ('reports\{0}-{1}.txt' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $expected.id)
+    $Report = Join-Path $cacheDir ('reports\{0}-{1}{2}.txt' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $expected.id, $reportSuffix)
 }
 try {
-    Export-KcReport $results $Report @(
+    Export-KcReport $results $Report (@(
         ('keyboard-check {0}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
         ('機種: {0}' -f $expected.name),
-        ('期待値: tools/expected/{0}.json ({1})' -f $expected.id, $sourceText))
+        ('期待値: tools/expected/{0}.json ({1})' -f $expected.id, $sourceText)) + $reportHeader)
     Write-Host ('結果を保存しました: {0}' -f $Report)
 } catch {
     Write-Host ('結果を保存できませんでした: {0}' -f $_.Exception.Message) -ForegroundColor Yellow

@@ -8,11 +8,19 @@
     {
       "submodule": "zmk-config-AroundFortyRB",
       "commit": "7b2058902d420d8efd71aecbe2b506bfaf61a447",
-      "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "boards/shields/AroundForty-RB/AroundForty-RB_R.conf", "build.yaml"]
+      "files": ["config/AroundForty-RB.keymap", "config/AroundForty-RB.json", "boards/shields/AroundForty-RB/AroundForty-RB.dtsi", "boards/shields/AroundForty-RB/AroundForty-RB_R.overlay", "boards/shields/AroundForty-RB/AroundForty-RB_R.conf", "build.yaml", "boards/shields/AroundForty-RB/AroundForty-RB_L.conf"]
     },
     {"submodule": "zmk-keymap-docgen", "commit": "6a8a37bbb3b4196eefe5304ca40af087d3db6d86", "files": ["keymap_docgen.py", "zmk_to_vial.py"]}
   ],
-  "device": {"usb_vid": "1D50", "usb_pid": "615E", "product": "AroundFortyRB", "studio_artifacts": ["AroundForty-RB_right_central_studio"], "logging_artifacts": ["AroundForty-RB_right_central_logging"]},
+  "device": {
+    "usb_vid": "1D50",
+    "usb_pid": "615E",
+    "product": "AroundFortyRB",
+    "studio_artifacts": ["AroundForty-RB_right_central_studio"],
+    "logging_artifacts": ["AroundForty-RB_right_central_logging"],
+    "sleep_timeout_ms": 1800000,
+    "stacks": {"input": 1024}
+  },
   "layers": [
     {"index": 0, "name": "BASE_QWERTY", "alias": "BASE"},
     {"index": 1, "name": "NUM_SYMBOL", "alias": "SYM"},
@@ -2630,6 +2638,7 @@
     {"level": "ok", "message": "zip_temp_layer / aml_threshold はすべて 8 10000 (AML: MOUSE_MOVE、10 秒)"},
     {"level": "ok", "message": "スクロール中も AML を延ばす: zip_temp_layer 8 10000 を通る (AroundForty-RB/AroundForty-RB_R.overlay の scroll-layer)"},
     {"level": "ok", "message": "右手側 (セントラル) の入力スレッドのスタック: 1024 バイト (README の共通基盤: 1024 バイト)"},
+    {"level": "ok", "message": "kscan に wakeup-source がある (スリープ中にキーを押して起きられる)"},
     {"level": "ok", "message": "スクロールの倍率 zip_scroll_scaler: 1/32 (README の共通基盤: 1/32、CPI 800 のため)"},
     {"level": "ok", "message": "カーソルの加速 (右のボール) trackball_accel: min-factor 500 / max-factor 1300 / speed-threshold 1000 / speed-max 4000 (LisM 基準と同じ)"},
     {"level": "ok", "message": "AML の発動条件 (右のボール): aml_threshold の threshold 10 (LisM 基準: aml_threshold の threshold 10)"},
