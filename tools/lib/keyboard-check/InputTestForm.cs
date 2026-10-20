@@ -2614,6 +2614,9 @@ public sealed class KcFlashForm : IDisposable
             }
             finally
             {
+                // However the window thread ends, report the window as closed so that the PowerShell loop
+                // ends too (the tool may run without a visible console, where nobody could stop it).
+                if (box[0] != null) box[0].closed = true;
                 ready.Set();
             }
         });
@@ -4799,9 +4802,13 @@ public sealed class KcSimulatorForm : IDisposable
             catch (Exception ex)
             {
                 error[0] = ex;
-                if (box[0] != null) box[0].closed = true;
             }
-            finally { ready.Set(); }
+            finally
+            {
+                // However the window thread ends, report the window as closed (see KcFlashForm.Launch).
+                if (box[0] != null) box[0].closed = true;
+                ready.Set();
+            }
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.IsBackground = true;
